@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Uploads / local storage
+uploads/
+
+# Keys & certificates
+*.jks
+*.keystore
+signing.properties
+mobile/certificates/stockmind-prod.cer
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+
+# TypeORM generated migrations (auto-generated, not hand-crafted)
+# Remove this line if you want to track all migrations
+# src/migrations/*.generated.ts

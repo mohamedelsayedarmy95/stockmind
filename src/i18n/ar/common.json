@@ -1,0 +1,39 @@
+{
+  "error": {
+    "internal": "خطأ داخلي في الخادم",
+    "unauthorized": "غير مصرح بالوصول",
+    "forbidden": "الوصول محظور",
+    "not_found": "المورد غير موجود",
+    "conflict": "تعارض في البيانات",
+    "validation": "فشل التحقق من صحة البيانات",
+    "bad_request": "طلب غير صالح",
+    "too_many_requests": "عدد كبير من الطلبات، يرجى المحاولة لاحقاً"
+  },
+  "stock": {
+    "inbound_success": "تم استلام المخزون بنجاح",
+    "outbound_success": "تم صرف المخزون بنجاح",
+    "adjustment_success": "تم تعديل المخزون بنجاح",
+    "transfer_success": "تم نقل المخزون بنجاح",
+    "insufficient_stock": "المخزون غير كافٍ: المتاح {available}، المطلوب {requested}"
+  },
+  "product": {
+    "created": "تم إنشاء المنتج بنجاح",
+    "updated": "تم تحديث المنتج بنجاح",
+    "deleted": "تم حذف المنتج بنجاح",
+    "not_found": "المنتج غير موجود",
+    "sku_exists": "يوجد منتج بهذا الرمز مسبقاً"
+  },
+  "warehouse": {
+    "created": "تم إنشاء المستودع بنجاح",
+    "updated": "تم تحديث المستودع بنجاح",
+    "deleted": "تم حذف المستودع بنجاح",
+    "not_found": "المستودع غير موجود"
+  },
+  "auth": {
+    "invalid_credentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+    "token_expired": "انتهت صلاحية الرمز",
+    "token_invalid": "رمز غير صالح",
+    "logout_success": "تم تسجيل الخروج بنجاح",
+    "register_success": "تم إنشاء الحساب بنجاح"
+  }
+}

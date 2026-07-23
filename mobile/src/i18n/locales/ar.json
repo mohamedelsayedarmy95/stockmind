@@ -1,0 +1,79 @@
+{
+  "common": {
+    "appName": "ستوك مايند",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "save": "حفظ",
+    "loading": "جارٍ التحميل…",
+    "retry": "إعادة المحاولة",
+    "error": "حدث خطأ ما",
+    "currentBalance": "الرصيد الحالي"
+  },
+  "auth": {
+    "welcome": "مرحباً بعودتك",
+    "subtitle": "سجّل الدخول إلى مستودعك",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "signIn": "تسجيل الدخول",
+    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+  },
+  "dashboard": {
+    "greeting": "مرحباً",
+    "kpiTotalStock": "إجمالي المخزون",
+    "kpiStockValue": "قيمة المخزون",
+    "kpiPendingOrders": "الطلبات المعلقة",
+    "quickActions": "إجراءات سريعة",
+    "scan": "مسح",
+    "receive": "استلام",
+    "dispatch": "صرف"
+  },
+  "scan": {
+    "title": "مركز المسح",
+    "hint": "حاذِ الباركود داخل الإطار",
+    "notFound": "المنتج غير موجود في الكتالوج",
+    "requestPermission": "السماح بالوصول للكاميرا",
+    "permissionDenied": "يلزم إذن الكاميرا لإجراء المسح.",
+    "execute": "تنفيذ العملية"
+  },
+  "movement": {
+    "inbound": "استلام مخزون",
+    "outbound": "صرف مخزون",
+    "quantity": "الكمية",
+    "confirmInbound": "تأكيد الاستلام",
+    "confirmOutbound": "تأكيد الصرف",
+    "success": "تمت العملية بنجاح",
+    "insufficient": "المخزون غير كافٍ"
+  },
+  "analytics": {
+    "title": "التحليلات",
+    "stockTrend": "اتجاه المخزون",
+    "warehouseHeatmap": "كثافة المستودعات"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "language": "اللغة",
+    "theme": "المظهر",
+    "themeDark": "داكن",
+    "themeLight": "فاتح",
+    "themeSystem": "النظام",
+    "signOut": "تسجيل الخروج",
+    "account": "الحساب",
+    "security": "الأمان",
+    "terminateAll": "إنهاء جميع الجلسات",
+    "terminateAllHint": "تسجيل الخروج من كل الأجهزة"
+  },
+  "session": {
+    "expiredTitle": "انتهت الجلسة",
+    "expiredBody": "لأمانك، يرجى إعادة المصادقة للمتابعة.",
+    "reauthenticate": "إعادة المصادقة",
+    "unlockTitle": "فتح ستوك مايند",
+    "unlockBody": "تحقّق من هويتك للوصول إلى مساحة عملك.",
+    "unlock": "فتح"
+  },
+  "assistant": {
+    "title": "اسألني",
+    "placeholder": "اسأل عن مخزونك…",
+    "send": "إرسال",
+    "thinking": "جارٍ التفكير…"
+  }
+}

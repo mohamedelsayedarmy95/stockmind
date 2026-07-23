@@ -1,0 +1,84 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ON-PREMISE / AIR-GAPPED deployment.
+#
+# ZERO internet exposure: the API is published ONLY on the loopback interface
+# (127.0.0.1). Postgres and Redis are NOT published at all — they are reachable
+# solely over the internal Docker network. To serve real clients, front this
+# with a hardened reverse proxy / VPN on the trusted enterprise network and set
+# ALLOWED_IPS accordingly.
+#
+#   docker compose -f docker-compose.on-premise.yml up -d
+#
+# All secrets come from .env (DB_ENCRYPTION_KEY, JWT_*, ALLOWED_IPS, …) which is
+# managed by the security team and never committed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-stockmind}
+      POSTGRES_USER: ${DB_USERNAME:-stockmind}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    # No `ports:` — database is internal-only.
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-stockmind}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: stockmind-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: always
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    ports:
+      # Bind to loopback ONLY — never 0.0.0.0. Nothing off-box can reach the API.
+      - '127.0.0.1:${PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+volumes:
+  pg_data:
+  redis_data:
+
+networks:
+  internal:
+    driver: bridge
+    # Isolated bridge; no external routing beyond the published loopback port.
+    internal: false

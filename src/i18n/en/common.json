@@ -1,0 +1,39 @@
+{
+  "error": {
+    "internal": "Internal server error",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "not_found": "Resource not found",
+    "conflict": "Conflict",
+    "validation": "Validation failed",
+    "bad_request": "Bad request",
+    "too_many_requests": "Too many requests, please try again later"
+  },
+  "stock": {
+    "inbound_success": "Stock received successfully",
+    "outbound_success": "Stock dispatched successfully",
+    "adjustment_success": "Stock adjusted successfully",
+    "transfer_success": "Stock transferred successfully",
+    "insufficient_stock": "Insufficient stock: available {available}, requested {requested}"
+  },
+  "product": {
+    "created": "Product created successfully",
+    "updated": "Product updated successfully",
+    "deleted": "Product deleted successfully",
+    "not_found": "Product not found",
+    "sku_exists": "A product with this SKU already exists"
+  },
+  "warehouse": {
+    "created": "Warehouse created successfully",
+    "updated": "Warehouse updated successfully",
+    "deleted": "Warehouse deleted successfully",
+    "not_found": "Warehouse not found"
+  },
+  "auth": {
+    "invalid_credentials": "Invalid email or password",
+    "token_expired": "Token has expired",
+    "token_invalid": "Invalid token",
+    "logout_success": "Logged out successfully",
+    "register_success": "Account created successfully"
+  }
+}

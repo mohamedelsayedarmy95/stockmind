@@ -1,0 +1,69 @@
+version: '3.9'
+
+# Production compose — PostgreSQL + Redis only, no pgAdmin, no hot-reload.
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Secrets are read from .env (never commit .env to source control).
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-stockmind}
+      POSTGRES_USER: ${DB_USERNAME:-stockmind}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-stockmind}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  api:
+    image: stockmind-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: always
+    env_file: .env
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  pg_data:
+  redis_data:
+
+networks:
+  backend:
+    driver: bridge

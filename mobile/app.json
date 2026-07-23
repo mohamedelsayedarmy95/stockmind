@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "StockMind",
+    "slug": "stockmind",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "stockmind",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#0A0E17",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "io.stockmind.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "StockMind uses the camera to scan product barcodes.",
+        "NSFaceIDUsageDescription": "StockMind uses Face ID to protect your session and local data."
+      }
+    },
+    "android": {
+      "package": "io.stockmind.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0E17"
+      },
+      "permissions": ["CAMERA", "VIBRATE"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      [
+        "expo-camera",
+        { "cameraPermission": "Allow StockMind to scan barcodes." }
+      ],
+      [
+        "expo-notifications",
+        { "color": "#00D2FF" }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        { "faceIDPermission": "StockMind uses Face ID to protect your session and local data." }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:3000/api/v1"
+    }
+  }
+}

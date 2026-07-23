@@ -1,0 +1,39 @@
+# ── Stage 1: build ──────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps
+
+COPY . .
+RUN npm run build
+
+# ── Stage 2: production deps only ────────────────────────────────────────────
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps --omit=dev
+
+# ── Stage 3: minimal runtime image ───────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+# dumb-init: proper PID 1 for signal forwarding / zombie reaping
+RUN apk add --no-cache dumb-init
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Non-root user for least-privilege execution
+USER node
+
+COPY --chown=node:node --from=deps /app/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/dist ./dist
+COPY --chown=node:node package.json ./
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/v1/health || exit 1
+
+ENTRYPOINT ["dumb-init", "node", "dist/main"]

@@ -1,0 +1,18 @@
+This directory should contain stockmind-prod.cer (DER-encoded X.509 certificate).
+
+Generate it from the production server once the TLS certificate is provisioned:
+
+  openssl s_client -connect api.stockmind.io:443 \
+                   -servername api.stockmind.io </dev/null \
+    | openssl x509 -outform DER -out stockmind-prod.cer
+
+Then:
+  1. Copy stockmind-prod.cer into this directory (mobile/certificates/).
+  2. Copy it to:  android/app/src/main/assets/stockmind-prod.cer
+  3. Add it to:   Xcode → target → Build Phases → Copy Bundle Resources
+  4. Run `expo prebuild` to sync native projects.
+  5. Update publicKeyHashes in pinning.ts with the SPKI hash (see instructions there).
+  6. Delete this .placeholder file.
+
+The .cer file is gitignored (see .gitignore) because it contains a public cert that
+reveals your infrastructure hostname; commit it only to your private deployment repo.

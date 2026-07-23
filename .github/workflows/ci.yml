@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, dev]
+  pull_request:
+    branches: [main, master, dev]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: stockmind_test
+          POSTGRES_USER: stockmind
+          POSTGRES_PASSWORD: stockmind123
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U stockmind"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: stockmind
+      DB_PASSWORD: stockmind123
+      DB_DATABASE: stockmind_test
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Enable pgcrypto
+        run: |
+          PGPASSWORD=stockmind123 psql -h localhost -U stockmind -d stockmind_test \
+            -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'
+
+      - name: Lint (typecheck)
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Run migrations
+        run: npm run migration:run
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: npm run test:integration

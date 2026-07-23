@@ -1,0 +1,79 @@
+{
+  "common": {
+    "appName": "StockMind",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "error": "Something went wrong",
+    "currentBalance": "Current balance"
+  },
+  "auth": {
+    "welcome": "Welcome back",
+    "subtitle": "Sign in to your warehouse",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign In",
+    "invalidCredentials": "Invalid email or password"
+  },
+  "dashboard": {
+    "greeting": "Hello",
+    "kpiTotalStock": "Total Stock",
+    "kpiStockValue": "Stock Value",
+    "kpiPendingOrders": "Pending Orders",
+    "quickActions": "Quick Actions",
+    "scan": "Scan",
+    "receive": "Receive",
+    "dispatch": "Dispatch"
+  },
+  "scan": {
+    "title": "Scan Central",
+    "hint": "Align the barcode within the frame",
+    "notFound": "Product not found in your catalog",
+    "requestPermission": "Grant camera access",
+    "permissionDenied": "Camera permission is required to scan.",
+    "execute": "Execute Operation"
+  },
+  "movement": {
+    "inbound": "Receive Stock",
+    "outbound": "Dispatch Stock",
+    "quantity": "Quantity",
+    "confirmInbound": "Confirm Receipt",
+    "confirmOutbound": "Confirm Dispatch",
+    "success": "Operation completed",
+    "insufficient": "Insufficient stock"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "stockTrend": "Stock Trend",
+    "warehouseHeatmap": "Warehouse Density"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Appearance",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeSystem": "System",
+    "signOut": "Sign Out",
+    "account": "Account",
+    "security": "Security",
+    "terminateAll": "Terminate all sessions",
+    "terminateAllHint": "Sign out of every device"
+  },
+  "session": {
+    "expiredTitle": "Session expired",
+    "expiredBody": "For your security, please re-authenticate to continue.",
+    "reauthenticate": "Re-authenticate",
+    "unlockTitle": "Unlock StockMind",
+    "unlockBody": "Verify your identity to access your workspace.",
+    "unlock": "Unlock"
+  },
+  "assistant": {
+    "title": "Ask-Me",
+    "placeholder": "Ask about your inventory…",
+    "send": "Send",
+    "thinking": "Thinking…"
+  }
+}
