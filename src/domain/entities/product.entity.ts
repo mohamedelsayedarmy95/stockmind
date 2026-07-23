@@ -29,7 +29,7 @@ export class Product extends AuditableEntity {
   @JoinColumn({ name: 'company_id' })
   company!: Company;
 
-  @Column({ name: 'category_id', nullable: true })
+  @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId!: string | null;
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
@@ -42,7 +42,7 @@ export class Product extends AuditableEntity {
   @Column({ length: 100 })
   sku!: string;
 
-  @Column({ length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   barcode!: string | null;
 
   @Column({ name: 'image_url', type: 'text', nullable: true })

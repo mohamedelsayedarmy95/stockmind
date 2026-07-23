@@ -23,7 +23,7 @@ export class LoginAttempt {
   @Column({ length: 255 })
   email!: string;
 
-  @Column({ name: 'ip_address', length: 45, nullable: true })
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
   ipAddress!: string | null;
 
   @Column({ name: 'user_agent', type: 'text', nullable: true })

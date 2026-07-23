@@ -19,7 +19,7 @@ export class Company extends AuditableEntity {
   @Column({ length: 255 })
   name!: string;
 
-  @Column({ name: 'tax_id', length: 100, nullable: true })
+  @Column({ name: 'tax_id', type: 'varchar', length: 100, nullable: true })
   taxId!: string | null;
 
   @Column({ length: 10, default: 'USD' })

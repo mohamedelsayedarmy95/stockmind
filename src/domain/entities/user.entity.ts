@@ -25,7 +25,7 @@ export class User extends AuditableEntity {
   @JoinColumn({ name: 'company_id' })
   company!: Company;
 
-  @Column({ name: 'warehouse_id', nullable: true })
+  @Column({ name: 'warehouse_id', type: 'uuid', nullable: true })
   warehouseId!: string | null;
 
   @ManyToOne(() => Warehouse, { nullable: true, onDelete: 'SET NULL' })
@@ -44,7 +44,7 @@ export class User extends AuditableEntity {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.STAFF })
   role!: UserRole;
 
-  @Column({ name: 'refresh_token_hash', length: 255, nullable: true })
+  @Column({ name: 'refresh_token_hash', type: 'varchar', length: 255, nullable: true })
   refreshTokenHash!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

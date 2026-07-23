@@ -22,7 +22,7 @@ export class AuditLog {
   @Column({ length: 50 })
   action!: string;
 
-  @Column({ name: 'entity_type', length: 100, nullable: true })
+  @Column({ name: 'entity_type', type: 'varchar', length: 100, nullable: true })
   entityType!: string | null;
 
   @Column({ name: 'entity_id', type: 'uuid', nullable: true })
@@ -34,21 +34,21 @@ export class AuditLog {
   @Column({ name: 'new_values', type: 'jsonb', nullable: true })
   newValues!: Record<string, unknown> | null;
 
-  @Column({ name: 'ip_address', length: 45, nullable: true })
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
   ipAddress!: string | null;
 
   @Column({ name: 'user_agent', type: 'text', nullable: true })
   userAgent!: string | null;
 
-  @Column({ name: 'correlation_id', length: 100, nullable: true })
+  @Column({ name: 'correlation_id', type: 'varchar', length: 100, nullable: true })
   correlationId!: string | null;
 
   // Phase 4: ties an audit row to the authenticated session (JWT `sub`+issued-at
   // derived id), so a full user session can be reconstructed for forensics.
-  @Column({ name: 'session_id', length: 100, nullable: true })
+  @Column({ name: 'session_id', type: 'varchar', length: 100, nullable: true })
   sessionId!: string | null;
 
-  @Column({ name: 'http_method', length: 10, nullable: true })
+  @Column({ name: 'http_method', type: 'varchar', length: 10, nullable: true })
   httpMethod!: string | null;
 
   @Column({ name: 'http_path', type: 'text', nullable: true })

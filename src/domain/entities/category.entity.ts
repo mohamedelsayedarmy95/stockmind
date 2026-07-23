@@ -23,7 +23,7 @@ export class Category {
   @Column({ length: 255 })
   name!: string;
 
-  @Column({ name: 'parent_id', nullable: true })
+  @Column({ name: 'parent_id', type: 'uuid', nullable: true })
   parentId!: string | null;
 
   @ManyToOne(() => Category, (c) => c.children, { nullable: true, onDelete: 'SET NULL' })

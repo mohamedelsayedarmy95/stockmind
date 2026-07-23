@@ -37,10 +37,10 @@ export class UserSsoLink {
   @Column({ name: 'provider_user_id', length: 500 })
   providerUserId: string;
 
-  @Column({ name: 'provider_email', length: 255, nullable: true })
+  @Column({ name: 'provider_email', type: 'varchar', length: 255, nullable: true })
   providerEmail: string | null;
 
-  @Column({ name: 'display_name', length: 255, nullable: true })
+  @Column({ name: 'display_name', type: 'varchar', length: 255, nullable: true })
   displayName: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
