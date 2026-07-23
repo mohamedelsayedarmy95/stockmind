@@ -57,6 +57,26 @@ export class FirebaseService implements OnModuleInit {
   }
 
   /**
+   * Verifies a Google ID token issued by Firebase Authentication (via the Android
+   * Google Sign-In SDK). Returns the decoded token payload on success.
+   * Throws if Firebase is not initialised or the token is invalid/expired.
+   */
+  async verifyGoogleIdToken(
+    idToken: string,
+  ): Promise<{ uid: string; email: string; name: string; picture?: string }> {
+    if (!this.app) {
+      throw new Error('Firebase not initialised — set FIREBASE_PROJECT_ID / FIREBASE_PRIVATE_KEY / FIREBASE_CLIENT_EMAIL');
+    }
+    const decoded = await admin.auth(this.app).verifyIdToken(idToken, true);
+    return {
+      uid: decoded.uid,
+      email: decoded.email ?? '',
+      name: decoded.name ?? decoded.email ?? '',
+      picture: decoded.picture,
+    };
+  }
+
+  /**
    * Firebase Admin SDK does not expose a server-side Analytics logging API.
    * This method emits a structured Pino log line that can be forwarded to
    * BigQuery or a Cloud Function consumer via a log sink.

@@ -10,6 +10,7 @@ import type { Request } from 'express';
 import { AuthService, RequestContext } from '../../infrastructure/repositories/auth.service';
 import { RegisterDto } from '../../application/dtos/auth/register.dto';
 import { LoginDto } from '../../application/dtos/auth/login.dto';
+import { GoogleAuthDto } from '../../application/dtos/auth/google-auth.dto';
 import { RefreshTokenDto } from '../../application/dtos/auth/refresh-token.dto';
 import { ChangePasswordDto } from '../../application/dtos/auth/change-password.dto';
 import {
@@ -50,6 +51,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   twoFactorLogin(@Body() dto: TwoFactorLoginDto) {
     return this.authService.twoFactorLogin(dto.tempToken, dto.otpCode);
+  }
+
+  @Public()
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  googleAuth(@Body() dto: GoogleAuthDto, @Req() req: Request) {
+    return this.authService.googleLogin(dto.idToken, this.ctx(req));
   }
 
   @Public()

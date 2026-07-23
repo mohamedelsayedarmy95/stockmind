@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -18,6 +19,7 @@ import { LoginDto } from '../../application/dtos/auth/login.dto';
 import { TwoFactorService } from '../security/two-factor.service';
 import { BruteForceService } from '../security/brute-force.service';
 import { AuditLogService } from '../audit/audit-log.service';
+import { FirebaseService } from '../firebase/firebase.service';
 
 /** Per-request network context, used for brute-force tracking and audit. */
 export interface RequestContext {
@@ -37,6 +39,7 @@ export class AuthService {
     private readonly twoFactor: TwoFactorService,
     private readonly bruteForce: BruteForceService,
     private readonly audit: AuditLogService,
+    private readonly firebase: FirebaseService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -114,6 +117,29 @@ export class AuthService {
       ...tokens,
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     };
+  }
+
+  /**
+   * Authenticates a mobile user who signed in with Google.
+   * - Verifies the Firebase ID token server-side.
+   * - If the email already exists in the DB → issues tokens (login).
+   * - If not → returns a partial payload so the client can complete registration.
+   */
+  async googleLogin(idToken: string, ctx: RequestContext = {}) {
+    const googleUser = await this.firebase.verifyGoogleIdToken(idToken);
+
+    const user = await this.userRepo.findOne({ where: { email: googleUser.email } });
+
+    if (!user) {
+      // New Google user — tell the client to complete registration with prefilled data.
+      throw new UnprocessableEntityException({
+        code: 'GOOGLE_REGISTRATION_REQUIRED',
+        email: googleUser.email,
+        name: googleUser.name,
+      });
+    }
+
+    return this.issueTokensForSsoUser(user, ctx);
   }
 
   async login(dto: LoginDto, ctx: RequestContext = {}) {

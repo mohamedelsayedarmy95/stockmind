@@ -7,6 +7,7 @@ import { AuthController } from '../presentation/controllers/auth.controller';
 import { JwtStrategy } from '../infrastructure/jwt.strategy';
 import { TwoFactorService } from '../infrastructure/security/two-factor.service';
 import { BruteForceService } from '../infrastructure/security/brute-force.service';
+import { FirebaseModule } from './firebase.module';
 import { User } from '../domain/entities/user.entity';
 import { Company } from '../domain/entities/company.entity';
 import { Warehouse } from '../domain/entities/warehouse.entity';
@@ -19,6 +20,7 @@ import { LoginAttempt } from '../domain/entities/login-attempt.entity';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({}),
     TypeOrmModule.forFeature([User, Company, Warehouse, UserTwoFactor, LoginAttempt]),
+    FirebaseModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, TwoFactorService, BruteForceService],

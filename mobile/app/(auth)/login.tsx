@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -10,12 +10,14 @@ import { PremiumButton } from '@/components/PremiumButton';
 import { useTheme } from '@/theme/useTheme';
 import { BRAND_GRADIENT } from '@/theme/colors';
 import { useLogin } from '@/query/useAuth';
+import { useGoogleSignIn } from '@/query/useGoogleAuth';
 import { haptics } from '@/lib/haptics';
 
 export default function LoginScreen() {
   const t = useTheme();
   const { t: tr } = useTranslation();
   const login = useLogin();
+  const googleSignIn = useGoogleSignIn();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -104,6 +106,49 @@ export default function LoginScreen() {
               disabled={!email || !password}
               style={{ marginTop: 8 }}
             />
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: t.cardBorder }} />
+              <Text style={{ color: t.textMuted, fontSize: 13 }}>or</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: t.cardBorder }} />
+            </View>
+
+            <TouchableOpacity
+              onPress={() => {
+                googleSignIn.mutate(undefined, {
+                  onSuccess: () => void haptics.success(),
+                  onError: () => void haptics.error(),
+                });
+              }}
+              disabled={googleSignIn.isPending}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.cardBorder,
+                borderRadius: 18,
+                paddingVertical: 16,
+                opacity: googleSignIn.isPending ? 0.6 : 1,
+              }}
+            >
+              {googleSignIn.isPending ? (
+                <ActivityIndicator size="small" color={t.textSecondary} />
+              ) : (
+                <Ionicons name="logo-google" size={20} color="#4285F4" />
+              )}
+              <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600' }}>
+                Continue with Google
+              </Text>
+            </TouchableOpacity>
+
+            {googleSignIn.isError ? (
+              <Text style={{ color: '#EF4444', fontSize: 13 }}>
+                Google sign-in failed. Please try again.
+              </Text>
+            ) : null}
           </Animated.View>
         </View>
       </SafeAreaView>
