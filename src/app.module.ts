@@ -79,7 +79,11 @@ import type { IncomingMessage, ServerResponse } from 'http';
         database: cfg.get<string>('DB_DATABASE') ?? 'stockmind',
         entities: [__dirname + '/domain/entities/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        subscribers: [TenantSubscriber],
+        // TenantSubscriber registers itself into dataSource.subscribers from its
+        // own (Nest-injected) constructor below — listing it here too makes
+        // TypeORM's own container instantiate a second, un-injected copy with
+        // `new TenantSubscriber()` (no DataSource arg), which crashes on
+        // `dataSource.subscribers.push(this)`.
         synchronize: false,
         logging: cfg.get('NODE_ENV') === 'development' ? ['error'] : false,
         // Hosted Postgres (e.g. Neon) requires TLS; self-signed chain so we don't
