@@ -33,7 +33,9 @@ COPY --chown=node:node package.json ./
 
 EXPOSE 3000
 
+# Shell form (not exec form) so $PORT expands — hosts like Render assign their
+# own port at runtime via the PORT env var; app.ts already listens on it.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/v1/health || exit 1
+  CMD wget -qO- http://localhost:${PORT:-3000}/api/v1/health || exit 1
 
 ENTRYPOINT ["dumb-init", "node", "dist/main"]

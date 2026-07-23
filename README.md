@@ -13,14 +13,51 @@ pinned: false
 
 Intelligent Warehouse Operating System — Atomic Ledger Engine.
 
-## Deploying to Hugging Face Spaces (free, no card)
+## Deploying to Render.com (free, no card required)
 
-This repo is a ready-to-go HF Space (Docker SDK, builds `Dockerfile.prod`).
-There is no managed database on Spaces, so pair it with a free
-[Neon](https://neon.tech) Postgres instance.
+This repo ships a `render.yaml` Blueprint that builds `Dockerfile.prod`
+directly — no code changes needed. Render's free web-service tier does not
+require a payment method (unlike Hugging Face Spaces' Docker SDK, which now
+gates Docker Spaces behind billing verification). Trade-off: the free
+instance sleeps after 15 minutes idle and cold-starts (~30-50s) on the next
+request — fine for dev/staging, worth knowing for production traffic.
+
+Pair it with a free [Neon](https://neon.tech) Postgres instance (no card).
 
 1. Create a Neon project. Copy the connection string it gives you:
-   `postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require`
+   `postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require` — split it into
+   `DB_HOST` / `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE`.
+2. On [render.com](https://render.com), **New → Blueprint**, connect the
+   `mohamedelsayedarmy95/stockmind` GitHub repo, branch `main`. Render reads
+   `render.yaml` and creates the `stockmind-api` web service automatically.
+3. In the service's **Environment** tab, fill in the secrets marked
+   `sync: false` in `render.yaml`:
+
+   | Key | Value |
+   |---|---|
+   | `DB_HOST` / `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE` | from the Neon connection string |
+   | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` / `JWT_2FA_SECRET` | random 64-char strings |
+   | `CORS_ORIGIN` | comma-separated allowed origins |
+   | `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | from the Firebase service-account JSON |
+
+   (`NODE_ENV`, `DB_SSL`, `DB_PORT` are already set in `render.yaml`.)
+4. Run migrations once against Neon (locally, with the same `DB_*` vars in
+   `.env` and `DB_SSL=true`):
+   ```bash
+   npm run migration:run
+   ```
+5. Once deployed, confirm `https://<your-service>.onrender.com/api/v1/health`
+   returns `200 OK`.
+
+## Alternative: Hugging Face Spaces (Docker SDK)
+
+The repo is also HF-Space-ready via the `README.md` front matter above
+(`sdk: docker`, `dockerfile: Dockerfile.prod`). As of 2026, HF requires a
+verified payment method on the account before it unlocks Docker Spaces (the
+free-tier hardware itself stays free unless you upgrade) — use this path only
+if you're fine adding a card for verification. Steps:
+
+1. Create a Neon project as above.
 2. On the Space, go to **Settings → Repository secrets** and add:
 
    | Secret | Value |
