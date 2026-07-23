@@ -82,6 +82,9 @@ import type { IncomingMessage, ServerResponse } from 'http';
         subscribers: [TenantSubscriber],
         synchronize: false,
         logging: cfg.get('NODE_ENV') === 'development' ? ['error'] : false,
+        // Hosted Postgres (e.g. Neon) requires TLS; self-signed chain so we don't
+        // verify against a CA. Off by default for local docker-compose Postgres.
+        ssl: cfg.get('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
         // Connection pool: cap at 10 to stay within PaaS tier limits
         extra: { max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 5_000 },
       }),

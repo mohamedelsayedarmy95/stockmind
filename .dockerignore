@@ -1,0 +1,17 @@
+node_modules
+dist
+mobile
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+uploads
+coverage
+.vscode
+.idea
+docker-compose*.yml
+init.sql
+README.md

@@ -1,8 +1,50 @@
+---
+title: StockMind Backend
+emoji: 📦
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+dockerfile: Dockerfile.prod
+app_port: 3000
+pinned: false
+---
+
 # StockMind v0.1.0
 
 Intelligent Warehouse Operating System — Atomic Ledger Engine.
 
-## Quick Start
+## Deploying to Hugging Face Spaces (free, no card)
+
+This repo is a ready-to-go HF Space (Docker SDK, builds `Dockerfile.prod`).
+There is no managed database on Spaces, so pair it with a free
+[Neon](https://neon.tech) Postgres instance.
+
+1. Create a Neon project. Copy the connection string it gives you:
+   `postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require`
+2. On the Space, go to **Settings → Repository secrets** and add:
+
+   | Secret | Value |
+   |---|---|
+   | `DB_HOST` | the `HOST` part of the Neon string |
+   | `DB_PORT` | `5432` |
+   | `DB_USERNAME` | the `USER` part |
+   | `DB_PASSWORD` | the `PASSWORD` part |
+   | `DB_DATABASE` | the `DBNAME` part |
+   | `DB_SSL` | `true` |
+   | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` / `JWT_2FA_SECRET` | random 64-char strings |
+   | `CORS_ORIGIN` | comma-separated allowed origins |
+   | `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | from the Firebase service-account JSON |
+   | `NODE_ENV` | `production` |
+
+3. Push this repo to the Space's `main` branch — it builds `Dockerfile.prod`
+   and serves the API on port 3000.
+4. Run migrations once against Neon (locally, with the same `DB_*` vars in
+   `.env` and `DB_SSL=true`):
+   ```bash
+   npm run migration:run
+   ```
+
+## Quick Start (local development)
 
 ### 1. Start Infrastructure
 
