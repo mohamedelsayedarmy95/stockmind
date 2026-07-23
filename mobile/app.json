@@ -11,7 +11,9 @@
       "backgroundColor": "#0A0E17",
       "resizeMode": "contain"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "io.stockmind.app",
@@ -30,7 +32,8 @@
         "android.permission.CAMERA",
         "android.permission.VIBRATE",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -38,16 +41,22 @@
       "expo-localization",
       [
         "expo-camera",
-        { "cameraPermission": "Allow StockMind to scan barcodes." }
+        {
+          "cameraPermission": "Allow StockMind to scan barcodes."
+        }
       ],
       [
         "expo-notifications",
-        { "color": "#00D2FF" }
+        {
+          "color": "#00D2FF"
+        }
       ],
       "expo-secure-store",
       [
         "expo-local-authentication",
-        { "faceIDPermission": "StockMind uses Face ID to protect your session and local data." }
+        {
+          "faceIDPermission": "StockMind uses Face ID to protect your session and local data."
+        }
       ]
     ],
     "experiments": {
@@ -55,9 +64,13 @@
     },
     "extra": {
       "apiBaseUrl": "https://YOUR-BACKEND-URL/api/v1",
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "FILL-AFTER-EAS-INIT"
+        "projectId": "69f63676-f081-4424-8a1f-5c1b6e92931a"
       }
-    }
+    },
+    "owner": "mohamedelsayedarmy95"
   }
 }
