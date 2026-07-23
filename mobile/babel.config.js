@@ -5,17 +5,16 @@ module.exports = function (api) {
       ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
       'nativewind/babel',
     ],
-    // Anti-reverse-engineering: strip all console.* and debugger statements from
-    // PRODUCTION bundles so release APKs leak no logs or debug hooks. Expo sets
-    // BABEL_ENV/NODE_ENV to "production" for release builds, activating this env.
+    plugins: [
+      // worklets-core MUST come before reanimated (Skia peer dep)
+      'react-native-worklets-core/plugin',
+      // Reanimated plugin MUST be last
+      'react-native-reanimated/plugin',
+    ],
     env: {
       production: {
         plugins: ['transform-remove-console'],
       },
     },
-    plugins: [
-      // Reanimated plugin MUST be listed last.
-      'react-native-reanimated/plugin',
-    ],
   };
 };
