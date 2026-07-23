@@ -22,10 +22,16 @@
     },
     "android": {
       "package": "io.stockmind.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0A0E17"
       },
-      "permissions": ["CAMERA", "VIBRATE"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.VIBRATE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -48,7 +54,10 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiBaseUrl": "http://localhost:3000/api/v1"
+      "apiBaseUrl": "https://YOUR-BACKEND-URL/api/v1",
+      "eas": {
+        "projectId": "FILL-AFTER-EAS-INIT"
+      }
     }
   }
 }
