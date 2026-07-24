@@ -7,6 +7,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { BRAND_GRADIENT } from '@/theme/colors';
+import { useTheme } from '@/theme/useTheme';
 import { haptics } from '@/lib/haptics';
 
 interface PremiumButtonProps {
@@ -31,10 +32,17 @@ export function PremiumButton({
   variant = 'gradient',
   style,
 }: PremiumButtonProps) {
+  const t = useTheme();
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const isDisabled = disabled || loading;
+
+  // Gradient sits on a colored surface, so white always reads. The ghost variant
+  // sits directly on the card, so its text/border must follow the theme —
+  // white-on-cream is invisible in light mode.
+  const contentColor = variant === 'gradient' ? '#FFFFFF' : t.textPrimary;
+  const ghostBorderColor = t.cardBorder;
 
   const handlePressIn = () => {
     scale.value = withSpring(0.96, { damping: 15, stiffness: 320 });
@@ -49,9 +57,13 @@ export function PremiumButton({
   };
 
   const content = loading ? (
-    <ActivityIndicator color="#FFFFFF" />
+    <ActivityIndicator color={contentColor} />
   ) : (
-    <Text className="text-center text-base font-semibold text-white">{label}</Text>
+    <Text
+      style={{ textAlign: 'center', fontSize: 16, fontWeight: '600', color: contentColor }}
+    >
+      {label}
+    </Text>
   );
 
   return (
@@ -78,7 +90,7 @@ export function PremiumButton({
             paddingVertical: 18,
             paddingHorizontal: 24,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.15)',
+            borderColor: ghostBorderColor,
           }}
         >
           {content}
