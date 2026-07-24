@@ -37,7 +37,7 @@ export function AskMeFab({ onPress }: { onPress: () => void }) {
 
   return (
     <Animated.View
-      style={{ position: 'absolute', bottom: 96, right: 24, width: 64, height: 64 }}
+      style={{ position: 'absolute', bottom: 96, right: 24, width: 48, height: 48 }}
     >
       <Animated.View
         pointerEvents="none"
@@ -48,7 +48,7 @@ export function AskMeFab({ onPress }: { onPress: () => void }) {
             left: 0,
             right: 0,
             bottom: 0,
-            borderRadius: 32,
+            borderRadius: 24,
             backgroundColor: BRAND_GRADIENT[0],
           },
           haloStyle,
@@ -59,21 +59,21 @@ export function AskMeFab({ onPress }: { onPress: () => void }) {
           void haptics.tap();
           onPress();
         }}
-        style={{ width: 64, height: 64 }}
+        style={{ width: 48, height: 48 }}
       >
         <LinearGradient
           colors={BRAND_GRADIENT}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
+            width: 48,
+            height: 48,
+            borderRadius: 24,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="sparkles" size={26} color="#FFFFFF" />
+          <Ionicons name="sparkles" size={20} color="#FFFFFF" />
         </LinearGradient>
       </AnimatedPressable>
     </Animated.View>

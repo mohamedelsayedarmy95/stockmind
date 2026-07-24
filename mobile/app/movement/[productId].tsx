@@ -15,6 +15,8 @@ import { BRAND_GRADIENT } from '@/theme/colors';
 import { useProducts } from '@/query/useProducts';
 import { Product } from '@/api/types';
 import { useBalance, useStockMovement, MovementKind } from '@/query/useStock';
+import { useStores } from '@/query/useStores';
+import { Store } from '@/data/repositories';
 import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
 
@@ -30,11 +32,13 @@ export default function MovementScreen() {
   const { data: products } = useProducts();
   const product = products?.find((p: Product) => p.id === params.productId);
   const { data: balance } = useBalance(params.productId, warehouseId ?? undefined);
+  const { data: stores } = useStores(warehouseId ?? undefined);
   const movement = useStockMovement();
 
   const [qty, setQty] = useState(1);
   const [confetti, setConfetti] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [storeId, setStoreId] = useState<string | undefined>();
 
   const available = balance ? Math.floor(Number(balance.baseQuantity)) : 100;
   const sliderMax = kind === 'outbound' ? Math.max(available, 1) : 500;
@@ -43,7 +47,7 @@ export default function MovementScreen() {
     if (!warehouseId || !product) return;
     setErrorMsg(null);
     movement.mutate(
-      { kind, productId: product.id, warehouseId, quantity: String(qty) },
+      { kind, productId: product.id, warehouseId, quantity: String(qty), storeId },
       {
         onSuccess: () => {
           void haptics.heavy();
@@ -109,6 +113,40 @@ export default function MovementScreen() {
               </Text>
             </View>
           </GlassCard>
+
+          {stores && stores.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              <Text style={{ color: t.textSecondary, fontWeight: '600' }}>
+                {tr('movement.section')}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {stores.map((s: Store) => {
+                  const selected = s.id === storeId;
+                  return (
+                    <Pressable
+                      key={s.id}
+                      onPress={() => {
+                        void haptics.select();
+                        setStoreId(selected ? undefined : s.id);
+                      }}
+                      style={{
+                        paddingVertical: 8,
+                        paddingHorizontal: 14,
+                        borderRadius: 14,
+                        backgroundColor: selected ? BRAND_GRADIENT[0] : t.card,
+                        borderWidth: 1,
+                        borderColor: selected ? BRAND_GRADIENT[0] : t.cardBorder,
+                      }}
+                    >
+                      <Text style={{ color: selected ? '#FFFFFF' : t.textSecondary, fontWeight: '600' }}>
+                        {s.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
 
           <View style={{ alignItems: 'center', gap: 16 }}>
             <Text style={{ color: t.textSecondary, fontWeight: '600' }}>

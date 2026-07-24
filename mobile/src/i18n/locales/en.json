@@ -48,7 +48,7 @@
     "greeting": "Hello",
     "kpiTotalStock": "Total Stock",
     "kpiStockValue": "Stock Value",
-    "kpiPendingOrders": "Pending Orders",
+    "kpiPendingSync": "Pending Sync",
     "quickActions": "Quick Actions",
     "scan": "Scan",
     "receive": "Receive",
@@ -59,12 +59,68 @@
     "name": "Product name",
     "sku": "SKU / code",
     "barcode": "Barcode (optional)",
-    "save": "Save product"
+    "costPrice": "Cost price (optional)",
+    "save": "Save product",
+    "deleteTitle": "Delete product",
+    "deleteConfirm": "This removes the product from your catalog. This can't be undone.",
+    "transferTitle": "Transfer to another warehouse",
+    "transferConfirm": "Confirm transfer",
+    "noOtherWarehouse": "Add another warehouse, or at least 2 sections in this one, to transfer stock between locations.",
+    "sectionBreakdown": "By section",
+    "fromSection": "From section (optional)",
+    "toSection": "To section (optional)",
+    "currentWarehouse": "current",
+    "pickDifferentLocation": "Pick a different warehouse or section to transfer to."
+  },
+  "products": {
+    "title": "Products",
+    "total": "Total Products",
+    "emptyTitle": "No products yet",
+    "empty": "Tap + to add your first one."
+  },
+  "reminder": {
+    "title": "Reminders",
+    "titlePlaceholder": "Remind me to…",
+    "save": "Set reminder",
+    "preset": {
+      "1h": "In 1 hour",
+      "tomorrow": "Tomorrow 9am",
+      "3d": "In 3 days",
+      "1w": "In 1 week"
+    }
+  },
+  "note": {
+    "title": "Notes",
+    "placeholder": "Add a note…"
+  },
+  "crashLog": {
+    "title": "Crash Reports",
+    "emptyTitle": "No crashes recorded",
+    "empty": "Good sign — nothing to show here yet."
+  },
+  "activity": {
+    "title": "Activity Log",
+    "emptyTitle": "No activity yet",
+    "empty": "Actions you take (adding products, receiving or dispatching stock) will show up here."
   },
   "warehouse": {
     "addTitle": "Add warehouse",
     "name": "Warehouse name",
-    "save": "Save warehouse"
+    "save": "Save warehouse",
+    "stores": "Sections",
+    "addSection": "Add a section",
+    "mapView": "Map",
+    "listView": "List",
+    "mapTileDetail": "{{count}} units on hand. Drag the tile to rearrange the floor plan.",
+    "storeNamePlaceholder": "Section name (e.g. Aisle A)",
+    "storesEmpty": "No sections yet. Add one above to organize this warehouse.",
+    "sectionCount": "{{count}} sections"
+  },
+  "warehouses": {
+    "title": "Warehouses",
+    "total": "Total Warehouses",
+    "emptyTitle": "No warehouses yet",
+    "empty": "Tap + to add your first warehouse."
   },
   "scan": {
     "title": "Scan Central",
@@ -78,6 +134,7 @@
     "inbound": "Receive Stock",
     "outbound": "Dispatch Stock",
     "quantity": "Quantity",
+    "section": "Section (optional)",
     "confirmInbound": "Confirm Receipt",
     "confirmOutbound": "Confirm Dispatch",
     "success": "Operation completed",
@@ -105,7 +162,15 @@
     "account": "Account",
     "security": "Security",
     "terminateAll": "Terminate all sessions",
-    "terminateAllHint": "Sign out of every device"
+    "terminateAllHint": "Sign out of every device",
+    "inventoryUnit": "Default inventory unit",
+    "unitPiece": "Piece",
+    "unitCarton": "Carton",
+    "unitKg": "Kg",
+    "notifications": "Reminder notifications",
+    "notificationsHint": "Allow local alerts for item reminders, even offline",
+    "backup": "Backup & Restore",
+    "backupComingSoon": "Export/import of your local data is coming in a future update."
   },
   "session": {
     "expiredTitle": "Session expired",

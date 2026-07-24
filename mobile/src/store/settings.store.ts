@@ -5,6 +5,7 @@ import { secureZustandStorage } from './secure-storage';
 
 export type AppLanguage = 'en' | 'ar';
 export type AppThemeMode = 'dark' | 'light' | 'system';
+export type InventoryUnit = 'piece' | 'carton' | 'kg';
 /**
  * offline — local SQLCipher DB is the only source of truth, no network.
  * online — talks to the cloud backend (deferred to the sync phase).
@@ -17,11 +18,17 @@ interface SettingsState {
   /** First-launch onboarding gates (persisted). */
   languageChosen: boolean;
   operationMode: OperationMode | null;
+  /** Default unit suggested when adding a product (display-only for now). */
+  defaultUnit: InventoryUnit;
+  /** Whether local reminder notifications are allowed to be scheduled. */
+  notificationsEnabled: boolean;
   setLanguage: (lang: AppLanguage) => void;
   setThemeMode: (mode: AppThemeMode) => void;
   /** Records the first-launch language choice (also flips languageChosen). */
   chooseLanguage: (lang: AppLanguage) => void;
   setOperationMode: (mode: OperationMode) => void;
+  setDefaultUnit: (unit: InventoryUnit) => void;
+  setNotificationsEnabled: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -31,6 +38,8 @@ export const useSettingsStore = create<SettingsState>()(
       themeMode: 'dark',
       languageChosen: false,
       operationMode: null,
+      defaultUnit: 'piece',
+      notificationsEnabled: true,
       setLanguage: (language) => {
         const isRtl = language === 'ar';
         // Keep the native layout direction in sync for correct RTL mirroring.
@@ -44,6 +53,8 @@ export const useSettingsStore = create<SettingsState>()(
         set({ languageChosen: true });
       },
       setOperationMode: (operationMode) => set({ operationMode }),
+      setDefaultUnit: (defaultUnit) => set({ defaultUnit }),
+      setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
     }),
     {
       name: 'stockmind-settings',

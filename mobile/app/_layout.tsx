@@ -15,6 +15,7 @@ import { bootstrapApp } from '@/lib/bootstrap';
 import { biometricsAvailable, requireBiometricUnlock } from '@/lib/biometric-guard';
 import { BiometricLockScreen } from '@/components/BiometricLockScreen';
 import { SessionExpiredOverlay } from '@/components/SessionExpiredOverlay';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 /** Redirects between onboarding, the auth flow and the app based on state. */
 function AuthGate() {
@@ -69,6 +70,26 @@ function AuthGate() {
         name="movement/[productId]"
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
+      <Stack.Screen
+        name="activity"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="products"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="product/[productId]"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="warehouse/[warehouseId]"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="crash-reports"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
     </Stack>
   );
 }
@@ -102,22 +123,24 @@ export default function RootLayout() {
   }, [attemptUnlock]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-          {!ready ? (
-            <View style={{ flex: 1, backgroundColor: isDark ? '#0A0E17' : '#F8FAFC' }} />
-          ) : needsUnlock ? (
-            <BiometricLockScreen onUnlock={attemptUnlock} />
-          ) : (
-            <>
-              <AuthGate />
-              <SessionExpiredOverlay />
-            </>
-          )}
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            {!ready ? (
+              <View style={{ flex: 1, backgroundColor: isDark ? '#0A0E17' : '#F8FAFC' }} />
+            ) : needsUnlock ? (
+              <BiometricLockScreen onUnlock={attemptUnlock} />
+            ) : (
+              <>
+                <AuthGate />
+                <SessionExpiredOverlay />
+              </>
+            )}
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

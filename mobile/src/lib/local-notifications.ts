@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { useSettingsStore } from '@/store/settings.store';
 
 /**
  * On-device (local) notifications for offline reminders. These are scheduled by
@@ -33,6 +34,7 @@ export async function scheduleReminder(
   body: string,
   fireAt: Date,
 ): Promise<string | null> {
+  if (!useSettingsStore.getState().notificationsEnabled) return null;
   const granted = await ensureNotificationSetup();
   if (!granted) return null;
 

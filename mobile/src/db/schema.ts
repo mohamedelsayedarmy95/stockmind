@@ -15,7 +15,7 @@
  */
 
 export const DB_NAME = 'stockmind.db';
-export const DB_SCHEMA_VERSION = 1;
+export const DB_SCHEMA_VERSION = 5;
 
 /**
  * Ordered CREATE statements. All use `IF NOT EXISTS` so a fresh install and an
@@ -146,10 +146,64 @@ export const SCHEMA_STATEMENTS: string[] = [
     sync_status TEXT NOT NULL DEFAULT 'pending'
   );`,
 
-  // Indexes for the hot query paths.
+  // v2: optional unit cost, used to compute the dashboard's Stock Value KPI
+  // (sum(quantity * cost_price) across stock_balances). Not part of the
+  // original CREATE TABLE so this ALTER runs exactly once per device,
+  // whether upgrading from v1 or creating a fresh v2 database.
+  `ALTER TABLE products ADD COLUMN cost_price REAL;`,
+
+  // v3: per-section (store) stock tracking, additive to stock_balances so the
+  // warehouse-level total stays the single source of truth for "how much is
+  // available to move" (used by transfer/move insufficient-stock checks).
+  // A row here means "this much of this product is putaway in this specific
+  // section"; SUM(quantity) per (product, warehouse) is always <=
+  // stock_balances.quantity for that pair — the remainder is unallocated to
+  // any section yet. Kept in sync inside the same transaction as the
+  // warehouse-level update whenever a movement/transfer names a store.
+  `CREATE TABLE IF NOT EXISTS stock_balances_by_store (
+    id           TEXT PRIMARY KEY NOT NULL,
+    product_id   TEXT NOT NULL,
+    warehouse_id TEXT NOT NULL,
+    store_id     TEXT NOT NULL,
+    quantity     REAL NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    sync_status  TEXT NOT NULL DEFAULT 'pending',
+    UNIQUE (product_id, store_id)
+  );`,
+  `ALTER TABLE stock_movements ADD COLUMN store_id TEXT;`,
+
+  // v4: freeform (x, y) placement for the interactive warehouse map. NULL
+  // means "not placed yet" — the UI falls back to an auto-arranged grid
+  // until the user drags a section, at which point real coordinates persist.
+  `ALTER TABLE stores ADD COLUMN pos_x REAL;`,
+  `ALTER TABLE stores ADD COLUMN pos_y REAL;`,
+
+  // v5: local crash/error log (launch-readiness monitoring). No external
+  // service or native SDK — the ErrorBoundary and the global JS error handler
+  // both write here, so a crash is never silently lost even offline.
+  `CREATE TABLE IF NOT EXISTS crash_log (
+    id           TEXT PRIMARY KEY NOT NULL,
+    message      TEXT NOT NULL,
+    stack        TEXT,
+    fatal        INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL
+  );`,
+
+  // Indexes for the hot query paths. At scale (multiple warehouses x
+  // hundreds of sections x thousands of products) these keep list/aggregate
+  // queries index-backed instead of full table scans.
   `CREATE INDEX IF NOT EXISTS idx_products_barcode ON products (barcode);`,
   `CREATE INDEX IF NOT EXISTS idx_balances_product ON stock_balances (product_id);`,
   `CREATE INDEX IF NOT EXISTS idx_movements_product ON stock_movements (product_id, created_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_movements_store ON stock_movements (store_id, created_at);`,
   `CREATE INDEX IF NOT EXISTS idx_stores_warehouse ON stores (warehouse_id);`,
   `CREATE INDEX IF NOT EXISTS idx_reminders_time ON reminders (remind_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_balances_store_product ON stock_balances_by_store (product_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_balances_store_warehouse ON stock_balances_by_store (warehouse_id);`,
+  // sync_status indexes back the dashboard's Pending Sync aggregate query.
+  `CREATE INDEX IF NOT EXISTS idx_products_sync ON products (sync_status);`,
+  `CREATE INDEX IF NOT EXISTS idx_warehouses_sync ON warehouses (sync_status);`,
+  `CREATE INDEX IF NOT EXISTS idx_movements_sync ON stock_movements (sync_status);`,
 ];

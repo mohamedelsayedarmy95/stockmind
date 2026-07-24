@@ -25,6 +25,16 @@ export interface Product {
   imageUrl?: string | null;
   categoryId?: string | null;
   unitsOfMeasure?: UnitOfMeasure[];
+  costPrice?: number | null;
+}
+
+export interface ActivityEntry {
+  id: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  detail: string | null;
+  createdAt: string;
 }
 
 export interface BalanceResponse {

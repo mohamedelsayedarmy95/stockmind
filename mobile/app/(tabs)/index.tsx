@@ -15,6 +15,7 @@ import { BRAND_GRADIENT } from '@/theme/colors';
 import { useAuthStore } from '@/store/auth.store';
 import { useProducts } from '@/query/useProducts';
 import { useEnsureDefaultWarehouse } from '@/query/useWarehouses';
+import { useDashboardStats } from '@/query/useDashboard';
 
 export default function DashboardScreen() {
   const t = useTheme();
@@ -23,8 +24,12 @@ export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
   const { data: products } = useProducts();
+  const { data: stats } = useDashboardStats();
   useEnsureDefaultWarehouse();
   const [askOpen, setAskOpen] = useState(false);
+
+  const stockValueDisplay = stats?.stockValue != null ? stats.stockValue.toFixed(2) : '—';
+  const pendingSyncDisplay = stats?.pendingSyncCount != null ? String(stats.pendingSyncCount) : '—';
 
   return (
     <ScreenBackground>
@@ -61,6 +66,8 @@ export default function DashboardScreen() {
                 <Ionicons name="add" size={24} color={t.textPrimary} />
               </Pressable>
               <Pressable
+                onPress={() => router.push('/activity')}
+                accessibilityLabel={tr('activity.title')}
                 style={{
                   width: 44,
                   height: 44,
@@ -84,15 +91,16 @@ export default function DashboardScreen() {
               value={String(products?.length ?? '—')}
               accent={[BRAND_GRADIENT[0], BRAND_GRADIENT[0]]}
               index={0}
+              onPress={() => router.push('/products')}
             />
             <KpiCard
               label={tr('dashboard.kpiStockValue')}
-              value="—"
+              value={stockValueDisplay}
               accent={[BRAND_GRADIENT[1], BRAND_GRADIENT[1]]}
               index={1}
             />
           </View>
-          <KpiCard label={tr('dashboard.kpiPendingOrders')} value="0" index={2} />
+          <KpiCard label={tr('dashboard.kpiPendingSync')} value={pendingSyncDisplay} index={2} />
 
           {/* Quick actions */}
           <GlassCard>

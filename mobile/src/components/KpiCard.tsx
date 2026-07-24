@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, Pressable } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -15,13 +15,14 @@ interface KpiCardProps {
   value: string;
   accent?: [string, string];
   index?: number;
+  onPress?: () => void;
 }
 
 /**
  * KPI tile — glass surface with a soft radial glow behind the value.
  * Spring-enters with a stagger based on `index`.
  */
-export function KpiCard({ label, value, accent, index = 0 }: KpiCardProps) {
+export function KpiCard({ label, value, accent, index = 0, onPress }: KpiCardProps) {
   const t = useTheme();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
@@ -39,6 +40,12 @@ export function KpiCard({ label, value, accent, index = 0 }: KpiCardProps) {
   return (
     <Animated.View style={[{ flex: 1 }, animatedStyle]}>
       <GlassCard style={{ overflow: 'hidden' }}>
+        {onPress ? (
+          <Pressable
+            onPress={onPress}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}
+          />
+        ) : null}
         {accent ? (
           <LinearGradient
             colors={[accent[0] + '33', 'transparent']}

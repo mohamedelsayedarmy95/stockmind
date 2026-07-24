@@ -48,7 +48,7 @@
     "greeting": "مرحباً",
     "kpiTotalStock": "إجمالي المخزون",
     "kpiStockValue": "قيمة المخزون",
-    "kpiPendingOrders": "الطلبات المعلقة",
+    "kpiPendingSync": "قيد المزامنة",
     "quickActions": "إجراءات سريعة",
     "scan": "مسح",
     "receive": "استلام",
@@ -59,12 +59,68 @@
     "name": "اسم الصنف",
     "sku": "الرمز / SKU",
     "barcode": "الباركود (اختياري)",
-    "save": "حفظ الصنف"
+    "costPrice": "سعر التكلفة (اختياري)",
+    "save": "حفظ الصنف",
+    "deleteTitle": "حذف الصنف",
+    "deleteConfirm": "هيتشال الصنف من الكتالوج بتاعك. الإجراء ده مش قابل للتراجع.",
+    "transferTitle": "نقل لمستودع تاني",
+    "transferConfirm": "تأكيد النقل",
+    "noOtherWarehouse": "ضيف مستودع تاني، أو على الأقل قسمين جوه المستودع ده، عشان تقدر تنقل مخزون بينهم.",
+    "sectionBreakdown": "حسب القسم",
+    "fromSection": "من قسم (اختياري)",
+    "toSection": "لقسم (اختياري)",
+    "currentWarehouse": "الحالي",
+    "pickDifferentLocation": "اختار مخزن أو قسم مختلف تنقل ليه."
+  },
+  "products": {
+    "title": "الأصناف",
+    "total": "إجمالي الأصناف",
+    "emptyTitle": "مفيش أصناف لسه",
+    "empty": "دوس + عشان تضيف أول صنف."
+  },
+  "reminder": {
+    "title": "التذكيرات",
+    "titlePlaceholder": "فكّرني بـ…",
+    "save": "ضبط التذكير",
+    "preset": {
+      "1h": "بعد ساعة",
+      "tomorrow": "بكرة الساعة ٩ الصبح",
+      "3d": "بعد ٣ أيام",
+      "1w": "بعد أسبوع"
+    }
+  },
+  "note": {
+    "title": "الملاحظات",
+    "placeholder": "ضيف ملاحظة…"
+  },
+  "crashLog": {
+    "title": "تقارير الأعطال",
+    "emptyTitle": "مفيش أعطال مسجلة",
+    "empty": "علامة كويسة — مفيش حاجة تتعرض هنا لسه."
+  },
+  "activity": {
+    "title": "سجل النشاطات",
+    "emptyTitle": "مفيش نشاط لسه",
+    "empty": "أي إجراء تعمله (إضافة صنف، استلام أو صرف مخزون) هيظهر هنا."
   },
   "warehouse": {
     "addTitle": "إضافة مستودع",
     "name": "اسم المستودع",
-    "save": "حفظ المستودع"
+    "save": "حفظ المستودع",
+    "stores": "الأقسام",
+    "addSection": "إضافة قسم",
+    "mapView": "خريطة",
+    "listView": "قائمة",
+    "mapTileDetail": "{{count}} وحدة متاحة. اسحب البلاطة عشان ترتب مخطط الأرضية.",
+    "storeNamePlaceholder": "اسم القسم (مثال: ممر أ)",
+    "storesEmpty": "مفيش أقسام لسه. ضيف واحد فوق عشان تنظّم المستودع.",
+    "sectionCount": "{{count}} قسم"
+  },
+  "warehouses": {
+    "title": "المستودعات",
+    "total": "إجمالي المستودعات",
+    "emptyTitle": "مفيش مستودعات لسه",
+    "empty": "دوس + عشان تضيف أول مستودع."
   },
   "scan": {
     "title": "مركز المسح",
@@ -78,6 +134,7 @@
     "inbound": "استلام مخزون",
     "outbound": "صرف مخزون",
     "quantity": "الكمية",
+    "section": "القسم (اختياري)",
     "confirmInbound": "تأكيد الاستلام",
     "confirmOutbound": "تأكيد الصرف",
     "success": "تمت العملية بنجاح",
@@ -105,7 +162,15 @@
     "account": "الحساب",
     "security": "الأمان",
     "terminateAll": "إنهاء جميع الجلسات",
-    "terminateAllHint": "تسجيل الخروج من كل الأجهزة"
+    "terminateAllHint": "تسجيل الخروج من كل الأجهزة",
+    "inventoryUnit": "وحدة الجرد الافتراضية",
+    "unitPiece": "قطعة",
+    "unitCarton": "كرتونة",
+    "unitKg": "كيلو",
+    "notifications": "إشعارات التذكير",
+    "notificationsHint": "السماح بتنبيهات محلية للتذكيرات، حتى في وضع الطيران",
+    "backup": "النسخ الاحتياطي والاستعادة",
+    "backupComingSoon": "تصدير/استيراد بياناتك المحلية قريبًا في تحديث جاي."
   },
   "session": {
     "expiredTitle": "انتهت الجلسة",

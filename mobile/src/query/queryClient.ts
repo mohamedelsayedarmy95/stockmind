@@ -18,4 +18,9 @@ export const queryKeys = {
   balance: (productId: string, warehouseId: string) =>
     ['balance', productId, warehouseId] as const,
   movements: (productId: string) => ['movements', productId] as const,
+  dashboardStats: ['dashboard-stats'] as const,
+  activity: ['activity'] as const,
+  stores: (warehouseId: string) => ['stores', warehouseId] as const,
+  storeBreakdown: (productId: string, warehouseId: string) =>
+    ['store-breakdown', productId, warehouseId] as const,
 };

@@ -1,6 +1,7 @@
 import { I18nManager } from 'react-native';
 import { initSecureStorage } from '@/store/secure-storage';
 import { initDatabase } from '@/db/database';
+import { installGlobalCrashHandler } from '@/lib/crash-reporting';
 import { useAuthStore } from '@/store/auth.store';
 import { useSettingsStore } from '@/store/settings.store';
 import i18n from '@/i18n';
@@ -18,6 +19,7 @@ export async function bootstrapApp(): Promise<void> {
 
   // Open the SQLCipher-encrypted local database (offline-first source of truth).
   await initDatabase();
+  installGlobalCrashHandler();
 
   await Promise.all([
     useAuthStore.persist.rehydrate(),
