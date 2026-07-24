@@ -10,7 +10,12 @@ import { useAuthStore } from '@/store/auth.store';
 const WEB_CLIENT_ID =
   '763924631139-nc9o8g9g2pjj9gbt3bin2o56itm8nf05.apps.googleusercontent.com';
 
-GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
+GoogleSignin.configure({
+  webClientId: WEB_CLIENT_ID,
+  // Disable One Tap / Credential Manager auto-prompt so it only appears
+  // when the user explicitly taps "Continue with Google".
+  offlineAccess: false,
+});
 
 export function useGoogleSignIn() {
   const setSession = useAuthStore((s) => s.setSession);

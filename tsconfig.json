@@ -22,5 +22,5 @@
       "@/*": ["src/*"]
     }
   },
-  "exclude": ["node_modules", "dist", "mobile"]
+  "exclude": ["node_modules", "dist", "mobile", "tests"]
 }

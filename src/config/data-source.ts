@@ -10,7 +10,7 @@ export default new DataSource({
   username: process.env.DB_USERNAME ?? 'stockmind',
   password: process.env.DB_PASSWORD ?? 'stockmind123',
   database: process.env.DB_DATABASE ?? 'stockmind',
-  entities: [__dirname + '/../entities/*.entity{.ts,.js}'],
+  entities: [__dirname + '/../domain/entities/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
   synchronize: false,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
