@@ -24,7 +24,18 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
 
-  const canSubmit = name.trim().length > 0 && email.trim().length > 0 && password.length >= 12 && companyName.trim().length > 0;
+  // Mirror the backend's strong-password policy (>=12 chars + upper + lower +
+  // digit + special) client-side so the user gets an actionable hint instead of
+  // a generic "registration failed" after a round trip that the server rejects.
+  const passwordStrong =
+    password.length >= 12 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^A-Za-z0-9]/.test(password);
+  const showPasswordHint = password.length > 0 && !passwordStrong;
+
+  const canSubmit = name.trim().length > 0 && email.trim().length > 0 && passwordStrong && companyName.trim().length > 0;
 
   const submit = () => {
     register.mutate(
@@ -126,6 +137,12 @@ export default function RegisterScreen() {
                 secureTextEntry
                 style={fieldStyle}
               />
+
+              {showPasswordHint ? (
+                <Text style={{ color: t.textMuted, fontSize: 12 }}>
+                  {tr('auth.passwordHint')}
+                </Text>
+              ) : null}
 
               {register.isError ? (
                 <Text style={{ color: '#EF4444', fontSize: 13 }}>

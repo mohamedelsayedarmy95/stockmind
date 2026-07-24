@@ -12,7 +12,12 @@ const BASE_URL =
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15_000,
+  // 30s (not 15s): the managed backend runs on a free tier that spins the
+  // instance down after inactivity, so the first request after an idle period
+  // pays a cold-start penalty (~20-50s). A keep-warm ping (see the keep-warm
+  // GitHub Action) makes this rare, but the longer timeout is the safety net
+  // so a user who hits a cold instance still succeeds instead of timing out.
+  timeout: 30_000,
   // In production, swap the transport to the SSL-pinned adapter so every
   // request is verified against the bundled certificate at the native layer.
   // In development, the default XMLHttpRequest adapter is used (no cert needed).

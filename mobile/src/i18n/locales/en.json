@@ -22,6 +22,7 @@
     "name": "Full name",
     "companyName": "Company name",
     "register": "Create account",
+    "passwordHint": "At least 12 characters with an uppercase letter, a lowercase letter, a number, and a symbol.",
     "alreadyHaveAccount": "Already have an account?",
     "registerError": "Registration failed. Please try again.",
     "noAccount": "New here?",
