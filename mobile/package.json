@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
-    "@op-engineering/op-sqlite": "^17.1.2",
+    "@op-engineering/op-sqlite": "^11.4.9",
     "@react-native-google-signin/google-signin": "^13.3.1",
     "@shopify/react-native-skia": "1.2.3",
     "@tanstack/react-query": "^5.51.0",
