@@ -11,12 +11,14 @@ import { useTheme } from '@/theme/useTheme';
 import { BRAND_GRADIENT } from '@/theme/colors';
 import { useLogin } from '@/query/useAuth';
 import { useGoogleSignIn } from '@/query/useGoogleAuth';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
 
 export default function LoginScreen() {
   const t = useTheme();
   const { t: tr } = useTranslation();
+  const router = useRouter();
   const login = useLogin();
   const googleSignIn = useGoogleSignIn();
   const setGuest = useAuthStore((s) => s.setGuest);
@@ -111,7 +113,7 @@ export default function LoginScreen() {
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
               <View style={{ flex: 1, height: 1, backgroundColor: t.cardBorder }} />
-              <Text style={{ color: t.textMuted, fontSize: 13 }}>or</Text>
+              <Text style={{ color: t.textMuted, fontSize: 13 }}>{tr('common.or') ?? 'or'}</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: t.cardBorder }} />
             </View>
 
@@ -142,24 +144,35 @@ export default function LoginScreen() {
                 <Ionicons name="logo-google" size={20} color="#4285F4" />
               )}
               <Text style={{ color: t.textPrimary, fontSize: 15, fontWeight: '600' }}>
-                Continue with Google
+                {tr('auth.continueWithGoogle') ?? 'Continue with Google'}
               </Text>
             </TouchableOpacity>
 
             {googleSignIn.isError ? (
               <Text style={{ color: '#EF4444', fontSize: 13 }}>
-                Google sign-in failed. Please try again.
+                {tr('auth.googleError') ?? 'Google sign-in failed. Please try again.'}
               </Text>
             ) : null}
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(300).springify().damping(16)}>
+          <Animated.View entering={FadeInDown.delay(300).springify().damping(16)} style={{ gap: 4 }}>
             <TouchableOpacity
-              onPress={() => { void haptics.success(); setGuest(); }}
-              style={{ paddingVertical: 20, alignItems: 'center' }}
+              onPress={() => router.push('/(auth)/register')}
+              style={{ paddingVertical: 12, alignItems: 'center' }}
             >
               <Text style={{ color: t.textMuted, fontSize: 14 }}>
-                Continue as Guest
+                {tr('auth.noAccount')}{' '}
+                <Text style={{ color: '#2E7DFF', fontWeight: '600' }}>
+                  {tr('auth.register')}
+                </Text>
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { void haptics.success(); setGuest(); }}
+              style={{ paddingVertical: 12, alignItems: 'center' }}
+            >
+              <Text style={{ color: t.textMuted, fontSize: 14 }}>
+                {tr('auth.continueAsGuest') ?? 'Continue as Guest'}
               </Text>
             </TouchableOpacity>
           </Animated.View>

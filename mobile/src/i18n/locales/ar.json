@@ -7,7 +7,8 @@
     "loading": "جارٍ التحميل…",
     "retry": "إعادة المحاولة",
     "error": "حدث خطأ ما",
-    "currentBalance": "الرصيد الحالي"
+    "currentBalance": "الرصيد الحالي",
+    "or": "أو"
   },
   "auth": {
     "welcome": "مرحباً بعودتك",
@@ -15,7 +16,18 @@
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
     "signIn": "تسجيل الدخول",
-    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+    "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+    "registerTitle": "إنشاء حساب",
+    "registerSubtitle": "أنشئ مساحة عملك",
+    "name": "الاسم الكامل",
+    "companyName": "اسم الشركة",
+    "register": "إنشاء الحساب",
+    "alreadyHaveAccount": "لديك حساب بالفعل؟",
+    "registerError": "فشل التسجيل. حاول مرة أخرى.",
+    "noAccount": "جديد هنا؟",
+    "continueWithGoogle": "المتابعة بـ Google",
+    "continueAsGuest": "المتابعة كضيف",
+    "googleError": "فشل تسجيل الدخول بـ Google. حاول مرة أخرى."
   },
   "dashboard": {
     "greeting": "مرحباً",

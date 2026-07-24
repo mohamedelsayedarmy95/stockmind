@@ -37,6 +37,8 @@ desktop.ini
 # src/migrations/*.generated.ts
 # Android Studio project (accidentally created in root)
 app/
+# Un-ignore Expo router screens inside mobile/app/
+!mobile/app/
 build.gradle.kts
 gradle/
 gradle.properties

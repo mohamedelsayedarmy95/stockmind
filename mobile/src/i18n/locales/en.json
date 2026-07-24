@@ -7,7 +7,8 @@
     "loading": "Loading…",
     "retry": "Retry",
     "error": "Something went wrong",
-    "currentBalance": "Current balance"
+    "currentBalance": "Current balance",
+    "or": "or"
   },
   "auth": {
     "welcome": "Welcome back",
@@ -15,7 +16,18 @@
     "email": "Email",
     "password": "Password",
     "signIn": "Sign In",
-    "invalidCredentials": "Invalid email or password"
+    "invalidCredentials": "Invalid email or password",
+    "registerTitle": "Create account",
+    "registerSubtitle": "Set up your workspace",
+    "name": "Full name",
+    "companyName": "Company name",
+    "register": "Create account",
+    "alreadyHaveAccount": "Already have an account?",
+    "registerError": "Registration failed. Please try again.",
+    "noAccount": "New here?",
+    "continueWithGoogle": "Continue with Google",
+    "continueAsGuest": "Continue as Guest",
+    "googleError": "Google sign-in failed. Please try again."
   },
   "dashboard": {
     "greeting": "Hello",

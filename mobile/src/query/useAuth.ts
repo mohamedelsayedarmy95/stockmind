@@ -1,7 +1,31 @@
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { LoginResponse } from '@/api/types';
+import { LoginResponse, RegisterResponse } from '@/api/types';
 import { useAuthStore } from '@/store/auth.store';
+
+export interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
+  companyName: string;
+}
+
+export function useRegister() {
+  const setSession = useAuthStore((s) => s.setSession);
+  return useMutation({
+    mutationFn: async (dto: RegisterInput): Promise<RegisterResponse> => {
+      const { data } = await api.post<RegisterResponse>('/auth/register', dto);
+      return data;
+    },
+    onSuccess: (data) => {
+      setSession({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: data.user,
+      });
+    },
+  });
+}
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
