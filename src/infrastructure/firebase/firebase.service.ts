@@ -1,11 +1,25 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
+import { OAuth2Client } from 'google-auth-library';
+
+/**
+ * Public OAuth Web client id (safe to ship — it is not a secret). Overridable
+ * via GOOGLE_WEB_CLIENT_ID. MUST match the `webClientId` the mobile Google
+ * Sign-In SDK is configured with, because that value is the audience of the
+ * Google ID token the app sends.
+ */
+const DEFAULT_GOOGLE_WEB_CLIENT_ID =
+  '763924631139-nc9o8g9g2pjj9gbt3bin2o56itm8nf05.apps.googleusercontent.com';
 
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private readonly logger = new Logger(FirebaseService.name);
   private app: admin.app.App | null = null;
+  // Verifies Google ID tokens against Google's public keys. Independent of the
+  // Firebase Admin app (which stays for push messaging) and needs no service
+  // account for verification.
+  private readonly googleClient = new OAuth2Client();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -57,22 +71,29 @@ export class FirebaseService implements OnModuleInit {
   }
 
   /**
-   * Verifies a Google ID token issued by Firebase Authentication (via the Android
-   * Google Sign-In SDK). Returns the decoded token payload on success.
-   * Throws if Firebase is not initialised or the token is invalid/expired.
+   * Verifies a **Google** ID token produced by the Android Google Sign-In SDK
+   * (@react-native-google-signin). That SDK returns a Google-issued ID token
+   * (issuer accounts.google.com, audience = the Web client id), NOT a Firebase
+   * ID token — so it must be validated with google-auth-library, not
+   * admin.auth().verifyIdToken() (which only accepts Firebase tokens and would
+   * always reject this token). The audience check pins the token to our client.
    */
   async verifyGoogleIdToken(
     idToken: string,
   ): Promise<{ uid: string; email: string; name: string; picture?: string }> {
-    if (!this.app) {
-      throw new Error('Firebase not initialised — set FIREBASE_PROJECT_ID / FIREBASE_PRIVATE_KEY / FIREBASE_CLIENT_EMAIL');
+    const audience =
+      this.config.get<string>('GOOGLE_WEB_CLIENT_ID') ?? DEFAULT_GOOGLE_WEB_CLIENT_ID;
+
+    const ticket = await this.googleClient.verifyIdToken({ idToken, audience });
+    const payload = ticket.getPayload();
+    if (!payload?.email) {
+      throw new Error('Google ID token has no email claim');
     }
-    const decoded = await admin.auth(this.app).verifyIdToken(idToken, true);
     return {
-      uid: decoded.uid,
-      email: decoded.email ?? '',
-      name: decoded.name ?? decoded.email ?? '',
-      picture: decoded.picture,
+      uid: payload.sub,
+      email: payload.email,
+      name: payload.name ?? payload.email,
+      picture: payload.picture,
     };
   }
 
