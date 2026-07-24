@@ -5,6 +5,10 @@ services:
     dockerfilePath: ./Dockerfile.prod
     plan: free
     healthCheckPath: /api/v1/health
+    # Apply DB migrations against Neon before the new release serves traffic.
+    # Runs the compiled runner (no ts-node/CLI in the prod image). Idempotent
+    # and complementary to the app's migrationsRun: true.
+    preDeployCommand: node dist/scripts/migrate.js
     envVars:
       - key: NODE_ENV
         value: production

@@ -12,6 +12,7 @@
     "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d src/config/data-source.ts",
     "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/config/data-source.ts",
     "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/config/data-source.ts",
+    "migrate:prod": "node dist/scripts/migrate.js",
     "seed": "ts-node -r tsconfig-paths/register src/seed/seed.ts",
     "deploy:staging": "docker build -f Dockerfile.prod -t stockmind-api:staging . && docker compose -f docker-compose.prod.yml up -d",
     "test": "jest",
