@@ -85,6 +85,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
         // `new TenantSubscriber()` (no DataSource arg), which crashes on
         // `dataSource.subscribers.push(this)`.
         synchronize: false,
+        migrationsRun: true,
         logging: cfg.get('NODE_ENV') === 'development' ? ['error'] : false,
         // Hosted Postgres (e.g. Neon) requires TLS; self-signed chain so we don't
         // verify against a CA. Off by default for local docker-compose Postgres.

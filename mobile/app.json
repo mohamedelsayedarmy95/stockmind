@@ -67,7 +67,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiBaseUrl": "https://YOUR-BACKEND-URL/api/v1",
+      "apiBaseUrl": "https://stockmind-api-vmht.onrender.com/api/v1",
       "router": {
         "origin": false
       },
