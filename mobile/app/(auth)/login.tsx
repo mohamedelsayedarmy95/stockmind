@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,13 @@ export default function LoginScreen() {
   const setGuest = useAuthStore((s) => s.setGuest);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Reset stale mutation error state each time this screen mounts
+  useEffect(() => {
+    login.reset();
+    googleSignIn.reset();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submit = () => {
     login.mutate(
