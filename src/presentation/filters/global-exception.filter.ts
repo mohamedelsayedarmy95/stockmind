@@ -48,7 +48,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let message: string | string[] = this.tr('common.error.internal', lang);
 
     if (!(exception instanceof HttpException)) {
-      this.logger.error('Unhandled exception', exception instanceof Error ? exception.stack : String(exception));
+      const errMsg = exception instanceof Error ? exception.stack : String(exception);
+      this.logger.error('Unhandled exception', errMsg);
+      // TODO: remove before launch — exposes internals in non-prod only
+      if (process.env.NODE_ENV !== 'production') {
+        response.status(500).json({ statusCode: 500, debug: errMsg });
+        return;
+      }
+      response.status(500).json({ statusCode: 500, message, debug: errMsg });
+      return;
     }
 
     if (exception instanceof HttpException) {
