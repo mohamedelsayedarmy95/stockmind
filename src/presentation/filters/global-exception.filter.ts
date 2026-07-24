@@ -47,15 +47,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = this.tr('common.error.internal', lang);
 
+    // TEMP DEBUG: always dump constructor name + message so we can identify 500s
+    const exType = (exception as object)?.constructor?.name ?? typeof exception;
+    const exMsg = exception instanceof Error ? exception.message : String(exception);
+    this.logger.error(`[filter] caught ${exType}: ${exMsg}`);
+
     if (!(exception instanceof HttpException)) {
       const errMsg = exception instanceof Error ? exception.stack : String(exception);
       this.logger.error('Unhandled exception', errMsg);
-      // TODO: remove before launch — exposes internals in non-prod only
-      if (process.env.NODE_ENV !== 'production') {
-        response.status(500).json({ statusCode: 500, debug: errMsg });
-        return;
-      }
-      response.status(500).json({ statusCode: 500, message, debug: errMsg });
+      // TEMP DEBUG: expose type+message in all envs so we can identify the root cause
+      response.status(500).json({ statusCode: 500, message, debug: `[${exType}] ${errMsg}` });
       return;
     }
 
@@ -78,6 +79,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.status(statusCode).json({
       statusCode,
       message,
+      // TEMP DEBUG: include exception type for 500s
+      ...(statusCode === 500 && { debug: `[HttpException/${exType}] status=${statusCode} msg=${exMsg}` }),
       timestamp: new Date().toISOString(),
     });
   }
