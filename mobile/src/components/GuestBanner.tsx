@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/auth.store';
 
 export function GuestBanner() {
@@ -9,6 +10,7 @@ export function GuestBanner() {
   const clear = useAuthStore((s) => s.clear);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   if (!isGuest) return null;
 
@@ -25,7 +27,7 @@ export function GuestBanner() {
       }}
     >
       <Text style={{ color: '#93C5FD', fontSize: 13, flex: 1 }}>
-        You're browsing as a guest — data won't be saved.
+        {t('guest.banner')}
       </Text>
       <TouchableOpacity
         onPress={() => { clear(); router.replace('/(auth)/login'); }}
@@ -34,11 +36,11 @@ export function GuestBanner() {
           borderRadius: 10,
           paddingHorizontal: 12,
           paddingVertical: 6,
-          marginLeft: 10,
+          marginStart: 10,
         }}
       >
         <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>
-          Sign In
+          {t('guest.signIn')}
         </Text>
       </TouchableOpacity>
     </View>

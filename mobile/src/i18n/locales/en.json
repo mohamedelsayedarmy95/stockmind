@@ -70,6 +70,10 @@
     "unlockBody": "Verify your identity to access your workspace.",
     "unlock": "Unlock"
   },
+  "guest": {
+    "banner": "You're browsing as a guest — data won't be saved.",
+    "signIn": "Sign In"
+  },
   "assistant": {
     "title": "Ask-Me",
     "placeholder": "Ask about your inventory…",
