@@ -11,6 +11,7 @@ import { useTheme } from '@/theme/useTheme';
 import { BRAND_GRADIENT } from '@/theme/colors';
 import { useLogin } from '@/query/useAuth';
 import { useGoogleSignIn } from '@/query/useGoogleAuth';
+import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
 
 export default function LoginScreen() {
@@ -18,6 +19,7 @@ export default function LoginScreen() {
   const { t: tr } = useTranslation();
   const login = useLogin();
   const googleSignIn = useGoogleSignIn();
+  const setGuest = useAuthStore((s) => s.setGuest);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -149,6 +151,17 @@ export default function LoginScreen() {
                 Google sign-in failed. Please try again.
               </Text>
             ) : null}
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(300).springify().damping(16)}>
+            <TouchableOpacity
+              onPress={() => { void haptics.success(); setGuest(); }}
+              style={{ paddingVertical: 20, alignItems: 'center' }}
+            >
+              <Text style={{ color: t.textMuted, fontSize: 14 }}>
+                Continue as Guest
+              </Text>
+            </TouchableOpacity>
           </Animated.View>
         </View>
       </SafeAreaView>

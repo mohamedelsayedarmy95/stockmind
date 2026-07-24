@@ -21,6 +21,9 @@ void i18n.use(initReactI18next).init({
   lng: resolveInitialLanguage(),
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
+  // Hermes (React Native JS engine) may lack full Intl.PluralRules support.
+  // v3 compat uses a built-in pluralizer that avoids the runtime warning.
+  compatibilityJSON: 'v3',
 });
 
 /** Switch language instantly (no app restart) and sync the store. */

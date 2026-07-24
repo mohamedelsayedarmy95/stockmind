@@ -21,4 +21,5 @@ export const useSessionLock = create<SessionLockState>((set) => ({
 /** Non-hook accessor for the interceptor (runs outside React). */
 export const sessionLock = {
   lock: () => useSessionLock.getState().lock(),
+  unlock: () => useSessionLock.getState().unlock(),
 };

@@ -1,17 +1,20 @@
 import React from 'react';
+import { View, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/theme/useTheme';
 import { BRAND_GRADIENT } from '@/theme/colors';
+import { GuestBanner } from '@/components/GuestBanner';
 
 export default function TabsLayout() {
   const t = useTheme();
   const { t: tr } = useTranslation();
 
   return (
+    <View style={{ flex: 1 }}>
+      <GuestBanner />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -72,5 +75,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }

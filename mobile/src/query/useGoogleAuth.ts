@@ -16,32 +16,32 @@ export function useGoogleSignIn() {
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
-    mutationFn: async (): Promise<LoginResponse> => {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const signInResult = await GoogleSignin.signIn();
-      const idToken = signInResult.data?.idToken;
-
-      if (!idToken) throw new Error('No ID token from Google');
-
-      const { data } = await api.post<LoginResponse>('/auth/google', { idToken });
-      return data;
+    mutationFn: async (): Promise<LoginResponse | null> => {
+      try {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        const signInResult = await GoogleSignin.signIn();
+        const idToken = signInResult.data?.idToken;
+        if (!idToken) return null;
+        const { data } = await api.post<LoginResponse>('/auth/google', { idToken });
+        return data;
+      } catch (err) {
+        const code = (err as { code?: string })?.code;
+        if (
+          code === statusCodes.SIGN_IN_CANCELLED ||
+          code === statusCodes.IN_PROGRESS
+        ) {
+          return null; // cancellation → not an error, won't set isError
+        }
+        throw err;
+      }
     },
     onSuccess: (data) => {
+      if (!data) return; // user cancelled
       setSession({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
         user: data.user,
       });
-    },
-    onError: (err: unknown) => {
-      const code = (err as { code?: string })?.code;
-      if (
-        code === statusCodes.SIGN_IN_CANCELLED ||
-        code === statusCodes.IN_PROGRESS
-      ) {
-        return; // user cancelled — silent
-      }
-      throw err;
     },
   });
 }

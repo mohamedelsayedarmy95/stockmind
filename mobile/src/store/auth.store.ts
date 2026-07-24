@@ -21,6 +21,7 @@ interface AuthState {
   company: AuthCompany | null;
   defaultWarehouseId: string | null;
   isHydrated: boolean;
+  isGuest: boolean;
   setSession: (payload: {
     accessToken: string;
     refreshToken: string;
@@ -29,6 +30,7 @@ interface AuthState {
     defaultWarehouseId?: string | null;
   }) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
+  setGuest: () => void;
   clear: () => void;
 }
 
@@ -41,6 +43,7 @@ export const useAuthStore = create<AuthState>()(
       company: null,
       defaultWarehouseId: null,
       isHydrated: false,
+      isGuest: false,
       setSession: ({ accessToken, refreshToken, user, company, defaultWarehouseId }) =>
         set({
           accessToken,
@@ -48,8 +51,18 @@ export const useAuthStore = create<AuthState>()(
           user,
           company: company ?? null,
           defaultWarehouseId: defaultWarehouseId ?? null,
+          isGuest: false,
         }),
       setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
+      setGuest: () =>
+        set({
+          accessToken: null,
+          refreshToken: null,
+          user: null,
+          company: null,
+          defaultWarehouseId: null,
+          isGuest: true,
+        }),
       clear: () =>
         set({
           accessToken: null,
@@ -57,6 +70,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           company: null,
           defaultWarehouseId: null,
+          isGuest: false,
         }),
     }),
     {

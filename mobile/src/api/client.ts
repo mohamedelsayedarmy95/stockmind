@@ -54,6 +54,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && original && !original._retry) {
       original._retry = true;
 
+      // Guests have no token — a 401 is expected. Don't lock the session or
+      // attempt a refresh; just let the query fail so the UI can show an
+      // appropriate empty/sign-in state.
+      if (!authAccessor.getAccessToken() && !authAccessor.getRefreshToken()) {
+        return Promise.reject(error);
+      }
+
       // Cover the UI with the "session expired" gate: the user must re-assert
       // presence (biometric/password) before they can keep using the app, even
       // though the token refresh itself proceeds transparently below.

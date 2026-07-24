@@ -20,18 +20,20 @@ function AuthGate() {
   const router = useRouter();
   const segments = useSegments();
   const accessToken = useAuthStore((s) => s.accessToken);
+  const isGuest = useAuthStore((s) => s.isGuest);
   const isHydrated = useAuthStore((s) => s.isHydrated);
 
   useEffect(() => {
     if (!isHydrated) return;
     const inAuthGroup = segments[0] === '(auth)';
+    const isAuthed = Boolean(accessToken) || isGuest;
 
-    if (!accessToken && !inAuthGroup) {
+    if (!isAuthed && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (accessToken && inAuthGroup) {
+    } else if (isAuthed && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [accessToken, isHydrated, segments, router]);
+  }, [accessToken, isGuest, isHydrated, segments, router]);
 
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
