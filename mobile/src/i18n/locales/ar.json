@@ -60,7 +60,13 @@
   "analytics": {
     "title": "التحليلات",
     "stockTrend": "اتجاه المخزون",
-    "warehouseHeatmap": "كثافة المستودعات"
+    "warehouseHeatmap": "كثافة المستودعات",
+    "totalProducts": "المنتجات",
+    "warehouses": "المستودعات",
+    "trendsTitle": "اتجاهات المخزون",
+    "trendsPending": "تظهر مخططات الاتجاه وكثافة المستودعات هنا بمجرد تسجيل حركات المخزون.",
+    "emptyTitle": "لا توجد تحليلات بعد",
+    "emptyHint": "أضف منتجات وسجّل حركات المخزون لعرض تحليلات مخزونك هنا."
   },
   "settings": {
     "title": "الإعدادات",

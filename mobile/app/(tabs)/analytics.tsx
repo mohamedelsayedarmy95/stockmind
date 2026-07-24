@@ -1,33 +1,32 @@
 import React from 'react';
-import { View, Text, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenBackground } from '@/components/ScreenBackground';
 import { GlassCard } from '@/components/GlassCard';
-import { SkiaLineChart } from '@/components/SkiaLineChart';
+import { KpiCard } from '@/components/KpiCard';
 import { useTheme } from '@/theme/useTheme';
-import { STATUS } from '@/theme/colors';
+import { BRAND_GRADIENT } from '@/theme/colors';
+import { useProducts } from '@/query/useProducts';
+import { useWarehouses } from '@/query/useWarehouses';
 
-// Demo series until analytics endpoints land on the backend.
-const TREND = [12, 18, 15, 22, 30, 26, 34, 40, 38, 46];
-const HEATMAP = [
-  { name: 'Main', density: 0.9 },
-  { name: 'Cold', density: 0.55 },
-  { name: 'North', density: 0.3 },
-  { name: 'South', density: 0.15 },
-];
-
-function densityColor(d: number): string {
-  if (d > 0.7) return STATUS.error;
-  if (d > 0.4) return STATUS.warning;
-  return '#38BDF8';
-}
-
+/**
+ * Analytics are derived strictly from the account's real data. Rich historical
+ * trend / per-warehouse density charts require a backend aggregation endpoint
+ * (GET /analytics/overview) that does not exist yet — until it lands we show
+ * honest real counts and an empty state, never fabricated demo series.
+ */
 export default function AnalyticsScreen() {
   const t = useTheme();
   const { t: tr } = useTranslation();
-  const { width } = useWindowDimensions();
-  const chartWidth = width - 40 - 40; // screen padding + card padding
+  const { data: products, isLoading: productsLoading } = useProducts();
+  const { data: warehouses, isLoading: warehousesLoading } = useWarehouses();
+
+  const loading = productsLoading || warehousesLoading;
+  const productCount = products?.length ?? 0;
+  const warehouseCount = warehouses?.length ?? 0;
+  const hasData = productCount > 0;
 
   return (
     <ScreenBackground>
@@ -40,45 +39,75 @@ export default function AnalyticsScreen() {
             {tr('analytics.title')}
           </Text>
 
-          <GlassCard>
-            <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 16 }}>
-              {tr('analytics.stockTrend')}
-            </Text>
-            <SkiaLineChart data={TREND} width={chartWidth} height={180} />
-          </GlassCard>
+          {loading ? (
+            <Text style={{ color: t.textMuted }}>{tr('common.loading')}</Text>
+          ) : hasData ? (
+            <>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <KpiCard
+                  label={tr('analytics.totalProducts')}
+                  value={String(productCount)}
+                  accent={[BRAND_GRADIENT[0], BRAND_GRADIENT[0]]}
+                  index={0}
+                />
+                <KpiCard
+                  label={tr('analytics.warehouses')}
+                  value={String(warehouseCount)}
+                  accent={[BRAND_GRADIENT[1], BRAND_GRADIENT[1]]}
+                  index={1}
+                />
+              </View>
 
-          <GlassCard>
-            <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 16 }}>
-              {tr('analytics.warehouseHeatmap')}
-            </Text>
-            <View style={{ gap: 12 }}>
-              {HEATMAP.map((w) => (
-                <View key={w.name} style={{ gap: 6 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: t.textPrimary }}>{w.name}</Text>
-                    <Text style={{ color: t.textMuted }}>{Math.round(w.density * 100)}%</Text>
-                  </View>
-                  <View
-                    style={{
-                      height: 10,
-                      borderRadius: 5,
-                      backgroundColor: t.card,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: `${w.density * 100}%`,
-                        height: '100%',
-                        borderRadius: 5,
-                        backgroundColor: densityColor(w.density),
-                      }}
-                    />
-                  </View>
+              <GlassCard>
+                <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 8 }}>
+                  {tr('analytics.trendsTitle')}
+                </Text>
+                <Text style={{ color: t.textMuted, fontSize: 13, lineHeight: 20 }}>
+                  {tr('analytics.trendsPending')}
+                </Text>
+              </GlassCard>
+            </>
+          ) : (
+            <GlassCard>
+              <View style={{ alignItems: 'center', paddingVertical: 28, gap: 12 }}>
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: t.card,
+                    borderWidth: 1,
+                    borderColor: t.cardBorder,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="bar-chart-outline" size={30} color={t.textMuted} />
                 </View>
-              ))}
-            </View>
-          </GlassCard>
+                <Text
+                  style={{
+                    color: t.textPrimary,
+                    fontSize: 17,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                  }}
+                >
+                  {tr('analytics.emptyTitle')}
+                </Text>
+                <Text
+                  style={{
+                    color: t.textMuted,
+                    fontSize: 14,
+                    textAlign: 'center',
+                    lineHeight: 21,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  {tr('analytics.emptyHint')}
+                </Text>
+              </View>
+            </GlassCard>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>

@@ -60,7 +60,13 @@
   "analytics": {
     "title": "Analytics",
     "stockTrend": "Stock Trend",
-    "warehouseHeatmap": "Warehouse Density"
+    "warehouseHeatmap": "Warehouse Density",
+    "totalProducts": "Products",
+    "warehouses": "Warehouses",
+    "trendsTitle": "Stock trends",
+    "trendsPending": "Trend and warehouse-density charts appear here once you record stock movements.",
+    "emptyTitle": "No analytics yet",
+    "emptyHint": "Add products and record stock movements to see your inventory analytics here."
   },
   "settings": {
     "title": "Settings",
