@@ -35,3 +35,11 @@ desktop.ini
 # TypeORM generated migrations (auto-generated, not hand-crafted)
 # Remove this line if you want to track all migrations
 # src/migrations/*.generated.ts
+# Android Studio project (accidentally created in root)
+app/
+build.gradle.kts
+gradle/
+gradle.properties
+gradlew
+gradlew.bat
+settings.gradle.kts
