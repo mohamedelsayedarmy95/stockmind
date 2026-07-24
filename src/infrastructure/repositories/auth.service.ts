@@ -4,6 +4,8 @@ import {
   UnauthorizedException,
   BadRequestException,
   UnprocessableEntityException,
+  InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -29,6 +31,8 @@ export interface RequestContext {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Company) private readonly companyRepo: Repository<Company>,
@@ -90,8 +94,12 @@ export class AuthService {
         defaultWarehouse: { id: warehouse.id, name: warehouse.name },
       };
     } catch (err) {
-      await qr.rollbackTransaction();
-      throw err;
+      await qr.rollbackTransaction().catch(() => undefined);
+      // TEMP DEBUG: expose the exact error so we can diagnose the 500
+      const errType = err instanceof Error ? err.constructor.name : typeof err;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`[register] caught ${errType}: ${errMsg}`, err instanceof Error ? err.stack : undefined);
+      throw new InternalServerErrorException(`[DEBUG:${errType}] ${errMsg}`);
     } finally {
       await qr.release();
     }
