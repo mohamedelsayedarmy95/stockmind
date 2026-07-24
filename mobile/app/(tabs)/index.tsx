@@ -45,6 +45,22 @@ export default function DashboardScreen() {
             </View>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <Pressable
+                onPress={() => router.push('/product/new')}
+                accessibilityLabel={tr('product.addTitle')}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: t.card,
+                  borderWidth: 1,
+                  borderColor: t.cardBorder,
+                }}
+              >
+                <Ionicons name="add" size={24} color={t.textPrimary} />
+              </Pressable>
+              <Pressable
                 style={{
                   width: 44,
                   height: 44,

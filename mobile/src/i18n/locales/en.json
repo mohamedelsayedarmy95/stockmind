@@ -30,6 +30,20 @@
     "continueAsGuest": "Continue as Guest",
     "googleError": "Google sign-in failed. Please try again."
   },
+  "onboarding": {
+    "modeTitle": "How do you want to work?",
+    "modeSubtitle": "You can change this later in settings.",
+    "offlineTitle": "Offline (on this device)",
+    "offlineDesc": "Everything is stored securely on your phone. Works with no internet — perfect for individuals.",
+    "onlineTitle": "Cloud sync",
+    "onlineDesc": "Sync your data across multiple devices. Arriving in a future update.",
+    "recommended": "RECOMMENDED",
+    "comingSoon": "COMING SOON",
+    "startTitle": "Set up your workspace",
+    "startSubtitle": "Everything stays on this device, encrypted.",
+    "yourName": "Your name",
+    "startOffline": "Start"
+  },
   "dashboard": {
     "greeting": "Hello",
     "kpiTotalStock": "Total Stock",
@@ -39,6 +53,18 @@
     "scan": "Scan",
     "receive": "Receive",
     "dispatch": "Dispatch"
+  },
+  "product": {
+    "addTitle": "Add product",
+    "name": "Product name",
+    "sku": "SKU / code",
+    "barcode": "Barcode (optional)",
+    "save": "Save product"
+  },
+  "warehouse": {
+    "addTitle": "Add warehouse",
+    "name": "Warehouse name",
+    "save": "Save warehouse"
   },
   "scan": {
     "title": "Scan Central",

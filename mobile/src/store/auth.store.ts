@@ -22,6 +22,8 @@ interface AuthState {
   defaultWarehouseId: string | null;
   isHydrated: boolean;
   isGuest: boolean;
+  /** Signed in against the local encrypted DB (offline mode). Data IS saved. */
+  isLocal: boolean;
   setSession: (payload: {
     accessToken: string;
     refreshToken: string;
@@ -31,6 +33,8 @@ interface AuthState {
   }) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   setGuest: () => void;
+  /** Enters the app backed by the local DB, no network/token. */
+  setLocalSession: (user: AuthUser, company?: AuthCompany | null) => void;
   clear: () => void;
 }
 
@@ -44,6 +48,7 @@ export const useAuthStore = create<AuthState>()(
       defaultWarehouseId: null,
       isHydrated: false,
       isGuest: false,
+      isLocal: false,
       setSession: ({ accessToken, refreshToken, user, company, defaultWarehouseId }) =>
         set({
           accessToken,
@@ -52,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
           company: company ?? null,
           defaultWarehouseId: defaultWarehouseId ?? null,
           isGuest: false,
+          isLocal: false,
         }),
       setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
       setGuest: () =>
@@ -62,6 +68,17 @@ export const useAuthStore = create<AuthState>()(
           company: null,
           defaultWarehouseId: null,
           isGuest: true,
+          isLocal: false,
+        }),
+      setLocalSession: (user, company) =>
+        set({
+          accessToken: null,
+          refreshToken: null,
+          user,
+          company: company ?? null,
+          defaultWarehouseId: null,
+          isGuest: false,
+          isLocal: true,
         }),
       clear: () =>
         set({
@@ -71,6 +88,7 @@ export const useAuthStore = create<AuthState>()(
           company: null,
           defaultWarehouseId: null,
           isGuest: false,
+          isLocal: false,
         }),
     }),
     {

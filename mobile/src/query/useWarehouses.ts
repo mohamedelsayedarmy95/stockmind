@@ -1,39 +1,46 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getRepositories, activeSource } from '@/data/repository-provider';
+import { Warehouse } from '@/data/repositories';
 import { useAuthStore } from '@/store/auth.store';
-
-interface Warehouse {
-  id: string;
-  name: string;
-  isActive?: boolean;
-}
 
 export function useWarehouses() {
   return useQuery({
-    queryKey: ['warehouses'],
-    queryFn: async (): Promise<Warehouse[]> => {
-      const { data } = await api.get<Warehouse[]>('/warehouses');
-      return data;
+    queryKey: ['warehouses', activeSource()],
+    queryFn: (): Promise<Warehouse[]> => getRepositories().warehouses.list(),
+  });
+}
+
+export function useCreateWarehouse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string }) => getRepositories().warehouses.create(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['warehouses'] });
     },
   });
 }
 
 /**
- * Ensures `defaultWarehouseId` is populated after a plain login (whose response,
- * unlike register, carries no warehouse). Picks the first active warehouse.
+ * Ensures `defaultWarehouseId` is populated. Offline accounts start with no
+ * warehouse, so this also creates a "Main Warehouse" on first run.
  */
 export function useEnsureDefaultWarehouse() {
   const defaultWarehouseId = useAuthStore((s) => s.defaultWarehouseId);
-  const { data } = useWarehouses();
 
   useEffect(() => {
-    if (defaultWarehouseId || !data?.length) return;
-    const first = data.find((w: Warehouse) => w.isActive !== false) ?? data[0];
-    if (first) {
-      useAuthStore.setState({ defaultWarehouseId: first.id });
-    }
-  }, [defaultWarehouseId, data]);
+    if (defaultWarehouseId) return;
+    let cancelled = false;
+    (async () => {
+      const w = await getRepositories().warehouses.ensureDefault();
+      if (!cancelled && w) {
+        useAuthStore.setState({ defaultWarehouseId: w.id });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultWarehouseId]);
 
   return defaultWarehouseId;
 }

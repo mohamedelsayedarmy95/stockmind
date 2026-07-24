@@ -30,6 +30,20 @@
     "continueAsGuest": "المتابعة كضيف",
     "googleError": "فشل تسجيل الدخول بـ Google. حاول مرة أخرى."
   },
+  "onboarding": {
+    "modeTitle": "كيف تريد العمل؟",
+    "modeSubtitle": "يمكنك تغيير هذا لاحقاً من الإعدادات.",
+    "offlineTitle": "بدون اتصال (على هذا الجهاز)",
+    "offlineDesc": "تُحفظ كل بياناتك بأمان على هاتفك. يعمل دون إنترنت — مثالي للأفراد.",
+    "onlineTitle": "المزامنة السحابية",
+    "onlineDesc": "زامن بياناتك بين عدة أجهزة. ستتوفر في تحديث قادم.",
+    "recommended": "موصى به",
+    "comingSoon": "قريباً",
+    "startTitle": "جهّز مساحة عملك",
+    "startSubtitle": "يبقى كل شيء على هذا الجهاز، مشفّراً.",
+    "yourName": "اسمك",
+    "startOffline": "ابدأ"
+  },
   "dashboard": {
     "greeting": "مرحباً",
     "kpiTotalStock": "إجمالي المخزون",
@@ -39,6 +53,18 @@
     "scan": "مسح",
     "receive": "استلام",
     "dispatch": "صرف"
+  },
+  "product": {
+    "addTitle": "إضافة صنف",
+    "name": "اسم الصنف",
+    "sku": "الرمز / SKU",
+    "barcode": "الباركود (اختياري)",
+    "save": "حفظ الصنف"
+  },
+  "warehouse": {
+    "addTitle": "إضافة مستودع",
+    "name": "اسم المستودع",
+    "save": "حفظ المستودع"
   },
   "scan": {
     "title": "مركز المسح",

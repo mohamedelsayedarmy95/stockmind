@@ -9,36 +9,62 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { queryClient } from '@/query/queryClient';
 import { useAuthStore } from '@/store/auth.store';
+import { useSettingsStore } from '@/store/settings.store';
 import { useIsDark } from '@/theme/useTheme';
 import { bootstrapApp } from '@/lib/bootstrap';
 import { biometricsAvailable, requireBiometricUnlock } from '@/lib/biometric-guard';
 import { BiometricLockScreen } from '@/components/BiometricLockScreen';
 import { SessionExpiredOverlay } from '@/components/SessionExpiredOverlay';
 
-/** Redirects between the auth flow and the app based on session state. */
+/** Redirects between onboarding, the auth flow and the app based on state. */
 function AuthGate() {
   const router = useRouter();
   const segments = useSegments();
   const accessToken = useAuthStore((s) => s.accessToken);
   const isGuest = useAuthStore((s) => s.isGuest);
+  const isLocal = useAuthStore((s) => s.isLocal);
   const isHydrated = useAuthStore((s) => s.isHydrated);
+  const languageChosen = useSettingsStore((s) => s.languageChosen);
+  const operationMode = useSettingsStore((s) => s.operationMode);
 
   useEffect(() => {
     if (!isHydrated) return;
+    const inOnboarding = segments[0] === '(onboarding)';
     const inAuthGroup = segments[0] === '(auth)';
-    const isAuthed = Boolean(accessToken) || isGuest;
+    const isAuthed = Boolean(accessToken) || isGuest || isLocal;
 
-    if (!isAuthed && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (isAuthed && inAuthGroup) {
+    // First-launch onboarding takes priority: language, then operation mode.
+    if (!languageChosen) {
+      router.replace('/(onboarding)/language');
+      return;
+    }
+    if (!operationMode) {
+      router.replace('/(onboarding)/mode');
+      return;
+    }
+
+    if (!isAuthed) {
+      // Offline accounts enter locally; Online reuses the existing auth screens.
+      if (operationMode === 'offline') {
+        router.replace('/(onboarding)/offline-start');
+      } else {
+        router.replace('/(auth)/login');
+      }
+      return;
+    }
+
+    if (isAuthed && (inAuthGroup || inOnboarding)) {
       router.replace('/(tabs)');
     }
-  }, [accessToken, isGuest, isHydrated, segments, router]);
+  }, [accessToken, isGuest, isLocal, isHydrated, languageChosen, operationMode, segments, router]);
 
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)/login" />
+      <Stack.Screen name="(onboarding)/language" />
+      <Stack.Screen name="(onboarding)/mode" />
+      <Stack.Screen name="(onboarding)/offline-start" />
       <Stack.Screen
         name="movement/[productId]"
         options={{ presentation: 'card', animation: 'slide_from_right' }}

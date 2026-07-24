@@ -1,14 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Product } from '@/api/types';
+import { getRepositories, activeSource } from '@/data/repository-provider';
+import { NewProduct } from '@/data/repositories';
 import { queryKeys } from './queryClient';
 
 export function useProducts() {
   return useQuery({
-    queryKey: queryKeys.products,
-    queryFn: async (): Promise<Product[]> => {
-      const { data } = await api.get<Product[]>('/products');
-      return data;
+    queryKey: [...queryKeys.products, activeSource()],
+    queryFn: (): Promise<Product[]> => getRepositories().products.list(),
+  });
+}
+
+export function useCreateProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewProduct) => getRepositories().products.create(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.products });
     },
   });
 }
