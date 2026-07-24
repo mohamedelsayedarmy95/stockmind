@@ -48,7 +48,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let message: string | string[] = this.tr('common.error.internal', lang);
 
     // TEMP DEBUG: always dump constructor name + message so we can identify 500s
-    const exType = (exception as object)?.constructor?.name ?? typeof exception;
+    const exType = exception instanceof Error ? exception.constructor.name : typeof exception;
     const exMsg = exception instanceof Error ? exception.message : String(exception);
     this.logger.error(`[filter] caught ${exType}: ${exMsg}`);
 
