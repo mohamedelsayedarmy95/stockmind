@@ -27,6 +27,7 @@ function AuthGate() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const languageChosen = useSettingsStore((s) => s.languageChosen);
   const operationMode = useSettingsStore((s) => s.operationMode);
+  const helpSeen = useSettingsStore((s) => s.helpSeen);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -56,8 +57,21 @@ function AuthGate() {
 
     if (isAuthed && (inAuthGroup || inOnboarding)) {
       router.replace('/(tabs)');
+      // First time into the app proper: run the guided tour once. Pushed (not
+      // replaced) so dismissing it lands back on the dashboard.
+      if (!helpSeen) router.push('/help');
     }
-  }, [accessToken, isGuest, isLocal, isHydrated, languageChosen, operationMode, segments, router]);
+  }, [
+    accessToken,
+    isGuest,
+    isLocal,
+    isHydrated,
+    languageChosen,
+    operationMode,
+    helpSeen,
+    segments,
+    router,
+  ]);
 
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
@@ -88,6 +102,14 @@ function AuthGate() {
       />
       <Stack.Screen
         name="crash-reports"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="store/[storeId]"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="help"
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
     </Stack>

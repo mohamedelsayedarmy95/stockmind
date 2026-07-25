@@ -60,6 +60,7 @@
     "sku": "SKU / code",
     "barcode": "Barcode (optional)",
     "costPrice": "Cost price (optional)",
+    "unitWeight": "Unit weight in kg (optional)",
     "save": "Save product",
     "deleteTitle": "Delete product",
     "deleteConfirm": "This removes the product from your catalog. This can't be undone.",
@@ -92,6 +93,116 @@
   "note": {
     "title": "Notes",
     "placeholder": "Add a note…"
+  },
+  "storageUnit": {
+    "title": "Storage units",
+    "hint": "Build the physical tree: a pallet holds cartons, a carton holds units.",
+    "pickLabel": "Storage unit (optional)",
+    "addTitle": "Add unit",
+    "namePlaceholder": "Unit name (e.g. Pallet A1)",
+    "parentLabel": "Inside",
+    "root": "Top level",
+    "empty": "No units yet. Add a pallet or shelf to start mapping this section.",
+    "removeTitle": "Remove unit",
+    "removeConfirm": "This removes the unit and everything inside it.",
+    "type": {
+      "pallet": "Pallet",
+      "rack": "Rack",
+      "shelf": "Shelf",
+      "bin": "Bin",
+      "carton": "Carton",
+      "unit": "Unit"
+    }
+  },
+  "batch": {
+    "title": "Lot / batch",
+    "hint": "Receiving under a lot code lets FEFO dispatch the oldest stock first.",
+    "codePlaceholder": "Lot code (optional)",
+    "expiryPlaceholder": "Expiry date — YYYY-MM-DD (optional)",
+    "available": "Lots in stock",
+    "none": "No lots recorded for this product yet.",
+    "expires": "Expires",
+    "noExpiry": "No expiry"
+  },
+  "strategy": {
+    "title": "Dispatch strategy",
+    "fefo": "FEFO",
+    "fifo": "FIFO",
+    "lifo": "LIFO",
+    "desc": {
+      "fefo": "First expired, first out — protects perishable stock.",
+      "fifo": "Oldest received stock leaves first.",
+      "lifo": "Newest received stock leaves first."
+    },
+    "pickedFrom": "Taken from"
+  },
+  "weight": {
+    "title": "Count by weight",
+    "unitIs": "One unit weighs {{weight}} kg.",
+    "placeholder": "Total weight (kg)",
+    "apply": "Use",
+    "computed": "That is {{count}} units.",
+    "drift": "{{exact}} units — doesn't divide evenly. Booking {{rounded}}; check the unit weight."
+  },
+  "serial": {
+    "title": "Serial numbers",
+    "hint": "One per line, or comma separated. Optional.",
+    "placeholder": "SN-0001\nSN-0002",
+    "listTitle": "Tracked serials",
+    "empty": "No serials recorded for this product.",
+    "status": {
+      "in_stock": "In stock",
+      "issued": "Issued"
+    }
+  },
+  "reservation": {
+    "title": "Reservations",
+    "hint": "Held stock stays on hand but can't be dispatched.",
+    "quantityPlaceholder": "Quantity to hold",
+    "referencePlaceholder": "Reference (e.g. order no.)",
+    "create": "Hold stock",
+    "release": "Release",
+    "fulfill": "Fulfil",
+    "empty": "Nothing reserved.",
+    "onHand": "On hand",
+    "reserved": "Reserved",
+    "available": "Available",
+    "status": {
+      "active": "Active",
+      "released": "Released",
+      "fulfilled": "Fulfilled"
+    }
+  },
+  "lifecycle": {
+    "title": "Lifecycle status",
+    "active": "Active",
+    "quarantined": "Quarantined",
+    "expired": "Expired",
+    "reserved": "Reserved",
+    "quality_check": "Quality check",
+    "disposed": "Disposed",
+    "blocked": "Blocked",
+    "lost": "Lost",
+    "damaged": "Damaged",
+    "returned": "Returned"
+  },
+  "help": {
+    "title": "How StockMind works",
+    "subtitle": "A quick tour. You can reopen this any time from Settings.",
+    "done": "Got it",
+    "skip": "Skip",
+    "next": "Next",
+    "openFromSettings": "Help & guide",
+    "steps": {
+      "warehousesTitle": "Warehouses hold sections",
+      "warehousesBody": "Create a warehouse, then divide it into sections. Inside a section you can build a tree of pallets, shelves and bins that mirrors the real floor.",
+      "productsTitle": "Products and stock",
+      "productsBody": "Add a product once, then receive and dispatch against it. Record a cost price to see stock value, or a unit weight to count a pile by weighing it.",
+      "batchesTitle": "Lots keep stock honest",
+      "batchesBody": "Receive under a lot code with an expiry date. On dispatch, FEFO automatically sends the soonest-to-expire stock out first.",
+      "offlineTitle": "Works with no signal",
+      "offlineBody": "Everything is stored encrypted on this device, so the app keeps working in airplane mode. Reminders still ring on time."
+    }
   },
   "crashLog": {
     "title": "Crash Reports",
@@ -138,7 +249,10 @@
     "confirmInbound": "Confirm Receipt",
     "confirmOutbound": "Confirm Dispatch",
     "success": "Operation completed",
-    "insufficient": "Insufficient stock"
+    "insufficient": "Insufficient stock",
+    "reserved": "Reserved",
+    "issuable": "Available to dispatch",
+    "reservedBlocked": "That much is reserved. Release a hold first."
   },
   "analytics": {
     "title": "Analytics",

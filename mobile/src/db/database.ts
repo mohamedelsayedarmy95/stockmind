@@ -45,6 +45,11 @@ async function healColumns(database: DB): Promise<void> {
     { table: 'stock_movements', column: 'store_id', ddlType: 'TEXT' },
     { table: 'stores', column: 'pos_x', ddlType: 'REAL' },
     { table: 'stores', column: 'pos_y', ddlType: 'REAL' },
+    { table: 'products', column: 'unit_weight_kg', ddlType: 'REAL' },
+    { table: 'products', column: 'lifecycle_status', ddlType: 'TEXT' },
+    { table: 'stock_movements', column: 'batch_id', ddlType: 'TEXT' },
+    { table: 'stock_movements', column: 'storage_unit_id', ddlType: 'TEXT' },
+    { table: 'stock_movements', column: 'pick_strategy', ddlType: 'TEXT' },
   ];
 
   for (const { table, column, ddlType } of additions) {

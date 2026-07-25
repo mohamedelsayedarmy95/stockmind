@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -19,16 +19,21 @@ import { haptics } from '@/lib/haptics';
 const MAP_GAP = 16;
 const MAP_HEIGHT = 420;
 
-function StoreRow({ item }: { item: Store }) {
+function StoreRow({ item, onPress }: { item: Store; onPress: () => void }) {
   const t = useTheme();
   return (
-    <GlassCard style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-      <GradientIconCircle icon="layers" size={38} />
-      <Text style={{ color: t.textPrimary, fontWeight: '700', flex: 1 }} numberOfLines={1}>
-        {item.name}
-      </Text>
-      <Text style={{ color: t.textMuted, fontWeight: '600', fontSize: 13 }}>{item.totalQuantity}</Text>
-    </GlassCard>
+    <Pressable onPress={onPress}>
+      <GlassCard style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <GradientIconCircle icon="layers" size={38} />
+        <Text style={{ color: t.textPrimary, fontWeight: '700', flex: 1 }} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={{ color: t.textMuted, fontWeight: '600', fontSize: 13 }}>
+          {item.totalQuantity}
+        </Text>
+        <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
+      </GlassCard>
+    </Pressable>
   );
 }
 
@@ -198,9 +203,12 @@ export default function WarehouseDetailScreen() {
                   x={store.posX ?? fallback.x}
                   y={store.posY ?? fallback.y}
                   bounds={{ width: canvasWidth, height: MAP_HEIGHT }}
-                  onPress={() => {
-                    Alert.alert(store.name, tr('warehouse.mapTileDetail', { count: store.totalQuantity }));
-                  }}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/store/[storeId]',
+                      params: { storeId: store.id, warehouseId: warehouseId ?? '' },
+                    })
+                  }
                   onMoved={(x, y) => {
                     void haptics.select();
                     updatePosition.mutate({ storeId: store.id, x, y });
@@ -213,7 +221,17 @@ export default function WarehouseDetailScreen() {
           <FlatList
             data={stores}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <StoreRow item={item} />}
+            renderItem={({ item }) => (
+              <StoreRow
+                item={item}
+                onPress={() =>
+                  router.push({
+                    pathname: '/store/[storeId]',
+                    params: { storeId: item.id, warehouseId: warehouseId ?? '' },
+                  })
+                }
+              />
+            )}
             contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 10 }}
           />
         )}

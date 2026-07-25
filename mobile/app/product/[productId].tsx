@@ -21,6 +21,17 @@ import { Warehouse, Store, StoreBalance } from '@/data/repositories';
 import { useNotes, useCreateNote } from '@/query/useNotes';
 import { useReminders, useCreateReminder, useCompleteReminder } from '@/query/useReminders';
 import { Note, Reminder } from '@/data/local/notes-reminders';
+import { useAvailability } from '@/query/useStock';
+import { useBatches } from '@/query/useBatches';
+import { useSerials } from '@/query/useSerials';
+import {
+  useReservations,
+  useCreateReservation,
+  useReleaseReservation,
+  useFulfillReservation,
+} from '@/query/useReservations';
+import { Batch, Serial, Reservation as StockReservation } from '@/data/repositories';
+import { STATUS } from '@/theme/colors';
 
 const REMINDER_PRESETS = [
   { key: '1h', hours: 1 },
@@ -64,6 +75,7 @@ export default function ProductDetailScreen() {
   const [sku, setSku] = useState('');
   const [barcode, setBarcode] = useState('');
   const [costPrice, setCostPrice] = useState('');
+  const [unitWeight, setUnitWeight] = useState('');
   const [targetWarehouseId, setTargetWarehouseId] = useState<string | undefined>();
   const [transferQty, setTransferQty] = useState(1);
   const [fromStoreId, setFromStoreId] = useState<string | undefined>();
@@ -74,6 +86,16 @@ export default function ProductDetailScreen() {
   const { data: notes } = useNotes(productId);
   const createNote = useCreateNote();
   const [noteBody, setNoteBody] = useState('');
+
+  const { data: availability } = useAvailability(productId, defaultWarehouseId ?? undefined);
+  const { data: batches } = useBatches(productId, defaultWarehouseId ?? undefined);
+  const { data: serials } = useSerials(productId);
+  const { data: reservations } = useReservations(productId, defaultWarehouseId ?? undefined);
+  const createReservation = useCreateReservation(productId, defaultWarehouseId ?? undefined);
+  const releaseReservation = useReleaseReservation(productId, defaultWarehouseId ?? undefined);
+  const fulfillReservation = useFulfillReservation(productId, defaultWarehouseId ?? undefined);
+  const [reserveQty, setReserveQty] = useState('');
+  const [reserveRef, setReserveRef] = useState('');
 
   const { data: reminders } = useReminders(productId);
   const createReminder = useCreateReminder();
@@ -87,6 +109,7 @@ export default function ProductDetailScreen() {
     setSku(product.sku);
     setBarcode(product.barcode ?? '');
     setCostPrice(product.costPrice != null ? String(product.costPrice) : '');
+    setUnitWeight(product.unitWeightKg != null ? String(product.unitWeightKg) : '');
   }, [product]);
 
   useEffect(() => {
@@ -117,10 +140,16 @@ export default function ProductDetailScreen() {
     fontSize: 16,
   } as const;
 
+  /** Blank stays blank; anything unparseable is treated as "not recorded". */
+  const parseOptionalNumber = (raw: string): number | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   const saveChanges = () => {
     if (!product) return;
-    const trimmedCostPrice = costPrice.trim();
-    const parsedCostPrice = trimmedCostPrice ? Number(trimmedCostPrice) : null;
     updateProduct.mutate(
       {
         id: product.id,
@@ -128,7 +157,8 @@ export default function ProductDetailScreen() {
           name: name.trim(),
           sku: sku.trim(),
           barcode: barcode.trim() || null,
-          costPrice: parsedCostPrice != null && Number.isFinite(parsedCostPrice) ? parsedCostPrice : null,
+          costPrice: parseOptionalNumber(costPrice),
+          unitWeightKg: parseOptionalNumber(unitWeight),
         },
       },
       {
@@ -175,6 +205,22 @@ export default function ProductDetailScreen() {
           setTransferQty(1);
           setFromStoreId(undefined);
           setToStoreId(undefined);
+        },
+        onError: () => void haptics.error(),
+      },
+    );
+  };
+
+  const submitReservation = () => {
+    const parsed = Number(reserveQty.trim());
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    createReservation.mutate(
+      { quantity: parsed, reference: reserveRef.trim() || null },
+      {
+        onSuccess: () => {
+          void haptics.success();
+          setReserveQty('');
+          setReserveRef('');
         },
         onError: () => void haptics.error(),
       },
@@ -240,6 +286,7 @@ export default function ProductDetailScreen() {
             <TextInput value={sku} onChangeText={setSku} placeholder={tr('product.sku')} placeholderTextColor={t.textMuted} autoCapitalize="characters" style={field} />
             <TextInput value={barcode} onChangeText={setBarcode} placeholder={tr('product.barcode')} placeholderTextColor={t.textMuted} keyboardType="numbers-and-punctuation" style={field} />
             <TextInput value={costPrice} onChangeText={setCostPrice} placeholder={tr('product.costPrice')} placeholderTextColor={t.textMuted} keyboardType="decimal-pad" style={field} />
+            <TextInput value={unitWeight} onChangeText={setUnitWeight} placeholder={tr('product.unitWeight')} placeholderTextColor={t.textMuted} keyboardType="decimal-pad" style={field} />
 
             <PremiumButton
               label={tr('common.save')}
@@ -397,6 +444,173 @@ export default function ProductDetailScreen() {
               </View>
             )}
           </GlassCard>
+
+          <GlassCard>
+            <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 4 }}>
+              {tr('reservation.title')}
+            </Text>
+            <Text style={{ color: t.textMuted, fontSize: 12, marginBottom: 14 }}>
+              {tr('reservation.hint')}
+            </Text>
+
+            {availability ? (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 }}>
+                {(
+                  [
+                    ['reservation.onHand', availability.onHand, t.textPrimary],
+                    ['reservation.reserved', availability.reserved, STATUS.warning],
+                    ['reservation.available', availability.available, STATUS.success],
+                  ] as const
+                ).map(([labelKey, value, color]) => (
+                  <View key={labelKey} style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ color: t.textMuted, fontSize: 11 }}>{tr(labelKey)}</Text>
+                    <Text style={{ color, fontSize: 17, fontWeight: '800', marginTop: 2 }}>
+                      {Math.floor(value)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TextInput
+                value={reserveQty}
+                onChangeText={setReserveQty}
+                placeholder={tr('reservation.quantityPlaceholder')}
+                placeholderTextColor={t.textMuted}
+                keyboardType="number-pad"
+                style={[field, { flex: 1 }]}
+              />
+              <TextInput
+                value={reserveRef}
+                onChangeText={setReserveRef}
+                placeholder={tr('reservation.referencePlaceholder')}
+                placeholderTextColor={t.textMuted}
+                style={[field, { flex: 1 }]}
+              />
+            </View>
+            <PremiumButton
+              label={tr('reservation.create')}
+              variant="ghost"
+              onPress={submitReservation}
+              loading={createReservation.isPending}
+              disabled={reserveQty.trim().length === 0}
+              style={{ marginTop: 10 }}
+            />
+
+            {reservations && reservations.length > 0 ? (
+              <View style={{ gap: 10, marginTop: 16 }}>
+                {reservations.map((r: StockReservation) => (
+                  <View
+                    key={r.id}
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: t.cardBorder,
+                      paddingTop: 10,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      opacity: r.status === 'active' ? 1 : 0.5,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: t.textPrimary, fontWeight: '700' }}>
+                        {Math.floor(r.quantity)} · {tr(`reservation.status.${r.status}`)}
+                      </Text>
+                      <Text style={{ color: t.textMuted, fontSize: 11 }}>
+                        {r.reference ?? new Date(r.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    {r.status === 'active' ? (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <Pressable
+                          onPress={() => {
+                            void haptics.select();
+                            releaseReservation.mutate(r.id);
+                          }}
+                          hitSlop={6}
+                        >
+                          <Text style={{ color: STATUS.warning, fontWeight: '700', fontSize: 12 }}>
+                            {tr('reservation.release')}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => {
+                            void haptics.success();
+                            fulfillReservation.mutate(r.id);
+                          }}
+                          hitSlop={6}
+                        >
+                          <Text style={{ color: STATUS.success, fontWeight: '700', fontSize: 12 }}>
+                            {tr('reservation.fulfill')}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </GlassCard>
+
+          {batches && batches.length > 0 ? (
+            <GlassCard>
+              <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 12 }}>
+                {tr('batch.available')}
+              </Text>
+              <View style={{ gap: 10 }}>
+                {batches.map((b: Batch) => (
+                  <View
+                    key={b.id}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                  >
+                    <Ionicons
+                      name={b.expiryDate ? 'time-outline' : 'infinite-outline'}
+                      size={16}
+                      color={t.textMuted}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: t.textPrimary, fontWeight: '600' }}>{b.batchCode}</Text>
+                      <Text style={{ color: t.textMuted, fontSize: 11 }}>
+                        {b.expiryDate
+                          ? `${tr('batch.expires')} ${new Date(b.expiryDate).toLocaleDateString()}`
+                          : tr('batch.noExpiry')}
+                      </Text>
+                    </View>
+                    <Text style={{ color: t.textSecondary, fontWeight: '700' }}>{b.quantity}</Text>
+                  </View>
+                ))}
+              </View>
+            </GlassCard>
+          ) : null}
+
+          {serials && serials.length > 0 ? (
+            <GlassCard>
+              <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 12 }}>
+                {tr('serial.listTitle')}
+              </Text>
+              <View style={{ gap: 8 }}>
+                {serials.slice(0, 20).map((s: Serial) => (
+                  <View
+                    key={s.id}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                  >
+                    <Ionicons
+                      name={s.status === 'in_stock' ? 'checkmark-circle' : 'arrow-up-circle'}
+                      size={16}
+                      color={s.status === 'in_stock' ? STATUS.success : t.textMuted}
+                    />
+                    <Text style={{ color: t.textPrimary, fontWeight: '600', flex: 1 }}>
+                      {s.serialNumber}
+                    </Text>
+                    <Text style={{ color: t.textMuted, fontSize: 11 }}>
+                      {tr(`serial.status.${s.status}`, { defaultValue: s.status })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </GlassCard>
+          ) : null}
 
           <GlassCard>
             <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 12 }}>

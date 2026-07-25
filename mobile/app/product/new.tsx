@@ -22,18 +22,26 @@ export default function NewProductScreen() {
   const [sku, setSku] = useState('');
   const [barcode, setBarcode] = useState('');
   const [costPrice, setCostPrice] = useState('');
+  const [unitWeight, setUnitWeight] = useState('');
 
   const canSubmit = name.trim().length > 0 && sku.trim().length > 0;
 
+  /** Blank stays blank; anything unparseable is treated as "not recorded". */
+  const parseOptionalNumber = (raw: string): number | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   const submit = () => {
-    const trimmedCostPrice = costPrice.trim();
-    const parsedCostPrice = trimmedCostPrice ? Number(trimmedCostPrice) : null;
     createProduct.mutate(
       {
         name: name.trim(),
         sku: sku.trim(),
         barcode: barcode.trim() || null,
-        costPrice: parsedCostPrice != null && Number.isFinite(parsedCostPrice) ? parsedCostPrice : null,
+        costPrice: parseOptionalNumber(costPrice),
+        unitWeightKg: parseOptionalNumber(unitWeight),
       },
       {
         onSuccess: () => {
@@ -74,6 +82,7 @@ export default function NewProductScreen() {
             <TextInput value={sku} onChangeText={setSku} placeholder={tr('product.sku')} placeholderTextColor={t.textMuted} autoCapitalize="characters" style={field} />
             <TextInput value={barcode} onChangeText={setBarcode} placeholder={tr('product.barcode')} placeholderTextColor={t.textMuted} keyboardType="numbers-and-punctuation" style={field} />
             <TextInput value={costPrice} onChangeText={setCostPrice} placeholder={tr('product.costPrice')} placeholderTextColor={t.textMuted} keyboardType="decimal-pad" style={field} />
+            <TextInput value={unitWeight} onChangeText={setUnitWeight} placeholder={tr('product.unitWeight')} placeholderTextColor={t.textMuted} keyboardType="decimal-pad" style={field} />
 
             <PremiumButton
               label={tr('product.save')}

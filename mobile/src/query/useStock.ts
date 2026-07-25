@@ -1,8 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BalanceResponse } from '@/api/types';
 import { getRepositories, activeSource } from '@/data/repository-provider';
-import { MovementInput, TransferInput, StoreBalance } from '@/data/repositories';
+import {
+  MovementInput,
+  TransferInput,
+  StoreBalance,
+  AvailabilitySnapshot,
+} from '@/data/repositories';
 import { queryKeys } from './queryClient';
+
+/** On-hand vs reserved vs issuable — what a dispatch may actually consume. */
+export function useAvailability(productId?: string, warehouseId?: string) {
+  return useQuery({
+    queryKey: [...queryKeys.availability(productId ?? '', warehouseId ?? ''), activeSource()],
+    enabled: Boolean(productId && warehouseId),
+    queryFn: (): Promise<AvailabilitySnapshot> =>
+      getRepositories().stock.availability(productId as string, warehouseId as string),
+  });
+}
 
 export function useStoreBreakdown(productId?: string, warehouseId?: string) {
   return useQuery({
@@ -32,6 +47,9 @@ export function useStockMovement() {
       qc.invalidateQueries({ queryKey: queryKeys.balance(vars.productId, vars.warehouseId) });
       qc.invalidateQueries({ queryKey: queryKeys.movements(vars.productId) });
       qc.invalidateQueries({ queryKey: queryKeys.storeBreakdown(vars.productId, vars.warehouseId) });
+      qc.invalidateQueries({ queryKey: queryKeys.availability(vars.productId, vars.warehouseId) });
+      qc.invalidateQueries({ queryKey: queryKeys.batches(vars.productId, vars.warehouseId) });
+      qc.invalidateQueries({ queryKey: queryKeys.serials(vars.productId) });
       qc.invalidateQueries({ queryKey: queryKeys.dashboardStats });
       qc.invalidateQueries({ queryKey: queryKeys.activity });
     },

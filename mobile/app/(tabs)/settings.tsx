@@ -204,6 +204,19 @@ export default function SettingsScreen() {
 
           <GlassCard>
             <Pressable
+              onPress={() => router.push('/help')}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+            >
+              <Ionicons name="help-buoy-outline" size={18} color={t.textSecondary} />
+              <Text style={{ color: t.textSecondary, fontWeight: '600', flex: 1 }}>
+                {tr('help.openFromSettings')}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
+            </Pressable>
+          </GlassCard>
+
+          <GlassCard>
+            <Pressable
               onPress={() => router.push('/crash-reports')}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
             >

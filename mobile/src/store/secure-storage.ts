@@ -50,10 +50,13 @@ export function getStorage(): MMKV {
 }
 
 /**
- * Nuke every locally persisted byte. Used by the biometric auto-wipe tripwire
- * and on session termination.
+ * Clears the encrypted key-value store (tokens, session, settings) ONLY.
+ *
+ * This is not a full wipe: business data lives in the SQLCipher database.
+ * Callers wanting "destroy everything" must use wipeAllUserData() in
+ * lib/data-wipe.ts, which covers both stores.
  */
-export function wipeAllLocalData(): void {
+export function wipeSecureStorage(): void {
   instance?.clearAll();
 }
 

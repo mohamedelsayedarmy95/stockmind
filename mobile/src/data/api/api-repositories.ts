@@ -11,9 +11,21 @@ import {
   NewProduct,
   UpdateProduct,
   MovementInput,
+  MovementResult,
   TransferInput,
   DashboardStats,
   StoreBalance,
+  StorageUnitRepository,
+  BatchRepository,
+  SerialRepository,
+  ReservationRepository,
+  StorageUnit,
+  NewStorageUnit,
+  Batch,
+  Serial,
+  SerialMovementEntry,
+  Reservation,
+  AvailabilitySnapshot,
   Repositories,
 } from '../repositories';
 
@@ -85,11 +97,21 @@ class ApiStockRepository implements StockRepository {
     const { data } = await api.get<BalanceResponse>(`/stock/balance/${productId}/${warehouseId}`);
     return data;
   }
-  async move(input: MovementInput): Promise<StockMovement> {
-    // Backend's inbound/outbound DTOs don't accept storeId (whitelist-only
-    // validation would 400 the whole request) — section detail is
-    // offline-only until a matching endpoint exists.
-    const { kind, storeId: _storeId, ...body } = input;
+  async move(input: MovementInput): Promise<MovementResult> {
+    // The backend's inbound/outbound DTOs are whitelist-validated, so any
+    // field it doesn't know (section, unit, lot, strategy, serials) would
+    // 400 the whole request. These stay offline-only until matching
+    // endpoints exist.
+    const {
+      kind,
+      storeId: _storeId,
+      storageUnitId: _storageUnitId,
+      batchCode: _batchCode,
+      expiryDate: _expiryDate,
+      pickStrategy: _pickStrategy,
+      serialNumbers: _serialNumbers,
+      ...body
+    } = input;
     const { data } = await api.post<StockMovement>(`/stock/${kind}`, body);
     return data;
   }
@@ -114,6 +136,56 @@ class ApiStockRepository implements StockRepository {
   async storeBreakdown(): Promise<StoreBalance[]> {
     return [];
   }
+
+  // Reservations are an offline-only concept for now, so availability
+  // reduces to plain on-hand from the server's balance endpoint.
+  async availability(productId: string, warehouseId: string): Promise<AvailabilitySnapshot> {
+    const balance = await this.balance(productId, warehouseId);
+    const onHand = Number(balance.baseQuantity) || 0;
+    return { onHand, reserved: 0, available: onHand };
+  }
+}
+
+/**
+ * The WMS-depth features below (storage-unit trees, lots, serials,
+ * reservations) have no backend counterpart yet — they are local-only until
+ * the cloud-sync phase adds matching endpoints. Reporting empty beats
+ * inventing rows the server never returned.
+ */
+class ApiStorageUnitRepository implements StorageUnitRepository {
+  async listByStore(): Promise<StorageUnit[]> {
+    return [];
+  }
+  async create(_input: NewStorageUnit): Promise<StorageUnit> {
+    throw new Error('NOT_SUPPORTED_ONLINE');
+  }
+  async remove(): Promise<void> {}
+}
+
+class ApiBatchRepository implements BatchRepository {
+  async listByProduct(): Promise<Batch[]> {
+    return [];
+  }
+}
+
+class ApiSerialRepository implements SerialRepository {
+  async listByProduct(): Promise<Serial[]> {
+    return [];
+  }
+  async history(): Promise<SerialMovementEntry[]> {
+    return [];
+  }
+}
+
+class ApiReservationRepository implements ReservationRepository {
+  async listByProduct(): Promise<Reservation[]> {
+    return [];
+  }
+  async create(): Promise<Reservation> {
+    throw new Error('NOT_SUPPORTED_ONLINE');
+  }
+  async release(): Promise<void> {}
+  async fulfill(): Promise<void> {}
 }
 
 class ApiActivityRepository implements ActivityRepository {
@@ -129,4 +201,8 @@ export const apiRepositories: Repositories = {
   stores: new ApiStoreRepository(),
   stock: new ApiStockRepository(),
   activity: new ApiActivityRepository(),
+  storageUnits: new ApiStorageUnitRepository(),
+  batches: new ApiBatchRepository(),
+  serials: new ApiSerialRepository(),
+  reservations: new ApiReservationRepository(),
 };

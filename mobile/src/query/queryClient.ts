@@ -23,4 +23,13 @@ export const queryKeys = {
   stores: (warehouseId: string) => ['stores', warehouseId] as const,
   storeBreakdown: (productId: string, warehouseId: string) =>
     ['store-breakdown', productId, warehouseId] as const,
+  storageUnits: (storeId: string) => ['storage-units', storeId] as const,
+  batches: (productId: string, warehouseId: string) =>
+    ['batches', productId, warehouseId] as const,
+  serials: (productId: string) => ['serials', productId] as const,
+  serialHistory: (serialId: string) => ['serial-history', serialId] as const,
+  reservations: (productId: string, warehouseId: string) =>
+    ['reservations', productId, warehouseId] as const,
+  availability: (productId: string, warehouseId: string) =>
+    ['availability', productId, warehouseId] as const,
 };

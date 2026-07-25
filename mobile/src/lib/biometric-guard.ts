@@ -1,5 +1,6 @@
 import * as LocalAuthentication from 'expo-local-authentication';
-import { getStorage, wipeAllLocalData } from '@/store/secure-storage';
+import { getStorage } from '@/store/secure-storage';
+import { wipeAllUserData } from '@/lib/data-wipe';
 import { useAuthStore } from '@/store/auth.store';
 
 /**
@@ -56,8 +57,10 @@ export async function requireBiometricUnlock(): Promise<UnlockResult> {
   setFailCount(fails);
 
   if (fails >= MAX_FAILS) {
-    // Tripwire: destroy everything and drop the session.
-    wipeAllLocalData();
+    // Tripwire: destroy BOTH encrypted stores (key-value + SQLite) and drop
+    // the session. The counter itself dies with the wipe, so a fresh start
+    // begins from zero.
+    await wipeAllUserData();
     useAuthStore.getState().clear();
     return 'wiped';
   }

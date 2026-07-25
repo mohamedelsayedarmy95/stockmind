@@ -13,9 +13,25 @@ import {
   NewProduct,
   UpdateProduct,
   MovementInput,
+  MovementResult,
   TransferInput,
   DashboardStats,
   StoreBalance,
+  StorageUnitRepository,
+  BatchRepository,
+  SerialRepository,
+  ReservationRepository,
+  StorageUnit,
+  StorageUnitType,
+  NewStorageUnit,
+  Batch,
+  Serial,
+  SerialMovementEntry,
+  Reservation,
+  ReservationStatus,
+  AvailabilitySnapshot,
+  PickStrategy,
+  PickLine,
   Repositories,
 } from '../repositories';
 
@@ -28,6 +44,8 @@ interface ProductRow {
   category_id: string | null;
   image_url: string | null;
   cost_price: number | null;
+  unit_weight_kg: number | null;
+  lifecycle_status: string | null;
 }
 interface WarehouseRow {
   id: string;
@@ -71,6 +89,8 @@ function toProduct(r: ProductRow): Product {
     categoryId: r.category_id,
     imageUrl: r.image_url,
     costPrice: r.cost_price,
+    unitWeightKg: r.unit_weight_kg,
+    lifecycleStatus: r.lifecycle_status,
   };
 }
 
@@ -118,6 +138,212 @@ async function applyStoreDelta(
   return after;
 }
 
+/**
+ * Finds the lot with this code for the product, creating it on first receipt.
+ * `expiryDate` is only applied at creation — an existing lot keeps its own.
+ */
+async function resolveBatch(
+  tx: Transaction,
+  productId: string,
+  batchCode: string,
+  expiryDate: number | null,
+  ts: number,
+): Promise<string> {
+  const rows = (
+    await tx.execute(
+      `SELECT id FROM batches WHERE product_id = ? AND batch_code = ? AND deleted_at IS NULL LIMIT 1`,
+      [productId, batchCode],
+    )
+  ).rows as unknown as Array<{ id: string }>;
+  if (rows[0]) return rows[0].id;
+
+  const id = newId();
+  await tx.execute(
+    `INSERT INTO batches (id, product_id, batch_code, expiry_date, received_at, created_at, updated_at, sync_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+    [id, productId, batchCode, expiryDate, ts, ts, ts],
+  );
+  return id;
+}
+
+/** Applies a signed delta to one lot's quantity at one location. */
+async function applyBatchDelta(
+  tx: Transaction,
+  batchId: string,
+  productId: string,
+  warehouseId: string,
+  storeId: string,
+  storageUnitId: string,
+  delta: number,
+  ts: number,
+): Promise<void> {
+  const rows = (
+    await tx.execute(
+      `SELECT id, quantity FROM stock_batch_balances
+       WHERE batch_id = ? AND warehouse_id = ? AND store_id = ? AND storage_unit_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [batchId, warehouseId, storeId, storageUnitId],
+    )
+  ).rows as unknown as Array<{ id: string; quantity: number }>;
+
+  const after = (rows[0]?.quantity ?? 0) + delta;
+  if (after < 0) throw new Error('INSUFFICIENT_STOCK');
+
+  if (rows[0]) {
+    await tx.execute(
+      `UPDATE stock_batch_balances SET quantity = ?, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
+      [after, ts, rows[0].id],
+    );
+  } else {
+    await tx.execute(
+      `INSERT INTO stock_batch_balances (id, batch_id, product_id, warehouse_id, store_id, storage_unit_id, quantity, created_at, updated_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [newId(), batchId, productId, warehouseId, storeId, storageUnitId, after, ts, ts],
+    );
+  }
+}
+
+/**
+ * Chooses which lots satisfy a dispatch, honouring the strategy:
+ *   FEFO — soonest expiry first, undated lots last (they can't expire on us)
+ *   FIFO — oldest receipt first
+ *   LIFO — newest receipt first
+ * Returns [] when the product has no lot-tracked stock at all, in which case
+ * the caller falls back to a plain unbatched movement.
+ */
+async function pickBatches(
+  tx: Transaction,
+  productId: string,
+  warehouseId: string,
+  needed: number,
+  strategy: PickStrategy,
+): Promise<Array<{ batchId: string; batchCode: string; storeId: string; storageUnitId: string; take: number }>> {
+  const order =
+    strategy === 'fifo'
+      ? 'b.received_at ASC'
+      : strategy === 'lifo'
+        ? 'b.received_at DESC'
+        : '(b.expiry_date IS NULL) ASC, b.expiry_date ASC, b.received_at ASC';
+
+  const rows = (
+    await tx.execute(
+      `SELECT sb.id, sb.batch_id, sb.quantity, sb.store_id, sb.storage_unit_id, b.batch_code
+       FROM stock_batch_balances sb
+       JOIN batches b ON b.id = sb.batch_id
+       WHERE sb.product_id = ? AND sb.warehouse_id = ? AND sb.quantity > 0
+         AND sb.deleted_at IS NULL AND b.deleted_at IS NULL
+       ORDER BY ${order}`,
+      [productId, warehouseId],
+    )
+  ).rows as unknown as Array<{
+    batch_id: string;
+    quantity: number;
+    store_id: string;
+    storage_unit_id: string;
+    batch_code: string;
+  }>;
+
+  if (rows.length === 0) return [];
+
+  const picks: Array<{ batchId: string; batchCode: string; storeId: string; storageUnitId: string; take: number }> = [];
+  let remaining = needed;
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const take = Math.min(remaining, row.quantity);
+    picks.push({
+      batchId: row.batch_id,
+      batchCode: row.batch_code,
+      storeId: row.store_id,
+      storageUnitId: row.storage_unit_id,
+      take,
+    });
+    remaining -= take;
+  }
+  if (remaining > 0) throw new Error('INSUFFICIENT_STOCK');
+  return picks;
+}
+
+/** Registers received serials, or marks issued ones, and logs each move. */
+async function recordSerials(
+  tx: Transaction,
+  serialNumbers: string[],
+  input: {
+    productId: string;
+    warehouseId: string;
+    storeId: string | null;
+    storageUnitId: string | null;
+    batchId: string | null;
+    kind: 'inbound' | 'outbound';
+    movementId: string;
+  },
+  ts: number,
+): Promise<void> {
+  for (const raw of serialNumbers) {
+    const serialNumber = raw.trim();
+    if (!serialNumber) continue;
+
+    const existing = (
+      await tx.execute(
+        `SELECT id FROM serials WHERE product_id = ? AND serial_number = ? AND deleted_at IS NULL LIMIT 1`,
+        [input.productId, serialNumber],
+      )
+    ).rows as unknown as Array<{ id: string }>;
+
+    const status = input.kind === 'inbound' ? 'in_stock' : 'issued';
+    let serialId: string;
+
+    if (existing[0]) {
+      serialId = existing[0].id;
+      await tx.execute(
+        `UPDATE serials SET status = ?, warehouse_id = ?, store_id = ?, storage_unit_id = ?,
+           batch_id = COALESCE(?, batch_id), updated_at = ?, sync_status = 'pending' WHERE id = ?`,
+        [
+          status,
+          input.kind === 'inbound' ? input.warehouseId : null,
+          input.kind === 'inbound' ? input.storeId : null,
+          input.kind === 'inbound' ? input.storageUnitId : null,
+          input.batchId,
+          ts,
+          serialId,
+        ],
+      );
+    } else {
+      serialId = newId();
+      await tx.execute(
+        `INSERT INTO serials (id, product_id, serial_number, batch_id, status, warehouse_id, store_id, storage_unit_id, created_at, updated_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [
+          serialId,
+          input.productId,
+          serialNumber,
+          input.batchId,
+          status,
+          input.kind === 'inbound' ? input.warehouseId : null,
+          input.kind === 'inbound' ? input.storeId : null,
+          input.kind === 'inbound' ? input.storageUnitId : null,
+          ts,
+          ts,
+        ],
+      );
+    }
+
+    await tx.execute(
+      `INSERT INTO serial_movements (id, serial_id, movement_id, action, from_warehouse_id, to_warehouse_id, note, created_at, updated_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [
+        newId(),
+        serialId,
+        input.movementId,
+        input.kind,
+        input.kind === 'outbound' ? input.warehouseId : null,
+        input.kind === 'inbound' ? input.warehouseId : null,
+        null,
+        ts,
+        ts,
+      ],
+    );
+  }
+}
+
 export async function logActivity(
   action: string,
   entity: string,
@@ -135,7 +361,7 @@ export async function logActivity(
 class LocalProductRepository implements ProductRepository {
   async list(): Promise<Product[]> {
     const rows = await query<ProductRow>(
-      `SELECT id, name, sku, barcode, category_id, image_url, cost_price
+      `SELECT id, name, sku, barcode, category_id, image_url, cost_price, unit_weight_kg, lifecycle_status
        FROM products WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE`,
     );
     return rows.map(toProduct);
@@ -143,7 +369,7 @@ class LocalProductRepository implements ProductRepository {
 
   async findByBarcode(barcode: string): Promise<Product | undefined> {
     const rows = await query<ProductRow>(
-      `SELECT id, name, sku, barcode, category_id, image_url, cost_price
+      `SELECT id, name, sku, barcode, category_id, image_url, cost_price, unit_weight_kg, lifecycle_status
        FROM products WHERE barcode = ? AND deleted_at IS NULL LIMIT 1`,
       [barcode],
     );
@@ -154,9 +380,20 @@ class LocalProductRepository implements ProductRepository {
     const id = newId();
     const ts = now();
     await getDb().execute(
-      `INSERT INTO products (id, name, sku, barcode, category_id, cost_price, created_at, updated_at, sync_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-      [id, input.name, input.sku, input.barcode ?? null, input.categoryId ?? null, input.costPrice ?? null, ts, ts],
+      `INSERT INTO products (id, name, sku, barcode, category_id, cost_price, unit_weight_kg, lifecycle_status, created_at, updated_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [
+        id,
+        input.name,
+        input.sku,
+        input.barcode ?? null,
+        input.categoryId ?? null,
+        input.costPrice ?? null,
+        input.unitWeightKg ?? null,
+        input.lifecycleStatus ?? 'active',
+        ts,
+        ts,
+      ],
     );
     await logActivity('create', 'product', id, input.name);
     return {
@@ -166,12 +403,14 @@ class LocalProductRepository implements ProductRepository {
       barcode: input.barcode ?? null,
       categoryId: input.categoryId ?? null,
       costPrice: input.costPrice ?? null,
+      unitWeightKg: input.unitWeightKg ?? null,
+      lifecycleStatus: input.lifecycleStatus ?? 'active',
     };
   }
 
   async update(id: string, input: UpdateProduct): Promise<Product> {
     const existingRows = await query<ProductRow>(
-      `SELECT id, name, sku, barcode, category_id, image_url, cost_price
+      `SELECT id, name, sku, barcode, category_id, image_url, cost_price, unit_weight_kg, lifecycle_status
        FROM products WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
       [id],
     );
@@ -185,12 +424,25 @@ class LocalProductRepository implements ProductRepository {
       barcode: input.barcode !== undefined ? input.barcode : existing.barcode,
       category_id: input.categoryId !== undefined ? input.categoryId : existing.category_id,
       cost_price: input.costPrice !== undefined ? input.costPrice : existing.cost_price,
+      unit_weight_kg: input.unitWeightKg !== undefined ? input.unitWeightKg : existing.unit_weight_kg,
+      lifecycle_status:
+        input.lifecycleStatus !== undefined ? input.lifecycleStatus : existing.lifecycle_status,
     };
 
     await getDb().execute(
       `UPDATE products SET name = ?, sku = ?, barcode = ?, category_id = ?, cost_price = ?,
-         updated_at = ?, sync_status = 'pending' WHERE id = ?`,
-      [merged.name, merged.sku, merged.barcode, merged.category_id, merged.cost_price, now(), id],
+         unit_weight_kg = ?, lifecycle_status = ?, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
+      [
+        merged.name,
+        merged.sku,
+        merged.barcode,
+        merged.category_id,
+        merged.cost_price,
+        merged.unit_weight_kg,
+        merged.lifecycle_status,
+        now(),
+        id,
+      ],
     );
     await logActivity('update', 'product', id, merged.name);
     return toProduct(merged);
@@ -308,7 +560,7 @@ class LocalStockRepository implements StockRepository {
     }));
   }
 
-  async move(input: MovementInput): Promise<StockMovement> {
+  async move(input: MovementInput): Promise<MovementResult> {
     const qty = Number(input.quantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       throw new Error('Invalid quantity');
@@ -317,9 +569,12 @@ class LocalStockRepository implements StockRepository {
     const db = getDb();
     const movementId = newId();
     const ts = now();
+    const strategy: PickStrategy = input.pickStrategy ?? 'fefo';
     let balanceAfter = 0;
+    let picks: PickLine[] = [];
 
     await db.transaction(async (tx) => {
+      // ── Warehouse-level balance stays the single source of truth ─────────
       const balRows = (
         await tx.execute(
           `SELECT id, quantity FROM stock_balances WHERE product_id = ? AND warehouse_id = ? AND deleted_at IS NULL LIMIT 1`,
@@ -332,6 +587,21 @@ class LocalStockRepository implements StockRepository {
       balanceAfter = current + delta;
       if (balanceAfter < 0) {
         throw new Error('INSUFFICIENT_STOCK');
+      }
+
+      // A dispatch may not eat into stock that is already promised elsewhere.
+      if (input.kind === 'outbound') {
+        const resRows = (
+          await tx.execute(
+            `SELECT COALESCE(SUM(quantity), 0) AS reserved FROM reservations
+             WHERE product_id = ? AND warehouse_id = ? AND status = 'active' AND deleted_at IS NULL`,
+            [input.productId, input.warehouseId],
+          )
+        ).rows as unknown as Array<{ reserved: number }>;
+        const reserved = resRows[0]?.reserved ?? 0;
+        if (current - reserved < qty) {
+          throw new Error('RESERVED_STOCK');
+        }
       }
 
       if (balRows[0]) {
@@ -351,11 +621,88 @@ class LocalStockRepository implements StockRepository {
         await applyStoreDelta(tx, input.productId, input.warehouseId, input.storeId, delta, ts);
       }
 
+      const storeKey = input.storeId ?? '';
+      const unitKey = input.storageUnitId ?? '';
+      let primaryBatchId: string | null = null;
+
+      if (input.kind === 'inbound') {
+        // Receiving under a lot code creates the lot on first use.
+        if (input.batchCode?.trim()) {
+          primaryBatchId = await resolveBatch(
+            tx,
+            input.productId,
+            input.batchCode.trim(),
+            input.expiryDate ?? null,
+            ts,
+          );
+          await applyBatchDelta(
+            tx,
+            primaryBatchId,
+            input.productId,
+            input.warehouseId,
+            storeKey,
+            unitKey,
+            qty,
+            ts,
+          );
+          picks = [{ batchId: primaryBatchId, batchCode: input.batchCode.trim(), quantity: qty }];
+        }
+      } else {
+        // Dispatch: let the strategy decide which lots to draw down. With no
+        // lot-tracked stock this returns [] and we fall back to a plain move.
+        const chosen = await pickBatches(tx, input.productId, input.warehouseId, qty, strategy);
+        for (const pick of chosen) {
+          await applyBatchDelta(
+            tx,
+            pick.batchId,
+            input.productId,
+            input.warehouseId,
+            pick.storeId,
+            pick.storageUnitId,
+            -pick.take,
+            ts,
+          );
+        }
+        picks = chosen.map((p) => ({ batchId: p.batchId, batchCode: p.batchCode, quantity: p.take }));
+        primaryBatchId = chosen.length === 1 ? chosen[0].batchId : null;
+      }
+
       await tx.execute(
-        `INSERT INTO stock_movements (id, product_id, warehouse_id, store_id, type, quantity, balance_after, notes, created_at, updated_at, sync_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-        [movementId, input.productId, input.warehouseId, input.storeId ?? null, input.kind, qty, balanceAfter, input.notes ?? null, ts, ts],
+        `INSERT INTO stock_movements (id, product_id, warehouse_id, store_id, storage_unit_id, batch_id, pick_strategy, type, quantity, balance_after, notes, created_at, updated_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [
+          movementId,
+          input.productId,
+          input.warehouseId,
+          input.storeId ?? null,
+          input.storageUnitId ?? null,
+          primaryBatchId,
+          input.kind === 'outbound' ? strategy : null,
+          input.kind,
+          qty,
+          balanceAfter,
+          input.notes ?? null,
+          ts,
+          ts,
+        ],
       );
+
+      if (input.serialNumbers?.length) {
+        await recordSerials(
+          tx,
+          input.serialNumbers,
+          {
+            productId: input.productId,
+            warehouseId: input.warehouseId,
+            storeId: input.storeId ?? null,
+            storageUnitId: input.storageUnitId ?? null,
+            batchId: primaryBatchId,
+            kind: input.kind,
+            movementId,
+          },
+          ts,
+        );
+      }
 
       await tx.execute(
         `INSERT INTO activity_log (id, action, entity, entity_id, detail, created_at, updated_at, sync_status)
@@ -371,7 +718,19 @@ class LocalStockRepository implements StockRepository {
       balanceAfter: String(balanceAfter),
       notes: input.notes ?? null,
       createdAt: new Date(ts).toISOString(),
+      picks: picks.length > 0 ? picks : undefined,
     };
+  }
+
+  async availability(productId: string, warehouseId: string): Promise<AvailabilitySnapshot> {
+    const onHand = await this.currentQuantity(productId, warehouseId);
+    const rows = await query<{ reserved: number }>(
+      `SELECT COALESCE(SUM(quantity), 0) AS reserved FROM reservations
+       WHERE product_id = ? AND warehouse_id = ? AND status = 'active' AND deleted_at IS NULL`,
+      [productId, warehouseId],
+    );
+    const reserved = rows[0]?.reserved ?? 0;
+    return { onHand, reserved, available: Math.max(0, onHand - reserved) };
   }
 
   async dashboardStats(): Promise<DashboardStats> {
@@ -515,10 +874,263 @@ class LocalActivityRepository implements ActivityRepository {
   }
 }
 
+class LocalStorageUnitRepository implements StorageUnitRepository {
+  async listByStore(storeId: string): Promise<StorageUnit[]> {
+    // Ordering by the materialized path yields a depth-first pre-order walk:
+    // '/a/' sorts before '/a/b/', and '/a/…' before '/b/…'.
+    const rows = await query<{
+      id: string;
+      warehouse_id: string;
+      store_id: string;
+      parent_id: string | null;
+      name: string;
+      unit_type: string;
+      path: string;
+      depth: number;
+      sort_order: number;
+      total_quantity: number;
+    }>(
+      `SELECT su.id, su.warehouse_id, su.store_id, su.parent_id, su.name, su.unit_type,
+              su.path, su.depth, su.sort_order,
+              COALESCE((
+                SELECT SUM(sb.quantity) FROM stock_batch_balances sb
+                JOIN storage_units d ON d.id = sb.storage_unit_id
+                WHERE d.path LIKE su.path || '%' AND sb.deleted_at IS NULL AND d.deleted_at IS NULL
+              ), 0) AS total_quantity
+       FROM storage_units su
+       WHERE su.store_id = ? AND su.deleted_at IS NULL
+       ORDER BY su.path`,
+      [storeId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      warehouseId: r.warehouse_id,
+      storeId: r.store_id,
+      parentId: r.parent_id,
+      name: r.name,
+      unitType: r.unit_type as StorageUnitType,
+      path: r.path,
+      depth: r.depth,
+      sortOrder: r.sort_order,
+      totalQuantity: r.total_quantity,
+    }));
+  }
+
+  async create(input: NewStorageUnit): Promise<StorageUnit> {
+    const id = newId();
+    const ts = now();
+
+    let path = `/${id}/`;
+    let depth = 0;
+    if (input.parentId) {
+      const parents = await query<{ path: string; depth: number }>(
+        `SELECT path, depth FROM storage_units WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+        [input.parentId],
+      );
+      const parent = parents[0];
+      if (!parent) throw new Error('PARENT_NOT_FOUND');
+      path = `${parent.path}${id}/`;
+      depth = parent.depth + 1;
+    }
+
+    await getDb().execute(
+      `INSERT INTO storage_units (id, warehouse_id, store_id, parent_id, name, unit_type, path, depth, sort_order, created_at, updated_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'pending')`,
+      [id, input.warehouseId, input.storeId, input.parentId ?? null, input.name, input.unitType, path, depth, ts, ts],
+    );
+    await logActivity('create', 'storage_unit', id, input.name);
+
+    return {
+      id,
+      warehouseId: input.warehouseId,
+      storeId: input.storeId,
+      parentId: input.parentId ?? null,
+      name: input.name,
+      unitType: input.unitType,
+      path,
+      depth,
+      sortOrder: 0,
+      totalQuantity: 0,
+    };
+  }
+
+  async remove(id: string): Promise<void> {
+    const rows = await query<{ path: string }>(
+      `SELECT path FROM storage_units WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    const path = rows[0]?.path;
+    if (!path) return;
+    // One statement removes the unit and its whole subtree.
+    await getDb().execute(
+      `UPDATE storage_units SET deleted_at = ?, sync_status = 'pending' WHERE path LIKE ? || '%'`,
+      [now(), path],
+    );
+    await logActivity('delete', 'storage_unit', id, null);
+  }
+}
+
+class LocalBatchRepository implements BatchRepository {
+  async listByProduct(productId: string, warehouseId: string): Promise<Batch[]> {
+    const rows = await query<{
+      id: string;
+      product_id: string;
+      batch_code: string;
+      expiry_date: number | null;
+      received_at: number;
+      quantity: number;
+    }>(
+      `SELECT b.id, b.product_id, b.batch_code, b.expiry_date, b.received_at,
+              COALESCE(SUM(sb.quantity), 0) AS quantity
+       FROM batches b
+       LEFT JOIN stock_batch_balances sb
+         ON sb.batch_id = b.id AND sb.warehouse_id = ? AND sb.deleted_at IS NULL
+       WHERE b.product_id = ? AND b.deleted_at IS NULL
+       GROUP BY b.id
+       ORDER BY (b.expiry_date IS NULL) ASC, b.expiry_date ASC, b.received_at ASC`,
+      [warehouseId, productId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      productId: r.product_id,
+      batchCode: r.batch_code,
+      expiryDate: r.expiry_date != null ? new Date(r.expiry_date).toISOString() : null,
+      receivedAt: new Date(r.received_at).toISOString(),
+      quantity: r.quantity,
+    }));
+  }
+}
+
+class LocalSerialRepository implements SerialRepository {
+  async listByProduct(productId: string): Promise<Serial[]> {
+    const rows = await query<{
+      id: string;
+      product_id: string;
+      serial_number: string;
+      batch_id: string | null;
+      status: string;
+      warehouse_id: string | null;
+    }>(
+      `SELECT id, product_id, serial_number, batch_id, status, warehouse_id
+       FROM serials WHERE product_id = ? AND deleted_at IS NULL
+       ORDER BY status, serial_number`,
+      [productId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      productId: r.product_id,
+      serialNumber: r.serial_number,
+      batchId: r.batch_id,
+      status: r.status,
+      warehouseId: r.warehouse_id,
+    }));
+  }
+
+  async history(serialId: string): Promise<SerialMovementEntry[]> {
+    const rows = await query<{ id: string; action: string; note: string | null; created_at: number }>(
+      `SELECT id, action, note, created_at FROM serial_movements
+       WHERE serial_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+      [serialId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      note: r.note,
+      createdAt: new Date(r.created_at).toISOString(),
+    }));
+  }
+}
+
+class LocalReservationRepository implements ReservationRepository {
+  async listByProduct(productId: string, warehouseId: string): Promise<Reservation[]> {
+    const rows = await query<{
+      id: string;
+      product_id: string;
+      warehouse_id: string;
+      batch_id: string | null;
+      quantity: number;
+      status: string;
+      reference: string | null;
+      created_at: number;
+    }>(
+      `SELECT id, product_id, warehouse_id, batch_id, quantity, status, reference, created_at
+       FROM reservations WHERE product_id = ? AND warehouse_id = ? AND deleted_at IS NULL
+       ORDER BY (status = 'active') DESC, created_at DESC`,
+      [productId, warehouseId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      productId: r.product_id,
+      warehouseId: r.warehouse_id,
+      batchId: r.batch_id,
+      quantity: r.quantity,
+      status: r.status as ReservationStatus,
+      reference: r.reference,
+      createdAt: new Date(r.created_at).toISOString(),
+    }));
+  }
+
+  async create(input: {
+    productId: string;
+    warehouseId: string;
+    quantity: number;
+    reference?: string | null;
+  }): Promise<Reservation> {
+    if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+      throw new Error('Invalid quantity');
+    }
+    // Never promise more than is actually free right now.
+    const snapshot = await localRepositories.stock.availability(input.productId, input.warehouseId);
+    if (input.quantity > snapshot.available) {
+      throw new Error('INSUFFICIENT_STOCK');
+    }
+
+    const id = newId();
+    const ts = now();
+    await getDb().execute(
+      `INSERT INTO reservations (id, product_id, warehouse_id, batch_id, quantity, status, reference, created_at, updated_at, sync_status)
+       VALUES (?, ?, ?, NULL, ?, 'active', ?, ?, ?, 'pending')`,
+      [id, input.productId, input.warehouseId, input.quantity, input.reference ?? null, ts, ts],
+    );
+    await logActivity('reserve', 'stock', input.productId, `reserved ${input.quantity}`);
+
+    return {
+      id,
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      batchId: null,
+      quantity: input.quantity,
+      status: 'active',
+      reference: input.reference ?? null,
+      createdAt: new Date(ts).toISOString(),
+    };
+  }
+
+  private async setStatus(id: string, status: ReservationStatus, action: string): Promise<void> {
+    await getDb().execute(
+      `UPDATE reservations SET status = ?, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
+      [status, now(), id],
+    );
+    await logActivity(action, 'stock', id, null);
+  }
+
+  async release(id: string): Promise<void> {
+    await this.setStatus(id, 'released', 'release');
+  }
+
+  async fulfill(id: string): Promise<void> {
+    await this.setStatus(id, 'fulfilled', 'fulfill');
+  }
+}
+
 export const localRepositories: Repositories = {
   products: new LocalProductRepository(),
   warehouses: new LocalWarehouseRepository(),
   stores: new LocalStoreRepository(),
   stock: new LocalStockRepository(),
   activity: new LocalActivityRepository(),
+  storageUnits: new LocalStorageUnitRepository(),
+  batches: new LocalBatchRepository(),
+  serials: new LocalSerialRepository(),
+  reservations: new LocalReservationRepository(),
 };

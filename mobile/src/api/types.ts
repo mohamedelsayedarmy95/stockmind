@@ -26,6 +26,9 @@ export interface Product {
   categoryId?: string | null;
   unitsOfMeasure?: UnitOfMeasure[];
   costPrice?: number | null;
+  /** Weight of one unit, in kg — powers weight-based counting. */
+  unitWeightKg?: number | null;
+  lifecycleStatus?: string | null;
 }
 
 export interface ActivityEntry {

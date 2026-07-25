@@ -15,7 +15,7 @@
  */
 
 export const DB_NAME = 'stockmind.db';
-export const DB_SCHEMA_VERSION = 5;
+export const DB_SCHEMA_VERSION = 6;
 
 /**
  * Ordered CREATE statements. All use `IF NOT EXISTS` so a fresh install and an
@@ -191,6 +191,120 @@ export const SCHEMA_STATEMENTS: string[] = [
     created_at   INTEGER NOT NULL
   );`,
 
+  // ── v6: professional WMS depth (Product Constitution, ch.3) ──────────────
+  //
+  // Storage units form a TREE inside a section: a pallet holds cartons, a
+  // carton holds units. Stored as a materialized path ('/rootId/childId/')
+  // so a whole subtree is one indexed `path LIKE '/id/%'` scan rather than a
+  // recursive query — the "Tree Queries" the constitution mandates.
+  `CREATE TABLE IF NOT EXISTS storage_units (
+    id           TEXT PRIMARY KEY NOT NULL,
+    warehouse_id TEXT NOT NULL,
+    store_id     TEXT NOT NULL DEFAULT '',
+    parent_id    TEXT,
+    name         TEXT NOT NULL,
+    unit_type    TEXT NOT NULL,
+    path         TEXT NOT NULL,
+    depth        INTEGER NOT NULL DEFAULT 0,
+    position     INTEGER,
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    sync_status  TEXT NOT NULL DEFAULT 'pending'
+  );`,
+
+  // A batch (lot) of one product: the unit FEFO/FIFO/LIFO actually picks from.
+  // expiry_date drives FEFO; received_at drives FIFO/LIFO.
+  `CREATE TABLE IF NOT EXISTS batches (
+    id          TEXT PRIMARY KEY NOT NULL,
+    product_id  TEXT NOT NULL,
+    batch_code  TEXT NOT NULL,
+    expiry_date INTEGER,
+    received_at INTEGER NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    deleted_at  INTEGER,
+    sync_status TEXT NOT NULL DEFAULT 'pending',
+    UNIQUE (product_id, batch_code)
+  );`,
+
+  // Per-batch on-hand quantity. Additive to stock_balances exactly like
+  // stock_balances_by_store: the warehouse-level row stays the single source
+  // of truth for "how much can move", so every existing insufficient-stock
+  // check keeps working untouched. Location columns default to '' (not NULL)
+  // so the UNIQUE key behaves — SQLite treats NULLs as distinct.
+  `CREATE TABLE IF NOT EXISTS stock_batch_balances (
+    id              TEXT PRIMARY KEY NOT NULL,
+    batch_id        TEXT NOT NULL,
+    product_id      TEXT NOT NULL,
+    warehouse_id    TEXT NOT NULL,
+    store_id        TEXT NOT NULL DEFAULT '',
+    storage_unit_id TEXT NOT NULL DEFAULT '',
+    quantity        REAL NOT NULL DEFAULT 0,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    deleted_at      INTEGER,
+    sync_status     TEXT NOT NULL DEFAULT 'pending',
+    UNIQUE (batch_id, warehouse_id, store_id, storage_unit_id)
+  );`,
+
+  // Serialized tracking: one row per physical unit that carries a serial.
+  `CREATE TABLE IF NOT EXISTS serials (
+    id              TEXT PRIMARY KEY NOT NULL,
+    product_id      TEXT NOT NULL,
+    serial_number   TEXT NOT NULL,
+    batch_id        TEXT,
+    status          TEXT NOT NULL DEFAULT 'in_stock',
+    warehouse_id    TEXT,
+    store_id        TEXT,
+    storage_unit_id TEXT,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    deleted_at      INTEGER,
+    sync_status     TEXT NOT NULL DEFAULT 'pending',
+    UNIQUE (product_id, serial_number)
+  );`,
+
+  // Independent ledger for serial movement (constitution ch.3 art.2).
+  `CREATE TABLE IF NOT EXISTS serial_movements (
+    id                TEXT PRIMARY KEY NOT NULL,
+    serial_id         TEXT NOT NULL,
+    movement_id       TEXT,
+    action            TEXT NOT NULL,
+    from_warehouse_id TEXT,
+    to_warehouse_id   TEXT,
+    note              TEXT,
+    created_at        INTEGER NOT NULL,
+    updated_at        INTEGER NOT NULL,
+    deleted_at        INTEGER,
+    sync_status       TEXT NOT NULL DEFAULT 'pending'
+  );`,
+
+  // Reservations hold stock without deducting it: available = on-hand minus
+  // active reservations. Released or fulfilled rows stop counting.
+  `CREATE TABLE IF NOT EXISTS reservations (
+    id           TEXT PRIMARY KEY NOT NULL,
+    product_id   TEXT NOT NULL,
+    warehouse_id TEXT NOT NULL,
+    batch_id     TEXT,
+    quantity     REAL NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'active',
+    reference    TEXT,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    sync_status  TEXT NOT NULL DEFAULT 'pending'
+  );`,
+
+  // Weight-based counting (qty = total_weight / unit_weight) + lifecycle state.
+  `ALTER TABLE products ADD COLUMN unit_weight_kg REAL;`,
+  `ALTER TABLE products ADD COLUMN lifecycle_status TEXT;`,
+  // Movements record which batch/unit they touched and how the pick was made.
+  `ALTER TABLE stock_movements ADD COLUMN batch_id TEXT;`,
+  `ALTER TABLE stock_movements ADD COLUMN storage_unit_id TEXT;`,
+  `ALTER TABLE stock_movements ADD COLUMN pick_strategy TEXT;`,
+
   // Indexes for the hot query paths. At scale (multiple warehouses x
   // hundreds of sections x thousands of products) these keep list/aggregate
   // queries index-backed instead of full table scans.
@@ -206,4 +320,16 @@ export const SCHEMA_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_products_sync ON products (sync_status);`,
   `CREATE INDEX IF NOT EXISTS idx_warehouses_sync ON warehouses (sync_status);`,
   `CREATE INDEX IF NOT EXISTS idx_movements_sync ON stock_movements (sync_status);`,
+  // v6 hot paths: subtree scans, FEFO/FIFO ordering, serial lookup, reservations.
+  `CREATE INDEX IF NOT EXISTS idx_units_path ON storage_units (path);`,
+  `CREATE INDEX IF NOT EXISTS idx_units_store ON storage_units (store_id, sort_order);`,
+  `CREATE INDEX IF NOT EXISTS idx_units_warehouse ON storage_units (warehouse_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_batches_product ON batches (product_id, expiry_date);`,
+  `CREATE INDEX IF NOT EXISTS idx_batches_received ON batches (product_id, received_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_batch_bal_lookup ON stock_batch_balances (product_id, warehouse_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_batch_bal_batch ON stock_batch_balances (batch_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_serials_product ON serials (product_id, status);`,
+  `CREATE INDEX IF NOT EXISTS idx_serials_number ON serials (serial_number);`,
+  `CREATE INDEX IF NOT EXISTS idx_serial_moves ON serial_movements (serial_id, created_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_reservations_lookup ON reservations (product_id, warehouse_id, status);`,
 ];
