@@ -13,7 +13,8 @@ import { BRAND_GRADIENT } from '@/theme/colors';
 /**
  * Full-screen gate shown when the interceptor detects an expired session. The
  * user must re-authenticate (biometric, falling back to device passcode) before
- * the app is usable again. A wipe (3 biometric failures) drops them to login.
+ * the app is usable again. Repeated failures serve an escalating lockout, so
+ * the gate simply stays shut until it expires.
  *
  * For guest users (no tokens), the gate is bypassed — just unlock and route
  * to login so they can sign in properly.
@@ -38,7 +39,8 @@ export function SessionExpiredOverlay() {
       return;
     }
     const result = await requireBiometricUnlock();
-    if (result === 'success' || result === 'unavailable' || result === 'wiped') {
+    // 'retry' and 'locked' keep the gate shut, same rule as the cold-start lock.
+    if (result === 'success' || result === 'unavailable') {
       unlock();
     }
   };

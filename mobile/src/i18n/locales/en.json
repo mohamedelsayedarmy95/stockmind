@@ -284,7 +284,15 @@
     "notifications": "Reminder notifications",
     "notificationsHint": "Allow local alerts for item reminders, even offline",
     "backup": "Backup & Restore",
-    "backupComingSoon": "Export/import of your local data is coming in a future update."
+    "backupComingSoon": "Export/import of your local data is coming in a future update.",
+    "wipeTitle": "Erase all data",
+    "wipeHint": "Permanently removes everything stored on this device. Nothing else can trigger this — failed unlocks only pause access.",
+    "wipeAction": "Erase all data",
+    "wipeWarning": "This deletes every product, warehouse, movement, note and reminder on this device. It cannot be undone.",
+    "wipeContinue": "Continue",
+    "wipeFinalTitle": "Erase everything?",
+    "wipeFinalWarning": "Last chance. All local data will be gone and you'll start from a fresh setup.",
+    "wipeConfirm": "Erase"
   },
   "session": {
     "expiredTitle": "Session expired",
@@ -292,7 +300,9 @@
     "reauthenticate": "Re-authenticate",
     "unlockTitle": "Unlock StockMind",
     "unlockBody": "Verify your identity to access your workspace.",
-    "unlock": "Unlock"
+    "unlock": "Unlock",
+    "lockedTitle": "Too many attempts",
+    "lockedBody": "Unlocking is paused for a moment. Your data is safe and nothing was deleted."
   },
   "guest": {
     "banner": "You're browsing as a guest — data won't be saved.",

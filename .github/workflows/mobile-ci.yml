@@ -1,0 +1,40 @@
+name: Mobile CI
+
+# The backend has had CI since early on; the mobile app had none, so a broken
+# type or a regressed business rule could only be caught by hand on a device.
+on:
+  push:
+    branches: [main, master, dev]
+    paths: ['mobile/**', '.github/workflows/mobile-ci.yml']
+  pull_request:
+    branches: [main, master, dev]
+    paths: ['mobile/**', '.github/workflows/mobile-ci.yml']
+
+jobs:
+  check:
+    name: Typecheck & domain tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      # The RN/Expo dependency graph has peer conflicts that npm won't resolve
+      # strictly; the app builds fine with them, so match what devs run locally.
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npm run lint
+
+      # Domain-layer rules only: pure functions, no emulator, no native mocks.
+      - name: Domain tests
+        run: npm test -- --ci

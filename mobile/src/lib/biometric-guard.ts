@@ -1,22 +1,29 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import { getStorage } from '@/store/secure-storage';
-import { wipeAllUserData } from '@/lib/data-wipe';
-import { useAuthStore } from '@/store/auth.store';
+import { logActivity } from '@/data/local/local-repositories';
+import { lockoutDurationFor, remainingLock } from '@/domain/lockout-policy';
 
 /**
  * Physical-theft defence.
  *
  * When a session exists, the app demands a biometric (fingerprint/face) unlock
- * on cold start. THREE consecutive failures trip an auto-wipe: all local data is
- * destroyed and the session is cleared, so a stolen, unlocked-at-the-OS device
- * still yields nothing. The failure counter is persisted in the ENCRYPTED store
- * so it survives the app being killed between attempts.
+ * on cold start. Repeated failures trigger an ESCALATING LOCKOUT — never data
+ * destruction (UWOS Master Spec §4).
+ *
+ * An earlier version wiped all local data after three failures. That is a worse
+ * trade than it looks: a child pressing the sensor a few times, or a wet finger
+ * on a cold morning, would destroy a warehouse's entire inventory with no way
+ * back. A lockout denies a thief exactly as effectively — they cannot brute
+ * force a biometric in a 1h window — while an honest user just waits.
+ *
+ * Counters live in the ENCRYPTED store so they survive the app being killed
+ * between attempts; a thief cannot reset them by force-stopping the app.
  */
 
 const FAIL_KEY = 'biometric.failCount';
-const MAX_FAILS = 3;
+const LOCK_KEY = 'biometric.lockedUntil';
 
-export type UnlockResult = 'success' | 'retry' | 'wiped' | 'unavailable';
+export type UnlockResult = 'success' | 'retry' | 'locked' | 'unavailable';
 
 function getFailCount(): number {
   return getStorage().getNumber(FAIL_KEY) ?? 0;
@@ -24,9 +31,21 @@ function getFailCount(): number {
 function setFailCount(n: number): void {
   getStorage().set(FAIL_KEY, n);
 }
+function getLockedUntil(): number {
+  return getStorage().getNumber(LOCK_KEY) ?? 0;
+}
+function setLockedUntil(ts: number): void {
+  getStorage().set(LOCK_KEY, ts);
+}
+
+/** Milliseconds still to wait, or 0 when not locked. */
+export function remainingLockMs(nowMs: number = Date.now()): number {
+  return remainingLock(getLockedUntil(), nowMs);
+}
 
 export function resetBiometricFailures(): void {
   setFailCount(0);
+  setLockedUntil(0);
 }
 
 /** Whether the device actually has enrolled biometrics we can prompt for. */
@@ -42,6 +61,10 @@ export async function requireBiometricUnlock(): Promise<UnlockResult> {
     return 'unavailable';
   }
 
+  // Still serving a lockout: refuse without even prompting, so the attempt
+  // can't be used to probe whether a given finger works.
+  if (remainingLockMs() > 0) return 'locked';
+
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage: 'Unlock StockMind',
     cancelLabel: 'Cancel',
@@ -56,13 +79,19 @@ export async function requireBiometricUnlock(): Promise<UnlockResult> {
   const fails = getFailCount() + 1;
   setFailCount(fails);
 
-  if (fails >= MAX_FAILS) {
-    // Tripwire: destroy BOTH encrypted stores (key-value + SQLite) and drop
-    // the session. The counter itself dies with the wipe, so a fresh start
-    // begins from zero.
-    await wipeAllUserData();
-    useAuthStore.getState().clear();
-    return 'wiped';
+  const lockMs = lockoutDurationFor(fails);
+  if (lockMs > 0) {
+    setLockedUntil(Date.now() + lockMs);
+    // Visible security trail. Once multi-user lands this is what notifies a
+    // manager; until then it surfaces in the owner's own Activity Log.
+    void logActivity(
+      'lockout',
+      'security',
+      null,
+      `${fails} failed unlock attempts · locked ${Math.round(lockMs / 60_000)} min`,
+    );
+    return 'locked';
   }
+
   return 'retry';
 }

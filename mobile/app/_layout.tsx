@@ -123,9 +123,10 @@ export default function RootLayout() {
 
   const attemptUnlock = useCallback(async () => {
     const result = await requireBiometricUnlock();
-    // On success / no-biometrics / post-wipe we reveal the app (AuthGate will
-    // route a wiped session back to login).
-    if (result !== 'retry') setNeedsUnlock(false);
+    // Reveal only on a real pass, or when the device has no biometrics to
+    // check against. 'retry' and 'locked' both keep the gate closed — a
+    // lockout that let you through would defeat its own purpose.
+    if (result === 'success' || result === 'unavailable') setNeedsUnlock(false);
   }, []);
 
   useEffect(() => {

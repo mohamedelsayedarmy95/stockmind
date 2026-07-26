@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, Switch } from 'react-native';
+import { View, Text, ScrollView, Pressable, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import { changeLanguage } from '@/i18n';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useTerminateAllSessions } from '@/query/useAuth';
 import { haptics } from '@/lib/haptics';
+import { wipeAllUserData } from '@/lib/data-wipe';
 
 function SegmentedRow<T extends string>({
   options,
@@ -75,6 +76,33 @@ export default function SettingsScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const terminateAll = useTerminateAllSessions();
+
+  /**
+   * Two deliberate confirmations, the second naming what is destroyed. The
+   * spec requires erasure to be a conscious admin act, never a side effect.
+   */
+  const confirmWipe = () => {
+    Alert.alert(tr('settings.wipeTitle'), tr('settings.wipeWarning'), [
+      { text: tr('common.cancel'), style: 'cancel' },
+      {
+        text: tr('settings.wipeContinue'),
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert(tr('settings.wipeFinalTitle'), tr('settings.wipeFinalWarning'), [
+            { text: tr('common.cancel'), style: 'cancel' },
+            {
+              text: tr('settings.wipeConfirm'),
+              style: 'destructive',
+              onPress: () => {
+                void haptics.warning();
+                void wipeAllUserData().then(() => logout.mutate());
+              },
+            },
+          ]);
+        },
+      },
+    ]);
+  };
 
   return (
     <ScreenBackground>
@@ -200,6 +228,16 @@ export default function SettingsScreen() {
                 terminateAll.mutate();
               }}
             />
+          </GlassCard>
+
+          <GlassCard>
+            <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 6 }}>
+              {tr('settings.wipeTitle')}
+            </Text>
+            <Text style={{ color: t.textMuted, fontSize: 12, marginBottom: 14 }}>
+              {tr('settings.wipeHint')}
+            </Text>
+            <PremiumButton label={tr('settings.wipeAction')} variant="ghost" onPress={confirmWipe} />
           </GlassCard>
 
           <GlassCard>
