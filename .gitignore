@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 *.tsbuildinfo
+coverage/
 
 # Environment — never commit secrets
 .env
