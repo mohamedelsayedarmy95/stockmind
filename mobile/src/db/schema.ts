@@ -15,7 +15,7 @@
  */
 
 export const DB_NAME = 'stockmind.db';
-export const DB_SCHEMA_VERSION = 6;
+export const DB_SCHEMA_VERSION = 7;
 
 /**
  * Ordered CREATE statements. All use `IF NOT EXISTS` so a fresh install and an
@@ -305,6 +305,49 @@ export const SCHEMA_STATEMENTS: string[] = [
   `ALTER TABLE stock_movements ADD COLUMN storage_unit_id TEXT;`,
   `ALTER TABLE stock_movements ADD COLUMN pick_strategy TEXT;`,
 
+  // ── v7: Inventory Event Engine (UWOS §0, docs/event-schema.md) ───────────
+  //
+  // Append-only. No UPDATE, no DELETE, ever — a mistake is corrected by
+  // appending a compensating event. `seq` (not occurred_at) is the replay
+  // order: wall-clock timestamps collide and can move backwards, and a
+  // ledger that replays in a different order than it was written is not a
+  // ledger. Deliberately has no deleted_at column; that is the whole point.
+  `CREATE TABLE IF NOT EXISTS inventory_events (
+    seq                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    id                  TEXT NOT NULL UNIQUE,
+    event_type          TEXT NOT NULL,
+    occurred_at         INTEGER NOT NULL,
+    recorded_at         INTEGER NOT NULL,
+    product_id          TEXT,
+    warehouse_id        TEXT,
+    store_id            TEXT,
+    storage_unit_id     TEXT,
+    batch_id            TEXT,
+    dest_warehouse_id   TEXT,
+    dest_store_id       TEXT,
+    dest_storage_unit_id TEXT,
+    quantity            REAL,
+    reason              TEXT,
+    reference           TEXT,
+    created_by          TEXT NOT NULL,
+    approved_by         TEXT,
+    status              TEXT NOT NULL DEFAULT 'confirmed',
+    reverses_event_id   TEXT,
+    cost_impact         REAL,
+    financial_impact    REAL,
+    payload             TEXT,
+    prev_hash           TEXT NOT NULL,
+    hash                TEXT NOT NULL,
+    sync_status         TEXT NOT NULL DEFAULT 'pending'
+  );`,
+
+  // Migration bookkeeping — data migrations can't key off PRAGMA
+  // user_version, which only tracks DDL.
+  `CREATE TABLE IF NOT EXISTS app_meta (
+    key   TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );`,
+
   // Indexes for the hot query paths. At scale (multiple warehouses x
   // hundreds of sections x thousands of products) these keep list/aggregate
   // queries index-backed instead of full table scans.
@@ -332,4 +375,8 @@ export const SCHEMA_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_serials_number ON serials (serial_number);`,
   `CREATE INDEX IF NOT EXISTS idx_serial_moves ON serial_movements (serial_id, created_at);`,
   `CREATE INDEX IF NOT EXISTS idx_reservations_lookup ON reservations (product_id, warehouse_id, status);`,
+  // Replay and per-entity history are the two ways the log is ever read.
+  `CREATE INDEX IF NOT EXISTS idx_events_product ON inventory_events (product_id, warehouse_id, seq);`,
+  `CREATE INDEX IF NOT EXISTS idx_events_batch ON inventory_events (batch_id, seq);`,
+  `CREATE INDEX IF NOT EXISTS idx_events_sync ON inventory_events (sync_status);`,
 ];
