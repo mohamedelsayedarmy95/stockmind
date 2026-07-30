@@ -1,24 +1,21 @@
 import { InboundStockHandler } from '../../src/application/commands/inbound-stock.handler';
 import { InboundStockCommand } from '../../src/application/commands/inbound-stock.command';
-import { StockReceivedEvent } from '../../src/domain/events/stock-received.event';
 
 describe('InboundStockHandler', () => {
-  const stockService = {
-    inbound: jest.fn(),
-  };
-  const emitter = { emit: jest.fn() };
-  const cqrsBus = { publish: jest.fn() };
+  const stockService = { inbound: jest.fn() };
+  const fcmService = { sendStockNotification: jest.fn().mockResolvedValue(undefined) };
 
-  const handler = new InboundStockHandler(
-    stockService as never,
-    emitter as never,
-    cqrsBus as never,
-  );
+  const handler = new InboundStockHandler(stockService as never, fcmService as never);
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.clearAllMocks(); // for fcmService
+  });
 
-  it('executes the stock service and emits StockReceivedEvent', async () => {
-    stockService.inbound.mockResolvedValue({ runningBalance: '100.000000' });
+  it('calls stockService.inbound with correct arguments and returns its result', async () => {
+    const mockResult = { runningBalance: '100.000000' };
+
+    stockService.inbound.mockResolvedValue(mockResult);
 
     const cmd = new InboundStockCommand(
       'user-1', 'company-1',
@@ -29,20 +26,13 @@ describe('InboundStockHandler', () => {
     const result = await handler.execute(cmd);
 
     expect(stockService.inbound).toHaveBeenCalledWith('user-1', 'company-1', cmd.dto);
-    expect(result.runningBalance).toBe('100.000000');
-    expect(emitter.emit).toHaveBeenCalledWith(
-      StockReceivedEvent.NAME,
-      expect.objectContaining({
-        productId: 'p1',
-        warehouseId: 'w1',
-        companyId: 'company-1',
-        userId: 'user-1',
-        quantity: '100',
-        newBalance: '100.000000',
-        correlationId: 'corr-1',
-      }),
+    expect(result).toBe(mockResult);
+    expect(fcmService.sendStockNotification).toHaveBeenCalledWith(
+      'user-1',
+      'STOCK_RECEIVED',
+      'p1',
+      100,
     );
-    expect(cqrsBus.publish).toHaveBeenCalledTimes(1);
   });
 
   it('propagates ConflictException from the service', async () => {
@@ -54,6 +44,6 @@ describe('InboundStockHandler', () => {
     );
 
     await expect(handler.execute(cmd)).rejects.toThrow('Insufficient stock');
-    expect(emitter.emit).not.toHaveBeenCalled();
+    expect(fcmService.sendStockNotification).not.toHaveBeenCalled();
   });
 });

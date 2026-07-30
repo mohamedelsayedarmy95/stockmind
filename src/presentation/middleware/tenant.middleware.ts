@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TenantContextService } from '../../infrastructure/context/tenant-context.service';
+import { UnauthorizedException } from '@nestjs/common';
 
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
@@ -17,7 +18,7 @@ export class TenantMiddleware implements NestMiddleware {
     const correlationId = (req.headers['x-correlation-id'] as string) ?? (req as unknown as { id?: string }).id;
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return next();
+      throw new UnauthorizedException();
     }
 
     const token = authHeader.slice(7);
@@ -40,7 +41,7 @@ export class TenantMiddleware implements NestMiddleware {
         () => next(),
       );
     } catch {
-      next();
+      throw new UnauthorizedException();
     }
   }
 }

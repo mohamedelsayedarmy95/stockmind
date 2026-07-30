@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { Public } from '../decorators/public.decorator';
@@ -20,6 +21,7 @@ import type { User } from '../../domain/entities/user.entity';
  * All routes are @Public — the GlobalJwtGuard must not intercept them.
  * They are only registered when SAML_ENABLED=true (see SamlModule / app.module.ts).
  */
+@ApiTags('SAML')
 @Public()
 @Controller('auth/saml')
 export class SamlController {
@@ -33,6 +35,8 @@ export class SamlController {
    */
   @Get('login')
   @UseGuards(AuthGuard('saml'))
+  @ApiOperation({ summary: 'Initiate SAML login (redirects to IdP)' })
+  @ApiResponse({ status: 200, description: 'Redirects to Identity Provider' })
   login() {
     // Intentionally empty — passport-saml issues the IdP redirect before this runs.
   }
@@ -50,6 +54,9 @@ export class SamlController {
   @Post('callback')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('saml'))
+  @ApiOperation({ summary: 'SAML assertion consumer service (ACS) endpoint' })
+  @ApiResponse({ status: 200, description: 'Returns JWT tokens after successful SAML login' })
+  @ApiResponse({ status: 400, description: 'Invalid SAML response' })
   async callback(@Req() req: Request, @Res() res: Response) {
     const user = req.user as User;
     const tokens = await this.authService.issueTokensForSsoUser(user, {
@@ -67,6 +74,8 @@ export class SamlController {
    */
   @Get('logout')
   @UseGuards(AuthGuard('saml'))
+  @ApiOperation({ summary: 'Initiate SAML logout (redirects to IdP)' })
+  @ApiResponse({ status: 200, description: 'Logged out successfully' })
   logout(@Res() res: Response) {
     // passport-saml handles the SLO redirect in-strategy.
     return res.json({ loggedOut: true });

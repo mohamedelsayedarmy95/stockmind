@@ -1,33 +1,27 @@
-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { AdjustStockCommand } from './adjust-stock.command';
 import { StockService } from '../../infrastructure/repositories/stock.service';
-import { StockAdjustedEvent } from '../../domain/events/stock-adjusted.event';
+import { FcmService } from '../../infrastructure/firebase/fcm.service';
 
 @CommandHandler(AdjustStockCommand)
 export class AdjustStockHandler implements ICommandHandler<AdjustStockCommand> {
   constructor(
     private readonly stock: StockService,
-    private readonly events: EventEmitter2,
-    private readonly cqrsEventBus: EventBus,
+    private readonly fcmService: FcmService,
   ) {}
 
-  async execute(cmd: AdjustStockCommand) {
-    const movement = await this.stock.adjustment(cmd.userId, cmd.companyId, cmd.dto);
+  async execute(command: AdjustStockCommand) {
+    const { userId, companyId, dto } = command;
+    const result = await this.stock.adjustment(userId, companyId, dto);
 
-    const event = new StockAdjustedEvent(
-      cmd.dto.productId,
-      cmd.dto.warehouseId,
-      cmd.companyId,
-      cmd.userId,
-      cmd.dto.quantity,
-      movement.runningBalance,
-      cmd.dto.reason,
-      cmd.correlationId,
-    );
-    this.events.emit(StockAdjustedEvent.NAME, event);
-    this.cqrsEventBus.publish(event);
+    // Send fire-and-forget notification
+    const quantity = Math.abs(parseFloat(dto.quantity));
+    this.fcmService
+      .sendStockNotification(userId, 'STOCK_ADJUSTED', dto.productId, quantity)
+      .catch((error) => {
+        console.error('Failed to send stock adjusted notification:', error);
+      });
 
-    return movement;
+    return result;
   }
 }

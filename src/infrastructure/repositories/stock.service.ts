@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, QueryRunner } from 'typeorm';
 import Decimal from 'decimal.js';
 import { ProductWarehouse } from '../../domain/entities/product-warehouse.entity';
 import { StockMovement } from '../../domain/entities/stock-movement.entity';

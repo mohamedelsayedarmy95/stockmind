@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   Index,
 } from 'typeorm';
@@ -11,6 +12,7 @@ import { AuditableEntity } from './auditable.entity';
 import { Company } from './company.entity';
 import { Warehouse } from './warehouse.entity';
 import { UserRole } from '../../shared/constants/enums';
+import { UserFcmToken } from './user-fcm-token.entity';
 
 @Entity('users')
 @Index(['companyId'])
@@ -43,6 +45,9 @@ export class User extends AuditableEntity {
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.STAFF })
   role!: UserRole;
+
+  @OneToMany(() => UserFcmToken, (token) => token.user)
+  fcmTokens: UserFcmToken[];
 
   @Column({ name: 'refresh_token_hash', type: 'varchar', length: 255, nullable: true })
   refreshTokenHash!: string | null;

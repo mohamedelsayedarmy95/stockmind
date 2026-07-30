@@ -5,8 +5,13 @@ module.exports = {
   rootDir: '.',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   moduleFileExtensions: ['ts', 'js', 'json'],
-  testRegex: '.*\\.(spec|test)\\.ts$',
-  transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
+  testRegex: '.*\\.(spec|test)\\.(ts|tsx)$',
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+  },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.module.ts',

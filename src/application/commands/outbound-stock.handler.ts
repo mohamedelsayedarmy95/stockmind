@@ -1,32 +1,26 @@
-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { OutboundStockCommand } from './outbound-stock.command';
 import { StockService } from '../../infrastructure/repositories/stock.service';
-import { StockIssuedEvent } from '../../domain/events/stock-issued.event';
+import { FcmService } from '../../infrastructure/firebase/fcm.service';
 
 @CommandHandler(OutboundStockCommand)
 export class OutboundStockHandler implements ICommandHandler<OutboundStockCommand> {
   constructor(
     private readonly stock: StockService,
-    private readonly events: EventEmitter2,
-    private readonly cqrsEventBus: EventBus,
+    private readonly fcmService: FcmService,
   ) {}
 
-  async execute(cmd: OutboundStockCommand) {
-    const movement = await this.stock.outbound(cmd.userId, cmd.companyId, cmd.dto);
+  async execute(command: OutboundStockCommand) {
+    const { userId, companyId, dto } = command;
+    const result = await this.stock.outbound(userId, companyId, dto);
 
-    const event = new StockIssuedEvent(
-      cmd.dto.productId,
-      cmd.dto.warehouseId,
-      cmd.companyId,
-      cmd.userId,
-      cmd.dto.quantity,
-      movement.runningBalance,
-      cmd.correlationId,
-    );
-    this.events.emit(StockIssuedEvent.NAME, event);
-    this.cqrsEventBus.publish(event);
+    // Send fire-and-forget notification
+    this.fcmService
+      .sendStockNotification(userId, 'STOCK_SHIPPED', dto.productId, parseFloat(dto.quantity))
+      .catch((error) => {
+        console.error('Failed to send stock shipped notification:', error);
+      });
 
-    return movement;
+    return result;
   }
 }

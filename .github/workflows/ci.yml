@@ -16,7 +16,7 @@ jobs:
         env:
           POSTGRES_DB: stockmind_test
           POSTGRES_USER: stockmind
-          POSTGRES_PASSWORD: stockmind123
+          POSTGRES_PASSWORD: ci-postgres-password  # For CI only - use GitHub Secrets in production
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U stockmind"
@@ -28,7 +28,7 @@ jobs:
       DB_HOST: localhost
       DB_PORT: 5432
       DB_USERNAME: stockmind
-      DB_PASSWORD: stockmind123
+      DB_PASSWORD: ci-db-password  # For CI only - use GitHub Secrets in production
       DB_DATABASE: stockmind_test
       JWT_ACCESS_SECRET: ci-access-secret
       JWT_REFRESH_SECRET: ci-refresh-secret
@@ -48,7 +48,7 @@ jobs:
 
       - name: Enable pgcrypto
         run: |
-          PGPASSWORD=stockmind123 psql -h localhost -U stockmind -d stockmind_test \
+          PGPASSWORD=ci-postgres-password psql -h localhost -U stockmind -d stockmind_test \
             -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'
 
       - name: Lint (typecheck)

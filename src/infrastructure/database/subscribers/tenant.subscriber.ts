@@ -23,7 +23,7 @@ export class TenantSubscriber implements EntitySubscriberInterface {
     const ctx = getTenantContext();
     if (!ctx || !entity) return;
 
-    if ('companyId' in entity && entity.companyId && entity.companyId !== ctx.companyId) {
+    if ('companyId' in entity && entity.companyId !== undefined && entity.companyId !== ctx.companyId) {
       throw new Error(
         `Tenant isolation violation: entity companyId=${String(entity.companyId)} ` +
           `does not match context companyId=${ctx.companyId}`,
@@ -38,7 +38,7 @@ export class TenantSubscriber implements EntitySubscriberInterface {
     const ctx = getTenantContext();
     if (!ctx || !event.entity) return;
 
-    if ('companyId' in event.entity && !event.entity.companyId) {
+    if ('companyId' in event.entity && event.entity.companyId === undefined) {
       event.entity.companyId = ctx.companyId;
     }
   }

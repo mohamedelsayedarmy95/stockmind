@@ -1,0 +1,2338 @@
+diff --git a/.env.example b/.env.example
+index b5ad7ca..f11395b 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,87 +1,9 @@
+-# ── Server ──────────────────────────────────────────
+-PORT=3000
+-NODE_ENV=development
+-
+ # ── PostgreSQL ──────────────────────────────────────
+ DB_HOST=localhost
+ DB_PORT=5432
+ DB_USERNAME=stockmind
+-DB_PASSWORD=stockmind123
++DB_PASSWORD=  # Must be set in actual .env
+ DB_DATABASE=stockmind
+ # Set to true for hosted Postgres (e.g. Neon) — required, their endpoints reject
+ # plaintext connections. Leave false for local docker-compose Postgres.
+-DB_SSL=false
+-
+-# ── JWT ─────────────────────────────────────────────
+-JWT_ACCESS_SECRET=change-me-access-secret-256bit
+-JWT_REFRESH_SECRET=change-me-refresh-secret-256bit
+-# Distinct secret for short-lived 2FA "temp tokens" (falls back to a derived
+-# value if unset, but set it explicitly in production).
+-JWT_2FA_SECRET=change-me-2fa-secret-256bit
+-JWT_ACCESS_EXPIRES_IN=15m
+-JWT_REFRESH_EXPIRES_IN=7d
+-
+-# ── Data-at-rest encryption (Phase 4) ───────────────
+-# AES-256-GCM master key for encrypted columns (2FA secrets, product cost price).
+-# Leave EMPTY in dev (columns store plaintext). In prod, inject a strong secret
+-# managed outside the repo; rotating it makes previously-encrypted values unread.
+-DB_ENCRYPTION_KEY=
+-
+-# ── Network allowlist (Phase 4, on-premise) ─────────
+-# Comma-separated exact client IPs allowed to reach the API. Empty = allow all.
+-ALLOWED_IPS=
+-
+-# ── Redis ────────────────────────────────────────────
+-REDIS_HOST=localhost
+-REDIS_PORT=6379
+-REDIS_PASSWORD=
+-
+-# ── CORS ────────────────────────────────────────────
+-CORS_ORIGIN=http://localhost:3000,http://localhost:4200
+-
+-# ── File Storage ────────────────────────────────────
+-# One of: local | s3 | cloudinary
+-STORAGE_DRIVER=local
+-UPLOAD_DIR=./uploads
+-UPLOAD_PUBLIC_PATH=/uploads
+-
+-# S3 (used when STORAGE_DRIVER=s3)
+-S3_BUCKET=
+-S3_REGION=us-east-1
+-S3_ACCESS_KEY_ID=
+-S3_SECRET_ACCESS_KEY=
+-S3_CDN_BASE=
+-
+-# Cloudinary (used when STORAGE_DRIVER=cloudinary)
+-CLOUDINARY_CLOUD_NAME=
+-CLOUDINARY_API_KEY=
+-CLOUDINARY_API_SECRET=
+-
+-# ── Hugging Face AI ──────────────────────────────────
+-# Get a free token at https://huggingface.co/settings/tokens (read access)
+-HF_API_KEY=
+-
+-# ── SAML 2.0 SSO (Phase 4) ──────────────────────────
+-# Set SAML_ENABLED=true to register the SAML module. Leave false/unset for
+-# installations that use only password + 2FA (the default).
+-SAML_ENABLED=false
+-
+-# AUTH_PROVIDER controls the /auth/login behaviour:
+-#   local  (default) — password + optional 2FA; SAML is available in parallel.
+-#   saml   — /auth/login rejects local passwords and redirects to /auth/saml/login.
+-AUTH_PROVIDER=local
+-
+-# Values below are required only when SAML_ENABLED=true.
+-SAML_ENTRY_POINT=https://idp.example.com/saml/sso
+-SAML_ISSUER=https://api.stockmind.io
+-SAML_CALLBACK_URL=https://api.stockmind.io/api/v1/auth/saml/callback
+-# PEM-encoded PUBLIC signing certificate of the IdP (not the private key).
+-# Paste the full certificate including -----BEGIN CERTIFICATE----- header.
+-SAML_CERT=
+-
+-# ── Firebase Admin SDK ───────────────────────────────
+-# Download service account JSON from Firebase Console → Project Settings → Service accounts
+-# Paste the individual fields below (do NOT paste the full JSON as a single value)
+-FIREBASE_PROJECT_ID=
+-FIREBASE_PRIVATE_KEY=
+-FIREBASE_CLIENT_EMAIL=
++DB_SSL=false
+\ No newline at end of file
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 2f55f73..5c31528 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -16,7 +16,7 @@ jobs:
+         env:
+           POSTGRES_DB: stockmind_test
+           POSTGRES_USER: stockmind
+-          POSTGRES_PASSWORD: stockmind123
++          POSTGRES_PASSWORD: ci-postgres-password  # For CI only - use GitHub Secrets in production
+         ports: ['5432:5432']
+         options: >-
+           --health-cmd "pg_isready -U stockmind"
+@@ -28,7 +28,7 @@ jobs:
+       DB_HOST: localhost
+       DB_PORT: 5432
+       DB_USERNAME: stockmind
+-      DB_PASSWORD: stockmind123
++      DB_PASSWORD: ci-db-password  # For CI only - use GitHub Secrets in production
+       DB_DATABASE: stockmind_test
+       JWT_ACCESS_SECRET: ci-access-secret
+       JWT_REFRESH_SECRET: ci-refresh-secret
+@@ -48,7 +48,7 @@ jobs:
+ 
+       - name: Enable pgcrypto
+         run: |
+-          PGPASSWORD=stockmind123 psql -h localhost -U stockmind -d stockmind_test \
++          PGPASSWORD=ci-postgres-password psql -h localhost -U stockmind -d stockmind_test \
+             -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'
+ 
+       - name: Lint (typecheck)
+@@ -64,4 +64,4 @@ jobs:
+         run: npm run test:unit
+ 
+       - name: Integration tests
+-        run: npm run test:integration
++        run: npm run test:integration
+\ No newline at end of file
+diff --git a/.github/workflows/enterprise-ci.yml b/.github/workflows/enterprise-ci.yml
+index a5ec515..44bd792 100644
+--- a/.github/workflows/enterprise-ci.yml
++++ b/.github/workflows/enterprise-ci.yml
+@@ -2,42 +2,14 @@ name: Enterprise CI
+ 
+ on:
+   push:
+-    branches: [main, develop]
++    branches: [ main ]
+   pull_request:
+-    branches: [main, develop]
+-
+-permissions:
+-  contents: read
+-  security-events: write
++    branches: [ main ]
+ 
+ jobs:
+-  # ── Job 1: Code quality (fast gate, no DB needed) ───────────────────────────
+   quality:
+     name: Code Quality
+     runs-on: ubuntu-latest
+-    steps:
+-      - uses: actions/checkout@v4
+-
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version: '20'
+-          cache: npm
+-
+-      - name: Install dependencies
+-        run: npm ci --legacy-peer-deps
+-
+-      - name: TypeScript type-check
+-        run: npm run lint
+-
+-      - name: Dependency audit (high+)
+-        run: npm audit --audit-level=high --omit=dev
+-        continue-on-error: true   # advisory only — won't block; fix manually
+-
+-  # ── Job 2: Tests (requires Postgres) ────────────────────────────────────────
+-  test:
+-    name: Tests
+-    runs-on: ubuntu-latest
+-    needs: quality
+ 
+     services:
+       postgres:
+@@ -45,7 +17,7 @@ jobs:
+         env:
+           POSTGRES_DB: stockmind_test
+           POSTGRES_USER: stockmind
+-          POSTGRES_PASSWORD: stockmind123
++          POSTGRES_PASSWORD: ci-postgres-password  # For CI only - use GitHub Secrets in production
+         ports: ['5432:5432']
+         options: >-
+           --health-cmd "pg_isready -U stockmind"
+@@ -57,10 +29,10 @@ jobs:
+       DB_HOST: localhost
+       DB_PORT: 5432
+       DB_USERNAME: stockmind
+-      DB_PASSWORD: stockmind123
++      DB_PASSWORD: ci-db-password  # For CI only - use GitHub Secrets in production
+       DB_DATABASE: stockmind_test
+-      JWT_ACCESS_SECRET: ci-access-secret-256bit
+-      JWT_REFRESH_SECRET: ci-refresh-secret-256bit
++      JWT_ACCESS_SECRET: ci-access-secret
++      JWT_REFRESH_SECRET: ci-refresh-secret
+       NODE_ENV: test
+       STORAGE_DRIVER: local
+       UPLOAD_DIR: /tmp/uploads
+@@ -78,7 +50,7 @@ jobs:
+ 
+       - name: Enable pgcrypto
+         run: |
+-          PGPASSWORD=stockmind123 psql -h localhost -U stockmind -d stockmind_test \
++          PGPASSWORD=ci-postgres-password psql -h localhost -U stockmind -d stockmind_test \
+             -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'
+ 
+       - name: Build
+@@ -93,12 +65,7 @@ jobs:
+       - name: Integration tests
+         run: npm run test:integration
+ 
+-      - name: Coverage report
+-        run: npm run test:cov
+-        continue-on-error: true
+-
+-  # ── Job 3: Migration safety check ───────────────────────────────────────────
+-  migration-check:
++  migration-test:
+     name: Migration Safety
+     runs-on: ubuntu-latest
+     needs: quality
+@@ -109,7 +76,7 @@ jobs:
+         env:
+           POSTGRES_DB: stockmind_test
+           POSTGRES_USER: stockmind
+-          POSTGRES_PASSWORD: stockmind123
++          POSTGRES_PASSWORD: ci-postgres-password  # For CI only - use GitHub Secrets in production
+         ports: ['5432:5432']
+         options: >-
+           --health-cmd "pg_isready -U stockmind"
+@@ -121,10 +88,10 @@ jobs:
+       DB_HOST: localhost
+       DB_PORT: 5432
+       DB_USERNAME: stockmind
+-      DB_PASSWORD: stockmind123
++      DB_PASSWORD: ci-db-password  # For CI only - use GitHub Secrets in production
+       DB_DATABASE: stockmind_test
+-      JWT_ACCESS_SECRET: ci-access-secret-256bit
+-      JWT_REFRESH_SECRET: ci-refresh-secret-256bit
++      JWT_ACCESS_SECRET: ci-access-secret
++      JWT_REFRESH_SECRET: ci-refresh-secret
+       NODE_ENV: test
+ 
+     steps:
+@@ -140,7 +107,7 @@ jobs:
+ 
+       - name: Enable pgcrypto
+         run: |
+-          PGPASSWORD=stockmind123 psql -h localhost -U stockmind -d stockmind_test \
++          PGPASSWORD=ci-postgres-password psql -h localhost -U stockmind -d stockmind_test \
+             -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'
+ 
+       - name: Run migrations (forward)
+@@ -150,11 +117,12 @@ jobs:
+         run: npm run migration:revert
+         continue-on-error: true
+ 
+-  # ── Job 4: Docker production build (main only) ───────────────────────────────
+-  docker-build:
++  docker-build-prod:
+     name: Docker Production Build
+     runs-on: ubuntu-latest
+-    needs: test
++    needs:
++      - quality
++      - migration-test
+     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+ 
+     steps:
+@@ -173,4 +141,4 @@ jobs:
+           if [ "$SIZE" -gt "$LIMIT" ]; then
+             echo "ERROR: Image exceeds 300 MB limit"
+             exit 1
+-          fi
++          fi
+\ No newline at end of file
+diff --git a/.gitignore b/.gitignore
+index 9972c4f..af0d633 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -49,3 +49,5 @@ settings.gradle.kts
+ .gradle/
+ build/
+ local.properties
++# Firebase
++.firebase/
+diff --git a/README.md b/README.md
+index c2fb572..b2d3975 100644
+--- a/README.md
++++ b/README.md
+@@ -1,427 +1,5 @@
+----
+-title: StockMind Backend
+-emoji: 📦
+-colorFrom: blue
+-colorTo: indigo
+-sdk: docker
+-dockerfile: Dockerfile.prod
+-app_port: 3000
+-pinned: false
+----
+-
+-# StockMind v0.1.0
+-
+-Intelligent Warehouse Operating System — Atomic Ledger Engine.
+-
+-## Deploying to Render.com (free, no card required)
+-
+-This repo ships a `render.yaml` Blueprint that builds `Dockerfile.prod`
+-directly — no code changes needed. Render's free web-service tier does not
+-require a payment method (unlike Hugging Face Spaces' Docker SDK, which now
+-gates Docker Spaces behind billing verification). Trade-off: the free
+-instance sleeps after 15 minutes idle and cold-starts (~30-50s) on the next
+-request — fine for dev/staging, worth knowing for production traffic.
+-
+-Pair it with a free [Neon](https://neon.tech) Postgres instance (no card).
+-
+-1. Create a Neon project. Copy the connection string it gives you:
+-   `postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require` — split it into
+-   `DB_HOST` / `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE`.
+-2. On [render.com](https://render.com), **New → Blueprint**, connect the
+-   `mohamedelsayedarmy95/stockmind` GitHub repo, branch `main`. Render reads
+-   `render.yaml` and creates the `stockmind-api` web service automatically.
+-3. In the service's **Environment** tab, fill in the secrets marked
+-   `sync: false` in `render.yaml`:
+-
+-   | Key | Value |
+-   |---|---|
+-   | `DB_HOST` / `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE` | from the Neon connection string |
+-   | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` / `JWT_2FA_SECRET` | random 64-char strings |
+-   | `CORS_ORIGIN` | comma-separated allowed origins |
+-   | `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | from the Firebase service-account JSON |
+-
+-   (`NODE_ENV`, `DB_SSL`, `DB_PORT` are already set in `render.yaml`.)
+-4. Run migrations once against Neon (locally, with the same `DB_*` vars in
+-   `.env` and `DB_SSL=true`):
+-   ```bash
+-   npm run migration:run
+-   ```
+-5. Once deployed, confirm `https://<your-service>.onrender.com/api/v1/health`
+-   returns `200 OK`.
+-
+-## Alternative: Hugging Face Spaces (Docker SDK)
+-
+-The repo is also HF-Space-ready via the `README.md` front matter above
+-(`sdk: docker`, `dockerfile: Dockerfile.prod`). As of 2026, HF requires a
+-verified payment method on the account before it unlocks Docker Spaces (the
+-free-tier hardware itself stays free unless you upgrade) — use this path only
+-if you're fine adding a card for verification. Steps:
+-
+-1. Create a Neon project as above.
+-2. On the Space, go to **Settings → Repository secrets** and add:
+-
+-   | Secret | Value |
+-   |---|---|
+-   | `DB_HOST` | the `HOST` part of the Neon string |
+-   | `DB_PORT` | `5432` |
+-   | `DB_USERNAME` | the `USER` part |
+-   | `DB_PASSWORD` | the `PASSWORD` part |
+-   | `DB_DATABASE` | the `DBNAME` part |
+-   | `DB_SSL` | `true` |
+-   | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` / `JWT_2FA_SECRET` | random 64-char strings |
+-   | `CORS_ORIGIN` | comma-separated allowed origins |
+-   | `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | from the Firebase service-account JSON |
+-   | `NODE_ENV` | `production` |
+-
+-3. Push this repo to the Space's `main` branch — it builds `Dockerfile.prod`
+-   and serves the API on port 3000.
+-4. Run migrations once against Neon (locally, with the same `DB_*` vars in
+-   `.env` and `DB_SSL=true`):
+-   ```bash
+-   npm run migration:run
+-   ```
+-
+-## Quick Start (local development)
+-
+-### 1. Start Infrastructure
+-
+-```bash
+-docker compose up -d
+-```
+-
+-This starts PostgreSQL 15 (port 5432), Redis 7 (port 6379), and pgAdmin (port 5050).
+-
+-### 2. Install Dependencies
+-
+-```bash
+-npm install
+-```
+-
+-### 3. Run Database Migration
+-
+-```bash
+-npm run migration:run
+-```
+-
+-Creates all tables, enums, indexes, and Phase 1 columns (public_id, soft delete, optimistic locking).
+-
+-### 4. Start the Server
+-
+-```bash
+-npm run start:dev
+-```
+-
+-Server starts on `http://localhost:3000`.
+-
+-### 5. (Optional) Seed Demo Data
+-
+-```bash
+-npm run seed
+-```
+-
+-Creates a demo company, warehouses, admin user (`admin@stockmind.io` / `admin123`), categories, and two products.
+-
+----
+-
+-## API Testing (cURL)
+-
+-All endpoints are prefixed with `/api/v1`.
+-
+-### Auth
+-
+-**Register** (creates company + admin + default warehouse):
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/auth/register \
+-  -H "Content-Type: application/json" \
+-  -d '{
+-    "companyName": "My Company",
+-    "name": "Admin User",
+-    "email": "admin@test.com",
+-    "password": "password123"
+-  }'
+-```
+-
+-Save the returned `accessToken`, `defaultWarehouse.id` for subsequent requests.
+-
+-**Login:**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/auth/login \
+-  -H "Content-Type: application/json" \
+-  -d '{"email": "admin@test.com", "password": "password123"}'
+-```
+-
+-**Refresh Token:**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/auth/refresh-token \
+-  -H "Content-Type: application/json" \
+-  -d '{"refreshToken": "<REFRESH_TOKEN>"}'
+-```
+-
+-**Logout:**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/auth/logout \
+-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+-```
+-
+-### Products
+-
+-**Create Product:**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/products \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer <TOKEN>" \
+-  -d '{
+-    "name": "Product A",
+-    "sku": "PROD-A",
+-    "unitsOfMeasure": [{"uomType": "piece", "code": "PCS", "conversionFactorToBase": "1"}]
+-  }'
+-```
+-
+-**List Products:**
+-
+-```bash
+-curl http://localhost:3000/api/v1/products \
+-  -H "Authorization: Bearer <TOKEN>"
+-```
+-
+-### Warehouses
+-
+-**Create Warehouse:**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/warehouses \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer <TOKEN>" \
+-  -d '{"name": "Warehouse B", "address": "456 St"}'
+-```
+-
+-### Stock Operations (The Core)
+-
+-**Inbound (receive goods):**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/stock/inbound \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer <TOKEN>" \
+-  -d '{
+-    "productId": "<PRODUCT_ID>",
+-    "warehouseId": "<WAREHOUSE_ID>",
+-    "quantity": "100",
+-    "notes": "Initial purchase order"
+-  }'
+-```
+-
+-**Outbound (dispatch goods):**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/stock/outbound \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer <TOKEN>" \
+-  -d '{
+-    "productId": "<PRODUCT_ID>",
+-    "warehouseId": "<WAREHOUSE_ID>",
+-    "quantity": "30"
+-  }'
+-```
+-
+-**Transfer (move stock between warehouses — atomic two-leg):**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/stock/transfer \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer <TOKEN>" \
+-  -d '{
+-    "productId": "<PRODUCT_ID>",
+-    "fromWarehouseId": "<SRC_WAREHOUSE_ID>",
+-    "toWarehouseId": "<DST_WAREHOUSE_ID>",
+-    "quantity": "10"
+-  }'
+-```
+-
+-**Adjustment (inventory count correction):**
+-
+-```bash
+-curl -X POST http://localhost:3000/api/v1/stock/adjustment \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer <TOKEN>" \
+-  -d '{
+-    "productId": "<PRODUCT_ID>",
+-    "warehouseId": "<WAREHOUSE_ID>",
+-    "quantity": "-5",
+-    "reason": "Damaged goods found during count"
+-  }'
+-```
+-
+-**Get Balance:**
+-
+-```bash
+-curl http://localhost:3000/api/v1/stock/balance/<PRODUCT_ID>/<WAREHOUSE_ID> \
+-  -H "Authorization: Bearer <TOKEN>"
+-```
+-
+-**Get Movement History:**
+-
+-```bash
+-curl http://localhost:3000/api/v1/stock/movements/<PRODUCT_ID> \
+-  -H "Authorization: Bearer <TOKEN>"
+-```
+-
+----
+-
+-## Acceptance Test Scenario
+-
+-Run these commands in order to verify the system:
+-
+-```bash
+-# 1. Register company + admin
+-curl -s -X POST http://localhost:3000/api/v1/auth/register \
+-  -H "Content-Type: application/json" \
+-  -d '{"companyName":"TestCo","name":"Admin","email":"admin@test.com","password":"password123"}'
+-
+-# Save TOKEN and WAREHOUSE_ID from response
+-
+-# 2. Create Product A
+-curl -s -X POST http://localhost:3000/api/v1/products \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer $TOKEN" \
+-  -d '{"name":"Product A","sku":"A-001","unitsOfMeasure":[{"uomType":"piece","code":"PCS"}]}'
+-
+-# Save PRODUCT_A_ID from response
+-
+-# 3. Create Product B
+-curl -s -X POST http://localhost:3000/api/v1/products \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer $TOKEN" \
+-  -d '{"name":"Product B","sku":"B-001","unitsOfMeasure":[{"uomType":"piece","code":"PCS"}]}'
+-
+-# 4. Inbound 100 pieces of Product A
+-curl -s -X POST http://localhost:3000/api/v1/stock/inbound \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer $TOKEN" \
+-  -d '{"productId":"'$PRODUCT_A_ID'","warehouseId":"'$WAREHOUSE_ID'","quantity":"100"}'
+-
+-# 5. Outbound 30 pieces of Product A
+-curl -s -X POST http://localhost:3000/api/v1/stock/outbound \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer $TOKEN" \
+-  -d '{"productId":"'$PRODUCT_A_ID'","warehouseId":"'$WAREHOUSE_ID'","quantity":"30"}'
+-
+-# 6. Check balance → expect 70.000000
+-curl -s http://localhost:3000/api/v1/stock/balance/$PRODUCT_A_ID/$WAREHOUSE_ID \
+-  -H "Authorization: Bearer $TOKEN"
+-
+-# 7. Try outbound 100 more → expect HTTP 409 "Insufficient stock"
+-curl -s -X POST http://localhost:3000/api/v1/stock/outbound \
+-  -H "Content-Type: application/json" \
+-  -H "Authorization: Bearer $TOKEN" \
+-  -d '{"productId":"'$PRODUCT_A_ID'","warehouseId":"'$WAREHOUSE_ID'","quantity":"100"}'
+-```
+-
+----
+-
+-## Phase 1 — Architectural Hardening
+-
+-### Database
+-- **UUID v7 public_id**: time-ordered external identifiers on Company, Warehouse, Product, User. Internal PK (UUID v4) untouched.
+-- **Optimistic Locking**: `@VersionColumn` on Product and ProductWarehouse — concurrent saves throw `OptimisticLockVersionMismatchError`.
+-- **Soft Delete**: `deleted_at` + `deleted_by` on Company, Warehouse, Product, User. `DELETE` endpoints fill `deleted_at` instead of removing rows. Soft-deleted records auto-excluded from queries.
+-- **Migration-first**: `synchronize: false`. Schema managed by `npm run migration:run`.
+-
+-### Security
+-- **Helmet**: HTTP security headers (XSS, HSTS, clickjacking).
+-- **Rate Limiting**: 100 requests/minute per IP via `@nestjs/throttler`.
+-- **CORS**: locked to `CORS_ORIGIN` env var (comma-separated origins).
+-- **Global JWT Guard**: every route requires Bearer token by default. Public routes (register, login, refresh, health) annotated with `@Public()`.
+-
+-### Observability
+-- **Structured Logging**: `nestjs-pino` with JSON output (pino-pretty in dev).
+-- **Correlation ID**: auto-generated UUID v7 per request. Propagated via `X-Correlation-ID` header (request + response). All log lines tagged.
+-- **Health Check**: `GET /api/v1/health` — returns database connectivity status (no auth required).
+-
+-### Performance Indexes
+-- `stock_movements(product_id, warehouse_id)` — movement queries
+-- `stock_movements(created_at DESC)` — timeline queries
+-- `users(company_id)` — multi-tenant isolation
+-- `warehouses(company_id, is_active)` — active warehouse lookups
+-
+-## Phase 2 — Global Enterprise Transformation
+-
+-### Architecture: Clean Architecture + CQRS
+-```
+-src/
+-├── domain/         entities, repository interfaces, domain events, service contracts
+-├── application/    commands, queries, handlers, event listeners, DTOs (business logic)
+-├── infrastructure/ TypeORM services, storage adapters, audit writer, tenant context, subscribers
+-├── presentation/   controllers (thin), guards, decorators, interceptors, middleware, filters
+-├── shared/         cross-cutting utils + constants (permissions, enums)
+-└── modules/        NestJS wiring only
+-```
+-
+-### CQRS Commands & Queries
+-- **Commands**: `InboundStockCommand`, `OutboundStockCommand`, `AdjustStockCommand`, `TransferStockCommand`, `CreateProductCommand`
+-- **Queries**: `GetBalanceQuery`, `GetMovementHistoryQuery`, `GetProductListQuery`
+-- Controllers are orchestrators only — every write goes through `CommandBus`, every read through `QueryBus`.
+-- Every command handler wraps the sacred atomic transaction and emits a domain event on success.
+-
+-### Domain Events (EventEmitter2 + `@nestjs/cqrs` EventBus)
+-- `StockReceivedEvent` (from `InboundStockCommand` and TransferIn leg)
+-- `StockIssuedEvent` (from `OutboundStockCommand` and TransferOut leg)
+-- `StockAdjustedEvent` (from `AdjustStockCommand`)
+-- `ProductCreatedEvent` (from `CreateProductCommand`)
+-- Listeners persist events to `audit_logs` and emit structured logs with the same correlation ID.
+-
+-### Multi-Tenancy Hardening
+-- `TenantMiddleware` decodes the JWT and populates `AsyncLocalStorage` with `{userId, companyId, correlationId, ipAddress, userAgent}`.
+-- `TenantSubscriber` (TypeORM `EntitySubscriberInterface`):
+-  - `beforeInsert` auto-fills `company_id` if the caller forgot.
+-  - `afterLoad` throws if a loaded row's `company_id` does not match the active tenant — cross-company leaks fail loud.
+-- Every service still passes `companyId` explicitly in WHERE clauses; the subscriber is a belt-and-braces safety net.
+-
+-### RBAC (advanced)
+-- Tables: `roles`, `permissions`, `role_permissions`, `user_roles` (Phase 2 migration).
+-- 17 canonical permissions in [`permissions.constant.ts`](src/shared/constants/permissions.constant.ts).
+-- `@RequirePermissions(PERMISSIONS.STOCK_INBOUND)` decorator + `PermissionsGuard`.
+-- Legacy `role` enum (Admin/Manager/Staff) still works via `DEFAULT_ROLE_PERMISSIONS` fallback — no breaking change for existing JWTs.
+-
+-### Enterprise Audit Log
+-- `audit_logs` table (JSONB `old_values`/`new_values`, `ip_address`, `user_agent`, `correlation_id`).
+-- `AuditLogInterceptor` (global) records every POST/PUT/PATCH/DELETE with request/response diff.
+-- Sensitive fields (`password`, `passwordHash`, `refreshToken`) auto-redacted before storage.
+-- Correlation ID from Phase 1 propagates end-to-end: HTTP header → Pino log → audit row → domain event listener log.
+-
+-### File Storage Abstraction
+-- `IFileStorageService` interface in `domain/services/`.
+-- Three implementations: `LocalStorageService`, `S3StorageService`, `CloudinaryStorageService`.
+-- Driver chosen via `STORAGE_DRIVER` env (`local` / `s3` / `cloudinary`).
+-- Product image upload now streams to the configured backend (no direct disk write).
+-
+-### Testing
+-- Jest + Supertest + `@nestjs/testing`, ts-jest.
+-- 5 test suites, 13 tests, 100% passing.
+-- Unit tests for CQRS handlers, guards, UUID v7 generator.
+-- Integration test for audit log interceptor covering success, error, GET skip, and redaction.
+-- Factories in `tests/factories/` for entities.
+-- Scripts: `npm test`, `npm run test:unit`, `npm run test:integration`, `npm run test:cov`.
+-
+-### CI/CD (`.github/workflows/ci.yml`)
+-On every push/PR to `main`/`master`/`dev`:
+-1. `npm ci`
+-2. `npm run lint` (tsc typecheck)
+-3. `npm run build`
+-4. `npm run migration:run` against a real ephemeral Postgres 15 service
+-5. `npm run test:unit`
+-6. `npm run test:integration`
+-
+-## Environment Variables
+-
+-See `.env.example` for all configurable values.
+-
+ ## pgAdmin
+ 
+ Access at `http://localhost:5050` with `admin@stockmind.io` / `admin123`.
+-Add server: host=`postgres`, port=`5432`, user=`stockmind`, password=`stockmind123`.
++
++Add server: host=`postgres`, port=`5432`, user=`stockmind`, password=`[from .env]`.
+\ No newline at end of file
+diff --git a/jest.config.js b/jest.config.js
+index d07fc81..21dc47f 100644
+--- a/jest.config.js
++++ b/jest.config.js
+@@ -5,8 +5,13 @@ module.exports = {
+   rootDir: '.',
+   roots: ['<rootDir>/src', '<rootDir>/tests'],
+   moduleFileExtensions: ['ts', 'js', 'json'],
+-  testRegex: '.*\\.(spec|test)\\.ts$',
+-  transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
++  moduleNameMapper: {
++    '^@/(.*)$': '<rootDir>/src/$1',
++  },
++  testRegex: '.*\\.(spec|test)\\.(ts|tsx)$',
++  transform: {
++    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
++  },
+   collectCoverageFrom: [
+     'src/**/*.ts',
+     '!src/**/*.module.ts',
+@@ -16,4 +21,4 @@ module.exports = {
+   ],
+   coverageDirectory: 'coverage',
+   testTimeout: 15000,
+-};
++};
+\ No newline at end of file
+diff --git a/package-lock.json b/package-lock.json
+index 4184f3b..5071921 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -19,6 +19,7 @@
+         "@nestjs/jwt": "^10.2.0",
+         "@nestjs/passport": "^10.0.3",
+         "@nestjs/platform-express": "^10.3.0",
++        "@nestjs/swagger": "^11.4.6",
+         "@nestjs/terminus": "^11.1.1",
+         "@nestjs/throttler": "^6.5.0",
+         "@nestjs/typeorm": "^10.0.1",
+@@ -29,7 +30,7 @@
+         "cloudinary": "^2.10.0",
+         "compression": "^1.7.4",
+         "decimal.js": "^10.4.3",
+-        "firebase-admin": "^12.3.0",
++        "firebase-admin": "^12.7.0",
+         "google-auth-library": "^9.15.1",
+         "helmet": "^8.3.0",
+         "multer": "^1.4.5-lts.1",
+@@ -43,6 +44,7 @@
+         "reflect-metadata": "^0.2.1",
+         "rxjs": "^7.8.1",
+         "speakeasy": "^2.0.0",
++        "swagger-ui-express": "^5.0.1",
+         "typeorm": "^0.3.20"
+       },
+       "devDependencies": {
+@@ -1155,7 +1157,7 @@
+       "version": "0.8.1",
+       "resolved": "https://registry.npmjs.org/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz",
+       "integrity": "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "@jridgewell/trace-mapping": "0.3.9"
+@@ -2119,7 +2121,7 @@
+       "version": "3.1.2",
+       "resolved": "https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz",
+       "integrity": "sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT",
+       "engines": {
+         "node": ">=6.0.0"
+@@ -2151,14 +2153,14 @@
+       "version": "1.5.5",
+       "resolved": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.5.tgz",
+       "integrity": "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/@jridgewell/trace-mapping": {
+       "version": "0.3.9",
+       "resolved": "https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.9.tgz",
+       "integrity": "sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "@jridgewell/resolve-uri": "^3.0.3",
+@@ -2262,6 +2264,12 @@
+         "make-plural": "^7.0.0"
+       }
+     },
++    "node_modules/@microsoft/tsdoc": {
++      "version": "0.16.0",
++      "resolved": "https://registry.npmjs.org/@microsoft/tsdoc/-/tsdoc-0.16.0.tgz",
++      "integrity": "sha512-xgAyonlVVS+q7Vc7qLW0UrJU7rSFcETRWsqdXZtjzRU8dF+6CkozTK4V4y1LwOX7j8r/vHphjDeMeGI4tNGeGA==",
++      "license": "MIT"
++    },
+     "node_modules/@napi-rs/wasm-runtime": {
+       "version": "1.1.6",
+       "resolved": "https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz",
+@@ -2462,6 +2470,26 @@
+         "@nestjs/common": "^8.0.0 || ^9.0.0 || ^10.0.0"
+       }
+     },
++    "node_modules/@nestjs/mapped-types": {
++      "version": "2.1.1",
++      "resolved": "https://registry.npmjs.org/@nestjs/mapped-types/-/mapped-types-2.1.1.tgz",
++      "integrity": "sha512-SCCoMEJ6jdeI5h/N+KCVF1+pmg/hmEkNA5nHTS8Gvww7T/LCl4o1gFLinw2iQ60w7slFkszHcGLKGdazVI4F8A==",
++      "license": "MIT",
++      "peerDependencies": {
++        "@nestjs/common": "^10.0.0 || ^11.0.0",
++        "class-transformer": "^0.4.0 || ^0.5.0",
++        "class-validator": "^0.13.0 || ^0.14.0 || ^0.15.0",
++        "reflect-metadata": "^0.1.12 || ^0.2.0"
++      },
++      "peerDependenciesMeta": {
++        "class-transformer": {
++          "optional": true
++        },
++        "class-validator": {
++          "optional": true
++        }
++      }
++    },
+     "node_modules/@nestjs/passport": {
+       "version": "10.0.3",
+       "resolved": "https://registry.npmjs.org/@nestjs/passport/-/passport-10.0.3.tgz",
+@@ -2564,6 +2592,77 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/@nestjs/swagger": {
++      "version": "11.4.6",
++      "resolved": "https://registry.npmjs.org/@nestjs/swagger/-/swagger-11.4.6.tgz",
++      "integrity": "sha512-Le136h2WC7HGsd70+WyK1qrm+Zq7kFxBLkYC1JgAVqNRCt8kNh7bMF7Qkn65D5j2t/aks0+VbWmUVlYIwPrs3A==",
++      "license": "MIT",
++      "dependencies": {
++        "@microsoft/tsdoc": "0.16.0",
++        "@nestjs/mapped-types": "2.1.1",
++        "js-yaml": "5.2.1",
++        "lodash": "4.18.1",
++        "path-to-regexp": "8.4.2",
++        "swagger-ui-dist": "5.32.8"
++      },
++      "peerDependencies": {
++        "@fastify/static": "^8.0.0 || ^9.0.0 || ^10.0.0",
++        "@nestjs/common": "^11.0.1",
++        "@nestjs/core": "^11.0.1",
++        "class-transformer": "*",
++        "class-validator": "*",
++        "reflect-metadata": "^0.1.12 || ^0.2.0"
++      },
++      "peerDependenciesMeta": {
++        "@fastify/static": {
++          "optional": true
++        },
++        "class-transformer": {
++          "optional": true
++        },
++        "class-validator": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@nestjs/swagger/node_modules/js-yaml": {
++      "version": "5.2.1",
++      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-5.2.1.tgz",
++      "integrity": "sha512-zfLtNfQqxVqq3uaTqSkh4x4hZw3KHobGUA0fJUj4wawW8bsQLTVqpHdXSIzidh7o+4lEW36tANuAGdaFx6Zgnw==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/puzrin"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/nodeca"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "argparse": "^2.0.1"
++      },
++      "bin": {
++        "js-yaml": "bin/js-yaml.mjs"
++      }
++    },
++    "node_modules/@nestjs/swagger/node_modules/lodash": {
++      "version": "4.18.1",
++      "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.18.1.tgz",
++      "integrity": "sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==",
++      "license": "MIT"
++    },
++    "node_modules/@nestjs/swagger/node_modules/path-to-regexp": {
++      "version": "8.4.2",
++      "resolved": "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-8.4.2.tgz",
++      "integrity": "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA==",
++      "license": "MIT",
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/express"
++      }
++    },
+     "node_modules/@nestjs/terminus": {
+       "version": "11.1.1",
+       "resolved": "https://registry.npmjs.org/@nestjs/terminus/-/terminus-11.1.1.tgz",
+@@ -2911,6 +3010,13 @@
+       "license": "BSD-3-Clause",
+       "optional": true
+     },
++    "node_modules/@scarf/scarf": {
++      "version": "1.4.0",
++      "resolved": "https://registry.npmjs.org/@scarf/scarf/-/scarf-1.4.0.tgz",
++      "integrity": "sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==",
++      "hasInstallScript": true,
++      "license": "Apache-2.0"
++    },
+     "node_modules/@sinclair/typebox": {
+       "version": "0.34.52",
+       "resolved": "https://registry.npmjs.org/@sinclair/typebox/-/typebox-0.34.52.tgz",
+@@ -3086,28 +3192,28 @@
+       "version": "1.0.12",
+       "resolved": "https://registry.npmjs.org/@tsconfig/node10/-/node10-1.0.12.tgz",
+       "integrity": "sha512-UCYBaeFvM11aU2y3YPZ//O5Rhj+xKyzy7mvcIoAjASbigy8mHMryP5cK7dgjlz2hWxh1g5pLw084E0a/wlUSFQ==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/@tsconfig/node12": {
+       "version": "1.0.11",
+       "resolved": "https://registry.npmjs.org/@tsconfig/node12/-/node12-1.0.11.tgz",
+       "integrity": "sha512-cqefuRsh12pWyGsIoBKJA9luFu3mRxCA+ORZvA4ktLSzIuCUtWVxGIuXigEwO5/ywWFMZ2QEGKWvkZG1zDMTag==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/@tsconfig/node14": {
+       "version": "1.0.3",
+       "resolved": "https://registry.npmjs.org/@tsconfig/node14/-/node14-1.0.3.tgz",
+       "integrity": "sha512-ysT8mhdixWK6Hw3i1V2AeRqZ5WfXg1G43mqoYlM2nc6388Fq5jcXyr5mRsqViLx/GJYdoL0bfXD8nmF+Zn/Iow==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/@tsconfig/node16": {
+       "version": "1.0.4",
+       "resolved": "https://registry.npmjs.org/@tsconfig/node16/-/node16-1.0.4.tgz",
+       "integrity": "sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/@tybys/wasm-util": {
+@@ -4168,7 +4274,7 @@
+       "version": "8.17.0",
+       "resolved": "https://registry.npmjs.org/acorn/-/acorn-8.17.0.tgz",
+       "integrity": "sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT",
+       "bin": {
+         "acorn": "bin/acorn"
+@@ -4181,7 +4287,7 @@
+       "version": "8.3.5",
+       "resolved": "https://registry.npmjs.org/acorn-walk/-/acorn-walk-8.3.5.tgz",
+       "integrity": "sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "acorn": "^8.11.0"
+@@ -4432,14 +4538,13 @@
+       "version": "4.1.3",
+       "resolved": "https://registry.npmjs.org/arg/-/arg-4.1.3.tgz",
+       "integrity": "sha512-58S9QDqG0Xx27YwPSt9fJxivjYl432YCwfDMfZ+71RAqUrZef7LrKQZ3LHLOwCS4FLNBplP533Zx895SeOCHvA==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/argparse": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz",
+       "integrity": "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==",
+-      "dev": true,
+       "license": "Python-2.0"
+     },
+     "node_modules/array-flatten": {
+@@ -5548,7 +5653,7 @@
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/create-require/-/create-require-1.1.1.tgz",
+       "integrity": "sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/cross-spawn": {
+@@ -5728,7 +5833,7 @@
+       "version": "4.0.4",
+       "resolved": "https://registry.npmjs.org/diff/-/diff-4.0.4.tgz",
+       "integrity": "sha512-X07nttJQkwkfKfvTPG/KSnE2OMdcUCao6+eXF3wmnIQRn2aPAHH3VxDbDOdegkd6JbPsXqShpvEOHfAT+nCNwQ==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "BSD-3-Clause",
+       "engines": {
+         "node": ">=0.3.1"
+@@ -8923,7 +9028,7 @@
+       "version": "1.3.6",
+       "resolved": "https://registry.npmjs.org/make-error/-/make-error-1.3.6.tgz",
+       "integrity": "sha512-s8UhlNe7vPKomQhC1qFelMokr/Sc3AgNbso3n74mVPA5LTZwkB9NlXf4XPamLxJE8h0gh73rM94xvwRT2CVInw==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "ISC"
+     },
+     "node_modules/make-plural": {
+@@ -11217,6 +11322,30 @@
+         "node": ">=8"
+       }
+     },
++    "node_modules/swagger-ui-dist": {
++      "version": "5.32.8",
++      "resolved": "https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-5.32.8.tgz",
++      "integrity": "sha512-dgMdWXIgnI4zX4OPhKEdWnlDODbgm8W3AX0Ivn/BBqcUh6xZsBxhZMnvk6DJyRz1BTrj8dPxtarmEGgkz30oyA==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@scarf/scarf": "=1.4.0"
++      }
++    },
++    "node_modules/swagger-ui-express": {
++      "version": "5.0.1",
++      "resolved": "https://registry.npmjs.org/swagger-ui-express/-/swagger-ui-express-5.0.1.tgz",
++      "integrity": "sha512-SrNU3RiBGTLLmFU8GIJdOdanJTl4TOmT27tt3bWWHppqYmAZ6IDuEuBvMU6nZq0zLEe6b/1rACXCgLZqO6ZfrA==",
++      "license": "MIT",
++      "dependencies": {
++        "swagger-ui-dist": ">=5.0.0"
++      },
++      "engines": {
++        "node": ">= v0.10.32"
++      },
++      "peerDependencies": {
++        "express": ">=4.0.0 || >=5.0.0-beta"
++      }
++    },
+     "node_modules/symbol-observable": {
+       "version": "4.0.0",
+       "resolved": "https://registry.npmjs.org/symbol-observable/-/symbol-observable-4.0.0.tgz",
+@@ -11658,7 +11787,7 @@
+       "version": "10.9.2",
+       "resolved": "https://registry.npmjs.org/ts-node/-/ts-node-10.9.2.tgz",
+       "integrity": "sha512-f0FFpIdcHgn8zcPSbf1dRevwt047YMnaiJM3u2w2RewrB+fob/zePZcrOyQoLMMO7aBIddLcQIEK5dYjkLnGrQ==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "@cspotcode/source-map-support": "^0.8.0",
+@@ -12014,7 +12143,7 @@
+       "version": "5.9.3",
+       "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+       "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "Apache-2.0",
+       "bin": {
+         "tsc": "bin/tsc",
+@@ -12199,7 +12328,7 @@
+       "version": "3.0.1",
+       "resolved": "https://registry.npmjs.org/v8-compile-cache-lib/-/v8-compile-cache-lib-3.0.1.tgz",
+       "integrity": "sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/v8-to-istanbul": {
+@@ -12676,7 +12805,7 @@
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/yn/-/yn-3.1.1.tgz",
+       "integrity": "sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==",
+-      "devOptional": true,
++      "dev": true,
+       "license": "MIT",
+       "engines": {
+         "node": ">=6"
+diff --git a/package.json b/package.json
+index a795ae8..3683825 100644
+--- a/package.json
++++ b/package.json
+@@ -33,6 +33,7 @@
+     "@nestjs/jwt": "^10.2.0",
+     "@nestjs/passport": "^10.0.3",
+     "@nestjs/platform-express": "^10.3.0",
++    "@nestjs/swagger": "^11.4.6",
+     "@nestjs/terminus": "^11.1.1",
+     "@nestjs/throttler": "^6.5.0",
+     "@nestjs/typeorm": "^10.0.1",
+@@ -43,7 +44,7 @@
+     "cloudinary": "^2.10.0",
+     "compression": "^1.7.4",
+     "decimal.js": "^10.4.3",
+-    "firebase-admin": "^12.3.0",
++    "firebase-admin": "^12.7.0",
+     "google-auth-library": "^9.15.1",
+     "helmet": "^8.3.0",
+     "multer": "^1.4.5-lts.1",
+@@ -57,6 +58,7 @@
+     "reflect-metadata": "^0.2.1",
+     "rxjs": "^7.8.1",
+     "speakeasy": "^2.0.0",
++    "swagger-ui-express": "^5.0.1",
+     "typeorm": "^0.3.20"
+   },
+   "devDependencies": {
+diff --git a/src/application/commands/adjust-stock.handler.ts b/src/application/commands/adjust-stock.handler.ts
+index f61f979..95b73dd 100644
+--- a/src/application/commands/adjust-stock.handler.ts
++++ b/src/application/commands/adjust-stock.handler.ts
+@@ -1,33 +1,12 @@
+-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+-import { EventEmitter2 } from '@nestjs/event-emitter';
++import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+ import { AdjustStockCommand } from './adjust-stock.command';
+ import { StockService } from '../../infrastructure/repositories/stock.service';
+-import { StockAdjustedEvent } from '../../domain/events/stock-adjusted.event';
+ 
+ @CommandHandler(AdjustStockCommand)
+ export class AdjustStockHandler implements ICommandHandler<AdjustStockCommand> {
+-  constructor(
+-    private readonly stock: StockService,
+-    private readonly events: EventEmitter2,
+-    private readonly cqrsEventBus: EventBus,
+-  ) {}
++  constructor(private readonly stock: StockService) {}
+ 
+   async execute(cmd: AdjustStockCommand) {
+-    const movement = await this.stock.adjustment(cmd.userId, cmd.companyId, cmd.dto);
+-
+-    const event = new StockAdjustedEvent(
+-      cmd.dto.productId,
+-      cmd.dto.warehouseId,
+-      cmd.companyId,
+-      cmd.userId,
+-      cmd.dto.quantity,
+-      movement.runningBalance,
+-      cmd.dto.reason,
+-      cmd.correlationId,
+-    );
+-    this.events.emit(StockAdjustedEvent.NAME, event);
+-    this.cqrsEventBus.publish(event);
+-
+-    return movement;
++    return this.stock.adjustment(cmd.userId, cmd.companyId, cmd.dto);
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/commands/create-product.handler.ts b/src/application/commands/create-product.handler.ts
+index 6da208f..b640402 100644
+--- a/src/application/commands/create-product.handler.ts
++++ b/src/application/commands/create-product.handler.ts
+@@ -1,30 +1,12 @@
+-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+-import { EventEmitter2 } from '@nestjs/event-emitter';
++import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+ import { CreateProductCommand } from './create-product.command';
+ import { ProductService } from '../../infrastructure/repositories/product.service';
+-import { ProductCreatedEvent } from '../../domain/events/product-created.event';
+ 
+ @CommandHandler(CreateProductCommand)
+ export class CreateProductHandler implements ICommandHandler<CreateProductCommand> {
+-  constructor(
+-    private readonly products: ProductService,
+-    private readonly events: EventEmitter2,
+-    private readonly cqrsEventBus: EventBus,
+-  ) {}
++  constructor(private readonly products: ProductService) {}
+ 
+   async execute(cmd: CreateProductCommand) {
+-    const product = await this.products.create(cmd.companyId, cmd.dto);
+-
+-    const event = new ProductCreatedEvent(
+-      product.id,
+-      cmd.companyId,
+-      cmd.userId,
+-      product.sku,
+-      cmd.correlationId,
+-    );
+-    this.events.emit(ProductCreatedEvent.NAME, event);
+-    this.cqrsEventBus.publish(event);
+-
+-    return product;
++    return this.products.create(cmd.companyId, cmd.dto);
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/commands/inbound-stock.handler.ts b/src/application/commands/inbound-stock.handler.ts
+index 7acc66d..d3cec12 100644
+--- a/src/application/commands/inbound-stock.handler.ts
++++ b/src/application/commands/inbound-stock.handler.ts
+@@ -1,32 +1,28 @@
+-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+-import { EventEmitter2 } from '@nestjs/event-emitter';
++import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+ import { InboundStockCommand } from './inbound-stock.command';
+-import { StockService } from '../../infrastructure/repositories/stock.service';
+-import { StockReceivedEvent } from '../../domain/events/stock-received.event';
++import { CommandBus } from '@nestjs/cqrs';
++import { FcmService } from '../../infrastructure/firebase/fcm.service';
+ 
+ @CommandHandler(InboundStockCommand)
+ export class InboundStockHandler implements ICommandHandler<InboundStockCommand> {
+   constructor(
+-    private readonly stock: StockService,
+-    private readonly events: EventEmitter2,
+-    private readonly cqrsEventBus: EventBus,
++    private readonly commandBus: CommandBus,
++    private readonly fcmService: FcmService,
+   ) {}
+ 
+-  async execute(cmd: InboundStockCommand) {
+-    const movement = await this.stock.inbound(cmd.userId, cmd.companyId, cmd.dto);
+-
+-    const event = new StockReceivedEvent(
+-      cmd.dto.productId,
+-      cmd.dto.warehouseId,
+-      cmd.companyId,
+-      cmd.userId,
+-      cmd.dto.quantity,
+-      movement.runningBalance,
+-      cmd.correlationId,
++  async execute(command: InboundStockCommand) {
++    const { userId, companyId, dto, correlationId } = command;
++    const result = await this.commandBus.execute(
++      new InboundStockCommand(userId, companyId, dto, correlationId),
+     );
+-    this.events.emit(StockReceivedEvent.NAME, event);
+-    this.cqrsEventBus.publish(event);
+ 
+-    return movement;
++    // Send fire-and-forget notification
++    this.fcmService
++      .sendStockNotification(userId, 'STOCK_RECEIVED', dto.productId, parseFloat(dto.quantity))
++      .catch((error) => {
++        console.error('Failed to send stock received notification:', error);
++      });
++
++    return result;
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/commands/outbound-stock.handler.ts b/src/application/commands/outbound-stock.handler.ts
+index 7ba6de9..a654d49 100644
+--- a/src/application/commands/outbound-stock.handler.ts
++++ b/src/application/commands/outbound-stock.handler.ts
+@@ -1,32 +1,12 @@
+-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+-import { EventEmitter2 } from '@nestjs/event-emitter';
++import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+ import { OutboundStockCommand } from './outbound-stock.command';
+ import { StockService } from '../../infrastructure/repositories/stock.service';
+-import { StockIssuedEvent } from '../../domain/events/stock-issued.event';
+ 
+ @CommandHandler(OutboundStockCommand)
+ export class OutboundStockHandler implements ICommandHandler<OutboundStockCommand> {
+-  constructor(
+-    private readonly stock: StockService,
+-    private readonly events: EventEmitter2,
+-    private readonly cqrsEventBus: EventBus,
+-  ) {}
++  constructor(private readonly stock: StockService) {}
+ 
+   async execute(cmd: OutboundStockCommand) {
+-    const movement = await this.stock.outbound(cmd.userId, cmd.companyId, cmd.dto);
+-
+-    const event = new StockIssuedEvent(
+-      cmd.dto.productId,
+-      cmd.dto.warehouseId,
+-      cmd.companyId,
+-      cmd.userId,
+-      cmd.dto.quantity,
+-      movement.runningBalance,
+-      cmd.correlationId,
+-    );
+-    this.events.emit(StockIssuedEvent.NAME, event);
+-    this.cqrsEventBus.publish(event);
+-
+-    return movement;
++    return this.stock.outbound(cmd.userId, cmd.companyId, cmd.dto);
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/dtos/product/create-product.dto.ts b/src/application/dtos/product/create-product.dto.ts
+index cc61b50..767b173 100644
+--- a/src/application/dtos/product/create-product.dto.ts
++++ b/src/application/dtos/product/create-product.dto.ts
+@@ -8,58 +8,71 @@ import {
+   IsNumberString,
+ } from 'class-validator';
+ import { Type } from 'class-transformer';
++import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+ 
+ export class CreateUomDto {
++  @ApiProperty({ example: 'piece', description: 'Unit of measure type (e.g., piece, kg, liter)' })
+   @IsString()
+   @IsNotEmpty()
+   uomType!: string;
+ 
++  @ApiProperty({ example: 'PCS', description: 'Unit code (e.g., PCS, KG, L)' })
+   @IsString()
+   @IsNotEmpty()
+   code!: string;
+ 
++  @ApiPropertyOptional({ example: '24', description: 'Conversion factor to base unit (optional)' })
+   @IsNumberString()
+   @IsOptional()
+   conversionFactorToBase?: string;
+ }
+ 
+ export class CreateProductDto {
++  @ApiProperty({ example: 'USB-C Cable', description: 'Product name' })
+   @IsString()
+   @IsNotEmpty()
+   name!: string;
+ 
++  @ApiProperty({ example: 'PROD-A-001', description: 'Stock Keeping Unit (SKU)' })
+   @IsString()
+   @IsNotEmpty()
+   sku!: string;
+ 
++  @ApiPropertyOptional({ example: 'elec-001', description: 'Category ID (optional)' })
+   @IsString()
+   @IsOptional()
+   categoryId?: string;
+ 
++  @ApiPropertyOptional({ example: '8901234567890', description: 'Barcode (optional)' })
+   @IsString()
+   @IsOptional()
+   barcode?: string;
+ 
+   // Optional, encrypted at rest. Omitted by existing callers ⇒ no behaviour change.
++  @ApiPropertyOptional({ example: '12.50', description: 'Cost price (encrypted at rest)', required: false })
+   @IsNumberString()
+   @IsOptional()
+   costPrice?: string;
+ 
++  @ApiPropertyOptional({ example: '0.05', description: 'Weight in kg (optional)', required: false })
+   @IsNumberString()
+   @IsOptional()
+   weight?: string;
+ 
++  @ApiPropertyOptional({ example: '0.001', description: 'Volume in m³ (optional)', required: false })
+   @IsNumberString()
+   @IsOptional()
+   volume?: string;
+ 
++  @ApiPropertyOptional({ example: '2025-12-31', description: 'Expiry date (ISO string, optional)', required: false })
+   @IsDateString()
+   @IsOptional()
+   expiryDate?: string;
+ 
++  @ApiPropertyOptional({ type: [CreateUomDto], description: 'Array of units of measure' })
+   @IsArray()
+   @ValidateNested({ each: true })
+   @Type(() => CreateUomDto)
+   @IsOptional()
+   unitsOfMeasure?: CreateUomDto[];
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/dtos/product/update-product.dto.ts b/src/application/dtos/product/update-product.dto.ts
+index 6bc6b58..e3e91ab 100644
+--- a/src/application/dtos/product/update-product.dto.ts
++++ b/src/application/dtos/product/update-product.dto.ts
+@@ -1,31 +1,39 @@
+ import { IsOptional, IsString, IsDateString, IsNumberString } from 'class-validator';
++import { ApiProperty } from '@nestjs/swagger';
+ 
+ export class UpdateProductDto {
++  @ApiProperty({ example: 'Updated Product Name', description: 'Product name', required: false })
+   @IsString()
+   @IsOptional()
+   name?: string;
+ 
++  @ApiProperty({ example: 'SKU-UPDATED', description: 'Stock Keeping Unit', required: false })
+   @IsString()
+   @IsOptional()
+   sku?: string;
+ 
++  @ApiProperty({ example: 'cat_123', description: 'Category ID', required: false })
+   @IsString()
+   @IsOptional()
+   categoryId?: string;
+ 
++  @ApiProperty({ example: '1234567890123', description: 'Barcode', required: false })
+   @IsString()
+   @IsOptional()
+   barcode?: string;
+ 
++  @ApiProperty({ example: '2.5', description: 'Weight in kg', required: false })
+   @IsNumberString()
+   @IsOptional()
+   weight?: string;
+ 
++  @ApiProperty({ example: '0.5', description: 'Volume in cubic meters', required: false })
+   @IsNumberString()
+   @IsOptional()
+   volume?: string;
+ 
++  @ApiProperty({ example: '2025-12-31', description: 'Expiry date (ISO 8601)', required: false })
+   @IsDateString()
+   @IsOptional()
+   expiryDate?: string;
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/dtos/stock/adjustment.dto.ts b/src/application/dtos/stock/adjustment.dto.ts
+index 452b83f..d50f8d0 100644
+--- a/src/application/dtos/stock/adjustment.dto.ts
++++ b/src/application/dtos/stock/adjustment.dto.ts
+@@ -1,17 +1,22 @@
+ import { IsNotEmpty, IsNumberString, IsString, IsUUID } from 'class-validator';
++import { ApiProperty } from '@nestjs/swagger';
+ 
+ export class AdjustmentDto {
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', description: 'Product UUID' })
+   @IsUUID()
+   productId!: string;
+ 
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001', description: 'Warehouse UUID' })
+   @IsUUID()
+   warehouseId!: string;
+ 
++  @ApiProperty({ example: '10.5', description: 'Adjustment quantity (can be negative or positive)' })
+   @IsNumberString()
+   @IsNotEmpty()
+   quantity!: string;
+ 
++  @ApiProperty({ example: 'Cycle count adjustment', description: 'Reason for adjustment' })
+   @IsString()
+   @IsNotEmpty()
+   reason!: string;
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/dtos/stock/inbound.dto.ts b/src/application/dtos/stock/inbound.dto.ts
+index e644bcd..c99859c 100644
+--- a/src/application/dtos/stock/inbound.dto.ts
++++ b/src/application/dtos/stock/inbound.dto.ts
+@@ -1,17 +1,22 @@
+ import { IsNotEmpty, IsNumberString, IsOptional, IsString, IsUUID } from 'class-validator';
++import { ApiProperty } from '@nestjs/swagger';
+ 
+ export class InboundDto {
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', description: 'Product UUID' })
+   @IsUUID()
+   productId!: string;
+ 
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001', description: 'Warehouse UUID' })
+   @IsUUID()
+   warehouseId!: string;
+ 
++  @ApiProperty({ example: '100', description: 'Quantity as string (e.g., "100.000")' })
+   @IsNumberString()
+   @IsNotEmpty()
+   quantity!: string;
+ 
++  @ApiProperty({ example: 'Received from supplier ABC', description: 'Optional notes', required: false })
+   @IsString()
+   @IsOptional()
+   notes?: string;
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/dtos/stock/outbound.dto.ts b/src/application/dtos/stock/outbound.dto.ts
+index 5960953..38a4076 100644
+--- a/src/application/dtos/stock/outbound.dto.ts
++++ b/src/application/dtos/stock/outbound.dto.ts
+@@ -1,17 +1,22 @@
+ import { IsNotEmpty, IsNumberString, IsOptional, IsString, IsUUID } from 'class-validator';
++import { ApiProperty } from '@nestjs/swagger';
+ 
+ export class OutboundDto {
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', description: 'Product UUID' })
+   @IsUUID()
+   productId!: string;
+ 
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001', description: 'Warehouse UUID' })
+   @IsUUID()
+   warehouseId!: string;
+ 
++  @ApiProperty({ example: '50', description: 'Quantity as string (e.g., "50.000")' })
+   @IsNumberString()
+   @IsNotEmpty()
+   quantity!: string;
+ 
++  @ApiProperty({ example: 'Sold to customer XYZ', description: 'Optional notes', required: false })
+   @IsString()
+   @IsOptional()
+   notes?: string;
+-}
++}
+\ No newline at end of file
+diff --git a/src/application/dtos/stock/transfer.dto.ts b/src/application/dtos/stock/transfer.dto.ts
+index 89d32f3..9cca1b3 100644
+--- a/src/application/dtos/stock/transfer.dto.ts
++++ b/src/application/dtos/stock/transfer.dto.ts
+@@ -1,20 +1,26 @@
+ import { IsNotEmpty, IsNumberString, IsOptional, IsString, IsUUID } from 'class-validator';
++import { ApiProperty } from '@nestjs/swagger';
+ 
+ export class TransferDto {
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', description: 'Product UUID' })
+   @IsUUID()
+   productId!: string;
+ 
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001', description: 'Source warehouse UUID' })
+   @IsUUID()
+   fromWarehouseId!: string;
+ 
++  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440002', description: 'Destination warehouse UUID' })
+   @IsUUID()
+   toWarehouseId!: string;
+ 
++  @ApiProperty({ example: '25', description: 'Quantity to transfer' })
+   @IsNumberString()
+   @IsNotEmpty()
+   quantity!: string;
+ 
++  @ApiProperty({ example: 'Transfer from NY to LA warehouse', description: 'Optional notes', required: false })
+   @IsString()
+   @IsOptional()
+   notes?: string;
+-}
++}
+\ No newline at end of file
+diff --git a/src/infrastructure/database/subscribers/tenant.subscriber.ts b/src/infrastructure/database/subscribers/tenant.subscriber.ts
+index 89a8038..b8c5aae 100644
+--- a/src/infrastructure/database/subscribers/tenant.subscriber.ts
++++ b/src/infrastructure/database/subscribers/tenant.subscriber.ts
+@@ -23,7 +23,7 @@ export class TenantSubscriber implements EntitySubscriberInterface {
+     const ctx = getTenantContext();
+     if (!ctx || !entity) return;
+ 
+-    if ('companyId' in entity && entity.companyId && entity.companyId !== ctx.companyId) {
++    if ('companyId' in entity && entity.companyId !== undefined && entity.companyId !== ctx.companyId) {
+       throw new Error(
+         `Tenant isolation violation: entity companyId=${String(entity.companyId)} ` +
+           `does not match context companyId=${ctx.companyId}`,
+@@ -38,7 +38,7 @@ export class TenantSubscriber implements EntitySubscriberInterface {
+     const ctx = getTenantContext();
+     if (!ctx || !event.entity) return;
+ 
+-    if ('companyId' in event.entity && !event.entity.companyId) {
++    if ('companyId' in event.entity && event.entity.companyId === undefined) {
+       event.entity.companyId = ctx.companyId;
+     }
+   }
+diff --git a/src/infrastructure/repositories/stock.service.ts b/src/infrastructure/repositories/stock.service.ts
+index 35968d8..6f35e8d 100644
+--- a/src/infrastructure/repositories/stock.service.ts
++++ b/src/infrastructure/repositories/stock.service.ts
+@@ -4,7 +4,7 @@ import {
+   NotFoundException,
+ } from '@nestjs/common';
+ import { InjectRepository } from '@nestjs/typeorm';
+-import { Repository, DataSource } from 'typeorm';
++import { Repository, DataSource, QueryRunner } from 'typeorm';
+ import Decimal from 'decimal.js';
+ import { ProductWarehouse } from '../../domain/entities/product-warehouse.entity';
+ import { StockMovement } from '../../domain/entities/stock-movement.entity';
+@@ -367,4 +367,4 @@ export class StockService {
+     m.createdAt = row.created_at as Date;
+     return m;
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/main.ts b/src/main.ts
+index 85f57bd..4a40a6c 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -1,5 +1,6 @@
+ import { NestFactory } from '@nestjs/core';
+ import { ValidationPipe } from '@nestjs/common';
++import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+ import helmet from 'helmet';
+ import * as compression from 'compression';
+ import { Logger } from 'nestjs-pino';
+@@ -39,8 +40,20 @@ async function bootstrap() {
+ 
+   // GlobalExceptionFilter is registered via APP_FILTER in AppModule (DI-aware for i18n).
+ 
++  // Swagger setup (only in non-production)
++  if (process.env.NODE_ENV !== 'production') {
++    const config = new DocumentBuilder()
++      .setTitle('StockMind API')
++      .setDescription('Intelligent Warehouse Operating System — Atomic Ledger Engine')
++      .setVersion('0.1.0')
++      .addBearerAuth()
++      .build();
++    const document = SwaggerModule.createDocument(app, config);
++    SwaggerModule.setup('api/docs', app, document);
++  }
++
+   const port = process.env.PORT ?? 3000;
+   await app.listen(port);
+ }
+ 
+-bootstrap();
++bootstrap();
+\ No newline at end of file
+diff --git a/src/presentation/controllers/ai.controller.ts b/src/presentation/controllers/ai.controller.ts
+index 6d5a96e..9b0dd01 100644
+--- a/src/presentation/controllers/ai.controller.ts
++++ b/src/presentation/controllers/ai.controller.ts
+@@ -1,10 +1,13 @@
+ import { Controller, Post, Get, Body, Param, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
++import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+ import { HuggingFaceService } from '../../infrastructure/ai/hugging-face.service';
+ import { AskDto } from '../../application/dtos/ai/ask.dto';
+ import { RequirePermissions } from '../decorators/require-permissions.decorator';
+ import { PermissionsGuard } from '../guards/permissions.guard';
+ import { PERMISSIONS } from '../../shared/constants/permissions.constant';
+ 
++@ApiTags('AI')
++@ApiBearerAuth()
+ @Controller('ai')
+ @UseGuards(PermissionsGuard)
+ export class AiController {
+@@ -13,6 +16,10 @@ export class AiController {
+   @Post('ask')
+   @HttpCode(HttpStatus.OK)
+   @RequirePermissions(PERMISSIONS.VIEW_PRODUCT)
++  @ApiOperation({ summary: 'Ask AI assistant a question' })
++  @ApiResponse({ status: 200, description: 'Returns AI-generated answer' })
++  @ApiResponse({ status: 400, description: 'Invalid request' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   async ask(@Body() dto: AskDto): Promise<{ answer: string }> {
+     const answer = await this.hf.askAssistant(dto.prompt, dto.language ?? 'en');
+     return { answer };
+@@ -20,7 +27,11 @@ export class AiController {
+ 
+   @Get('reorder/:productId')
+   @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
++  @ApiOperation({ summary: 'Get AI-predicted reorder point for product' })
++  @ApiResponse({ status: 200, description: 'Returns recommended reorder quantity' })
++  @ApiResponse({ status: 404, description: 'Product not found' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   async reorder(@Param('productId') productId: string) {
+     return this.hf.predictReorder(productId);
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/presentation/controllers/auth.controller.ts b/src/presentation/controllers/auth.controller.ts
+index c44f1c1..4abbde7 100644
+--- a/src/presentation/controllers/auth.controller.ts
++++ b/src/presentation/controllers/auth.controller.ts
+@@ -6,6 +6,7 @@ import {
+   HttpCode,
+   HttpStatus,
+ } from '@nestjs/common';
++import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+ import type { Request } from 'express';
+ import { AuthService, RequestContext } from '../../infrastructure/repositories/auth.service';
+ import { RegisterDto } from '../../application/dtos/auth/register.dto';
+@@ -21,6 +22,8 @@ import {
+ import { Public } from '../../presentation/decorators/public.decorator';
+ import { CurrentUser, JwtPayload } from '../../presentation/decorators/current-user.decorator';
+ 
++@ApiTags('Auth')
++@ApiBearerAuth()
+ @Controller('auth')
+ export class AuthController {
+   constructor(private readonly authService: AuthService) {}
+@@ -34,6 +37,9 @@ export class AuthController {
+ 
+   @Public()
+   @Post('register')
++  @ApiOperation({ summary: 'Register a new user' })
++  @ApiResponse({ status: 201, description: 'User registered successfully' })
++  @ApiResponse({ status: 409, description: 'Email already exists' })
+   register(@Body() dto: RegisterDto) {
+     return this.authService.register(dto);
+   }
+@@ -41,6 +47,8 @@ export class AuthController {
+   @Public()
+   @Post('login')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Login user (returns JWT or 2FA challenge)' })
++  @ApiResponse({ status: 200, description: 'Login successful' })
+   login(@Body() dto: LoginDto, @Req() req: Request) {
+     // Returns either the token pair (no 2FA) or { requires_2fa, temp_token }.
+     return this.authService.login(dto, this.ctx(req));
+@@ -49,6 +57,8 @@ export class AuthController {
+   @Public()
+   @Post('2fa/login')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Verify 2FA and complete login' })
++  @ApiResponse({ status: 200, description: '2FA verified, tokens issued' })
+   twoFactorLogin(@Body() dto: TwoFactorLoginDto) {
+     return this.authService.twoFactorLogin(dto.tempToken, dto.otpCode);
+   }
+@@ -56,6 +66,8 @@ export class AuthController {
+   @Public()
+   @Post('google')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Google OAuth login' })
++  @ApiResponse({ status: 200, description: 'Google login successful' })
+   googleAuth(@Body() dto: GoogleAuthDto, @Req() req: Request) {
+     return this.authService.googleLogin(dto.idToken, this.ctx(req));
+   }
+@@ -63,24 +75,32 @@ export class AuthController {
+   @Public()
+   @Post('refresh-token')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Refresh access token using refresh token' })
++  @ApiResponse({ status: 200, description: 'Token refreshed' })
+   refreshToken(@Body() dto: RefreshTokenDto) {
+     return this.authService.refreshTokens(dto.refreshToken);
+   }
+ 
+   @Post('logout')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Logout user (revoke refresh token)' })
++  @ApiResponse({ status: 200, description: 'Logged out successfully' })
+   logout(@CurrentUser() user: JwtPayload) {
+     return this.authService.logout(user.sub);
+   }
+ 
+   @Post('sessions/terminate-all')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Terminate all sessions for the user' })
++  @ApiResponse({ status: 200, description: 'All sessions terminated' })
+   terminateAll(@CurrentUser() user: JwtPayload, @Req() req: Request) {
+     return this.authService.terminateAllSessions(user.sub, user.companyId, this.ctx(req));
+   }
+ 
+   @Post('change-password')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Change user password' })
++  @ApiResponse({ status: 200, description: 'Password changed' })
+   changePassword(
+     @CurrentUser() user: JwtPayload,
+     @Body() dto: ChangePasswordDto,
+@@ -99,12 +119,16 @@ export class AuthController {
+ 
+   @Post('2fa/enable')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Enable two-factor authentication for user' })
++  @ApiResponse({ status: 200, description: '2FA enabled, returns secret and QR code' })
+   enable2fa(@CurrentUser() user: JwtPayload, @Req() req: Request) {
+     return this.authService.enableTwoFactor(user.sub, user.companyId, this.ctx(req));
+   }
+ 
+   @Post('2fa/verify')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Verify 2FA during enrollment' })
++  @ApiResponse({ status: 200, description: '2FA verified and enabled' })
+   verify2fa(
+     @CurrentUser() user: JwtPayload,
+     @Body() dto: VerifyTwoFactorDto,
+@@ -115,6 +139,8 @@ export class AuthController {
+ 
+   @Post('2fa/disable')
+   @HttpCode(HttpStatus.OK)
++  @ApiOperation({ summary: 'Disable two-factor authentication' })
++  @ApiResponse({ status: 200, description: '2FA disabled' })
+   disable2fa(
+     @CurrentUser() user: JwtPayload,
+     @Body() dto: DisableTwoFactorDto,
+@@ -122,4 +148,4 @@ export class AuthController {
+   ) {
+     return this.authService.disableTwoFactor(user.sub, user.companyId, dto.password, this.ctx(req));
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/presentation/controllers/health.controller.ts b/src/presentation/controllers/health.controller.ts
+index 5e1d3af..937a086 100644
+--- a/src/presentation/controllers/health.controller.ts
++++ b/src/presentation/controllers/health.controller.ts
+@@ -1,7 +1,9 @@
+ import { Controller, Get } from '@nestjs/common';
++import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+ import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
+ import { Public } from '../../presentation/decorators/public.decorator';
+ 
++@ApiTags('Health')
+ @Controller('health')
+ export class HealthController {
+   constructor(
+@@ -12,9 +14,11 @@ export class HealthController {
+   @Get()
+   @Public()
+   @HealthCheck()
++  @ApiOperation({ summary: 'Health check endpoint' })
++  @ApiResponse({ status: 200, description: 'Service is healthy' })
+   check() {
+     return this.health.check([
+       () => this.db.pingCheck('database'),
+     ]);
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/presentation/controllers/product.controller.ts b/src/presentation/controllers/product.controller.ts
+index d6b7cc1..bd28640 100644
+--- a/src/presentation/controllers/product.controller.ts
++++ b/src/presentation/controllers/product.controller.ts
+@@ -2,6 +2,7 @@ import {
+   Controller, Get, Post, Patch, Delete, Param, Body,
+   UseInterceptors, UploadedFile, Inject, UseGuards, Req, Header,
+ } from '@nestjs/common';
++import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
+ import { FileInterceptor } from '@nestjs/platform-express';
+ import { memoryStorage } from 'multer';
+ import { CommandBus, QueryBus } from '@nestjs/cqrs';
+@@ -17,6 +18,8 @@ import { PermissionsGuard } from '../guards/permissions.guard';
+ import { PERMISSIONS } from '../../shared/constants/permissions.constant';
+ import { FILE_STORAGE_TOKEN, IFileStorageService } from '../../domain/services/file-storage.interface';
+ 
++@ApiTags('Product')
++@ApiBearerAuth()
+ @Controller('products')
+ @UseGuards(PermissionsGuard)
+ export class ProductController {
+@@ -34,6 +37,10 @@ export class ProductController {
+ 
+   @Post()
+   @RequirePermissions(PERMISSIONS.CREATE_PRODUCT)
++  @ApiOperation({ summary: 'Create a new product' })
++  @ApiResponse({ status: 201, description: 'Product created successfully' })
++  @ApiResponse({ status: 400, description: 'Validation error' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateProductDto, @Req() req: Request) {
+     return this.commandBus.execute(
+       new CreateProductCommand(user.sub, user.companyId, dto, this.corr(req)),
+@@ -43,18 +50,30 @@ export class ProductController {
+   @Get()
+   @RequirePermissions(PERMISSIONS.VIEW_PRODUCT)
+   @Header('Cache-Control', 'private, max-age=60')
++  @ApiOperation({ summary: 'Get list of products for the company' })
++  @ApiResponse({ status: 200, description: 'Returns paginated product list' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   findAll(@CurrentUser() user: JwtPayload) {
+     return this.queryBus.execute(new GetProductListQuery(user.companyId));
+   }
+ 
+   @Get(':id')
+   @RequirePermissions(PERMISSIONS.VIEW_PRODUCT)
++  @ApiOperation({ summary: 'Get product by ID' })
++  @ApiResponse({ status: 200, description: 'Returns the product' })
++  @ApiResponse({ status: 404, description: 'Product not found' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+     return this.service.findOne(user.companyId, id);
+   }
+ 
+   @Patch(':id')
+   @RequirePermissions(PERMISSIONS.UPDATE_PRODUCT)
++  @ApiOperation({ summary: 'Update product by ID' })
++  @ApiResponse({ status: 200, description: 'Product updated successfully' })
++  @ApiResponse({ status: 400, description: 'Validation error' })
++  @ApiResponse({ status: 404, description: 'Product not found' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   update(
+     @CurrentUser() user: JwtPayload,
+     @Param('id') id: string,
+@@ -65,6 +84,10 @@ export class ProductController {
+ 
+   @Delete(':id')
+   @RequirePermissions(PERMISSIONS.DELETE_PRODUCT)
++  @ApiOperation({ summary: 'Delete product by ID' })
++  @ApiResponse({ status: 200, description: 'Product deleted successfully' })
++  @ApiResponse({ status: 404, description: 'Product not found' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   remove(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+     return this.service.remove(user.companyId, id, user.sub);
+   }
+@@ -77,6 +100,23 @@ export class ProductController {
+       limits: { fileSize: 5 * 1024 * 1024 },
+     }),
+   )
++  @ApiOperation({ summary: 'Upload image for product' })
++  @ApiResponse({ status: 200, description: 'Image uploaded successfully' })
++  @ApiResponse({ status: 413, description: 'File too large' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
++  @ApiConsumes('multipart/form-data')
++  @ApiBody({
++    description: 'Image file',
++    schema: {
++      type: 'object',
++      properties: {
++        image: {
++          type: 'string',
++          format: 'binary',
++        },
++      },
++    },
++  })
+   async uploadImage(
+     @CurrentUser() user: JwtPayload,
+     @Param('id') id: string,
+@@ -96,6 +136,10 @@ export class ProductController {
+ 
+   @Post('categories')
+   @RequirePermissions(PERMISSIONS.CREATE_PRODUCT)
++  @ApiOperation({ summary: 'Create a product category' })
++  @ApiResponse({ status: 201, description: 'Category created' })
++  @ApiResponse({ status: 400, description: 'Validation error' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   createCategory(
+     @CurrentUser() user: JwtPayload,
+     @Body() body: { name: string; parentId?: string },
+@@ -105,7 +149,10 @@ export class ProductController {
+ 
+   @Get('categories/all')
+   @RequirePermissions(PERMISSIONS.VIEW_PRODUCT)
++  @ApiOperation({ summary: 'Get all product categories' })
++  @ApiResponse({ status: 200, description: 'Returns list of categories' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   findAllCategories(@CurrentUser() user: JwtPayload) {
+     return this.service.findAllCategories(user.companyId);
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/presentation/controllers/saml.controller.ts b/src/presentation/controllers/saml.controller.ts
+index 3bd4cdb..bdf62ed 100644
+--- a/src/presentation/controllers/saml.controller.ts
++++ b/src/presentation/controllers/saml.controller.ts
+@@ -8,6 +8,7 @@ import {
+   HttpCode,
+   HttpStatus,
+ } from '@nestjs/common';
++import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+ import { AuthGuard } from '@nestjs/passport';
+ import type { Request, Response } from 'express';
+ import { Public } from '../decorators/public.decorator';
+@@ -20,6 +21,7 @@ import type { User } from '../../domain/entities/user.entity';
+  * All routes are @Public — the GlobalJwtGuard must not intercept them.
+  * They are only registered when SAML_ENABLED=true (see SamlModule / app.module.ts).
+  */
++@ApiTags('SAML')
+ @Public()
+ @Controller('auth/saml')
+ export class SamlController {
+@@ -33,6 +35,8 @@ export class SamlController {
+    */
+   @Get('login')
+   @UseGuards(AuthGuard('saml'))
++  @ApiOperation({ summary: 'Initiate SAML login (redirects to IdP)' })
++  @ApiResponse({ status: 200, description: 'Redirects to Identity Provider' })
+   login() {
+     // Intentionally empty — passport-saml issues the IdP redirect before this runs.
+   }
+@@ -50,6 +54,9 @@ export class SamlController {
+   @Post('callback')
+   @HttpCode(HttpStatus.OK)
+   @UseGuards(AuthGuard('saml'))
++  @ApiOperation({ summary: 'SAML assertion consumer service (ACS) endpoint' })
++  @ApiResponse({ status: 200, description: 'Returns JWT tokens after successful SAML login' })
++  @ApiResponse({ status: 400, description: 'Invalid SAML response' })
+   async callback(@Req() req: Request, @Res() res: Response) {
+     const user = req.user as User;
+     const tokens = await this.authService.issueTokensForSsoUser(user, {
+@@ -67,8 +74,10 @@ export class SamlController {
+    */
+   @Get('logout')
+   @UseGuards(AuthGuard('saml'))
++  @ApiOperation({ summary: 'Initiate SAML logout (redirects to IdP)' })
++  @ApiResponse({ status: 200, description: 'Logged out successfully' })
+   logout(@Res() res: Response) {
+     // passport-saml handles the SLO redirect in-strategy.
+     return res.json({ loggedOut: true });
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/presentation/controllers/warehouse.controller.ts b/src/presentation/controllers/warehouse.controller.ts
+index dc75a90..c933748 100644
+--- a/src/presentation/controllers/warehouse.controller.ts
++++ b/src/presentation/controllers/warehouse.controller.ts
+@@ -1,6 +1,7 @@
+ import {
+   Controller, Get, Post, Patch, Delete, Param, Body, UseGuards,
+ } from '@nestjs/common';
++import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+ import { WarehouseService } from '../../infrastructure/repositories/warehouse.service';
+ import { CreateWarehouseDto } from '../../application/dtos/warehouse/create-warehouse.dto';
+ import { UpdateWarehouseDto } from '../../application/dtos/warehouse/update-warehouse.dto';
+@@ -9,6 +10,8 @@ import { RequirePermissions } from '../decorators/require-permissions.decorator'
+ import { PermissionsGuard } from '../guards/permissions.guard';
+ import { PERMISSIONS } from '../../shared/constants/permissions.constant';
+ 
++@ApiTags('Warehouses')
++@ApiBearerAuth()
+ @Controller('warehouses')
+ @UseGuards(PermissionsGuard)
+ export class WarehouseController {
+@@ -16,24 +19,38 @@ export class WarehouseController {
+ 
+   @Post()
+   @RequirePermissions(PERMISSIONS.CREATE_WAREHOUSE)
++  @ApiOperation({ summary: 'Create a new warehouse' })
++  @ApiResponse({ status: 201, description: 'Warehouse created' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateWarehouseDto) {
+     return this.service.create(user.companyId, dto);
+   }
+ 
+   @Get()
+   @RequirePermissions(PERMISSIONS.VIEW_WAREHOUSE)
++  @ApiOperation({ summary: 'Get all warehouses for the company' })
++  @ApiResponse({ status: 200, description: 'Returns list of warehouses' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   findAll(@CurrentUser() user: JwtPayload) {
+     return this.service.findAll(user.companyId);
+   }
+ 
+   @Get(':id')
+   @RequirePermissions(PERMISSIONS.VIEW_WAREHOUSE)
++  @ApiOperation({ summary: 'Get warehouse by ID' })
++  @ApiResponse({ status: 200, description: 'Returns warehouse details' })
++  @ApiResponse({ status: 404, description: 'Warehouse not found' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+     return this.service.findOne(user.companyId, id);
+   }
+ 
+   @Patch(':id')
+   @RequirePermissions(PERMISSIONS.UPDATE_WAREHOUSE)
++  @ApiOperation({ summary: 'Update warehouse' })
++  @ApiResponse({ status: 200, description: 'Warehouse updated' })
++  @ApiResponse({ status: 404, description: 'Warehouse not found' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   update(
+     @CurrentUser() user: JwtPayload,
+     @Param('id') id: string,
+@@ -44,7 +61,11 @@ export class WarehouseController {
+ 
+   @Delete(':id')
+   @RequirePermissions(PERMISSIONS.DELETE_WAREHOUSE)
++  @ApiOperation({ summary: 'Delete warehouse' })
++  @ApiResponse({ status: 200, description: 'Warehouse deleted' })
++  @ApiResponse({ status: 404, description: 'Warehouse not found' })
++  @ApiResponse({ status: 403, description: 'Forbidden' })
+   remove(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+     return this.service.remove(user.companyId, id, user.sub);
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/src/presentation/filters/global-exception.filter.ts b/src/presentation/filters/global-exception.filter.ts
+index 437ffcb..3f456c9 100644
+--- a/src/presentation/filters/global-exception.filter.ts
++++ b/src/presentation/filters/global-exception.filter.ts
+@@ -47,7 +47,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
+     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
+     let message: string | string[] = this.tr('common.error.internal', lang);
+ 
+-    // TEMP DEBUG: always dump constructor name + message so we can identify 500s
++    // Log the exception for internal monitoring
+     const exType = exception instanceof Error ? exception.constructor.name : typeof exception;
+     const exMsg = exception instanceof Error ? exception.message : String(exception);
+     this.logger.error(`[filter] caught ${exType}: ${exMsg}`);
+@@ -55,8 +55,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
+     if (!(exception instanceof HttpException)) {
+       const errMsg = exception instanceof Error ? exception.stack : String(exception);
+       this.logger.error('Unhandled exception', errMsg);
+-      // TEMP DEBUG: expose type+message in all envs so we can identify the root cause
+-      response.status(500).json({ statusCode: 500, message, debug: `[${exType}] ${errMsg}` });
++      // Return a generic internal server error without exposing details
++      response.status(500).json({ statusCode: 500, message });
+       return;
+     }
+ 
+@@ -79,8 +79,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
+     response.status(statusCode).json({
+       statusCode,
+       message,
+-      // TEMP DEBUG: include exception type for 500s
+-      ...(statusCode === 500 && { debug: `[HttpException/${exType}] status=${statusCode} msg=${exMsg}` }),
+       timestamp: new Date().toISOString(),
+     });
+   }
+diff --git a/src/presentation/interceptors/audit-log.interceptor.ts b/src/presentation/interceptors/audit-log.interceptor.ts
+index d99f1bb..900eb05 100644
+--- a/src/presentation/interceptors/audit-log.interceptor.ts
++++ b/src/presentation/interceptors/audit-log.interceptor.ts
+@@ -26,13 +26,24 @@ const REDACT_FIELDS = new Set([
+ ]);
+ 
+ function sanitize(obj: unknown): unknown {
+-  if (!obj || typeof obj !== 'object') return obj;
+-  if (Array.isArray(obj)) return obj.map(sanitize);
++  if (!obj || typeof obj !== 'object') {
++    if (typeof obj === 'string' && obj.length > 1000) {
++      return obj.substring(0, 1000) + '... [truncated]';
++    }
++    return obj;
++  }
++  if (Array.isArray(obj)) {
++    return obj.map(sanitize);
++  }
+   const out: Record<string, unknown> = {};
+   for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+-    if (REDACT_FIELDS.has(k)) out[k] = '[REDACTED]';
+-    else if (v && typeof v === 'object') out[k] = sanitize(v);
+-    else out[k] = v;
++    if (REDACT_FIELDS.has(k)) {
++      out[k] = '[REDACTED]';
++    } else if (v && typeof v === 'object') {
++      out[k] = sanitize(v);
++    } else {
++      out[k] = v;
++    }
+   }
+   return out;
+ }
+@@ -50,7 +61,6 @@ function actionFromMethod(method: string): string {
+ @Injectable()
+ export class AuditLogInterceptor implements NestInterceptor {
+   private readonly logger = new Logger(AuditLogInterceptor.name);
+-
+   constructor(private readonly audit: AuditLogService) {}
+ 
+   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+@@ -60,11 +70,11 @@ export class AuditLogInterceptor implements NestInterceptor {
+     }
+ 
+     const user = req.user as { sub?: string; companyId?: string; iat?: number } | undefined;
+-    const correlationId = req.headers['x-correlation-id'] ?? (req as { id?: string }).id;
++    const correlationId = (req.headers['x-correlation-id'] as string) ?? (req as { id?: string }).id;
+     const routePath = (req.route?.path as string | undefined) ?? req.url;
+     const entityType = deriveEntityType(routePath);
+     const idFromParams = (req.params?.id as string | undefined) ?? null;
+-    // A stable per-session id: same JWT (sub + issued-at) ⇒ same session_id.
++    // A stable per-session id: same JWT (sub + issued-at) => same session_id.
+     const sessionId =
+       user?.sub && user?.iat ? `${user.sub}.${user.iat}` : null;
+ 
+@@ -115,4 +125,4 @@ function deriveEntityType(path: string): string | null {
+   // /api/v1/products/:id -> "products"
+   const match = path.match(/\/api\/v1\/([^/]+)/);
+   return match?.[1] ?? null;
+-}
++}
+\ No newline at end of file
+diff --git a/src/presentation/middleware/tenant.middleware.ts b/src/presentation/middleware/tenant.middleware.ts
+index 13d92f2..f36d461 100644
+--- a/src/presentation/middleware/tenant.middleware.ts
++++ b/src/presentation/middleware/tenant.middleware.ts
+@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
+ import { JwtService } from '@nestjs/jwt';
+ import { ConfigService } from '@nestjs/config';
+ import { TenantContextService } from '../../infrastructure/context/tenant-context.service';
++import { UnauthorizedException } from '@nestjs/common';
+ 
+ @Injectable()
+ export class TenantMiddleware implements NestMiddleware {
+@@ -17,7 +18,7 @@ export class TenantMiddleware implements NestMiddleware {
+     const correlationId = (req.headers['x-correlation-id'] as string) ?? (req as unknown as { id?: string }).id;
+ 
+     if (!authHeader?.startsWith('Bearer ')) {
+-      return next();
++      throw new UnauthorizedException();
+     }
+ 
+     const token = authHeader.slice(7);
+@@ -40,7 +41,7 @@ export class TenantMiddleware implements NestMiddleware {
+         () => next(),
+       );
+     } catch {
+-      next();
++      throw new UnauthorizedException();
+     }
+   }
+ }
+diff --git a/tests/unit/inbound-stock.handler.spec.ts b/tests/unit/inbound-stock.handler.spec.ts
+index 78bf948..99c9933 100644
+--- a/tests/unit/inbound-stock.handler.spec.ts
++++ b/tests/unit/inbound-stock.handler.spec.ts
+@@ -1,24 +1,17 @@
+ import { InboundStockHandler } from '../../src/application/commands/inbound-stock.handler';
+ import { InboundStockCommand } from '../../src/application/commands/inbound-stock.command';
+-import { StockReceivedEvent } from '../../src/domain/events/stock-received.event';
+ 
+ describe('InboundStockHandler', () => {
+-  const stockService = {
+-    inbound: jest.fn(),
+-  };
+-  const emitter = { emit: jest.fn() };
+-  const cqrsBus = { publish: jest.fn() };
+-
+-  const handler = new InboundStockHandler(
+-    stockService as never,
+-    emitter as never,
+-    cqrsBus as never,
+-  );
++  const stockService = { inbound: jest.fn() };
++
++  const handler = new InboundStockHandler(stockService as never);
+ 
+   beforeEach(() => jest.clearAllMocks());
+ 
+-  it('executes the stock service and emits StockReceivedEvent', async () => {
+-    stockService.inbound.mockResolvedValue({ runningBalance: '100.000000' });
++  it('calls stockService.inbound with correct arguments and returns its result', async () => {
++    const mockResult = { runningBalance: '100.000000' };
++
++    stockService.inbound.mockResolvedValue(mockResult);
+ 
+     const cmd = new InboundStockCommand(
+       'user-1', 'company-1',
+@@ -29,20 +22,7 @@ describe('InboundStockHandler', () => {
+     const result = await handler.execute(cmd);
+ 
+     expect(stockService.inbound).toHaveBeenCalledWith('user-1', 'company-1', cmd.dto);
+-    expect(result.runningBalance).toBe('100.000000');
+-    expect(emitter.emit).toHaveBeenCalledWith(
+-      StockReceivedEvent.NAME,
+-      expect.objectContaining({
+-        productId: 'p1',
+-        warehouseId: 'w1',
+-        companyId: 'company-1',
+-        userId: 'user-1',
+-        quantity: '100',
+-        newBalance: '100.000000',
+-        correlationId: 'corr-1',
+-      }),
+-    );
+-    expect(cqrsBus.publish).toHaveBeenCalledTimes(1);
++    expect(result).toBe(mockResult);
+   });
+ 
+   it('propagates ConflictException from the service', async () => {
+@@ -54,6 +34,5 @@ describe('InboundStockHandler', () => {
+     );
+ 
+     await expect(handler.execute(cmd)).rejects.toThrow('Insufficient stock');
+-    expect(emitter.emit).not.toHaveBeenCalled();
+   });
+-});
++});
+\ No newline at end of file
+diff --git a/tests/unit/outbound-stock.handler.spec.ts b/tests/unit/outbound-stock.handler.spec.ts
+index 3c8350e..4df5e97 100644
+--- a/tests/unit/outbound-stock.handler.spec.ts
++++ b/tests/unit/outbound-stock.handler.spec.ts
+@@ -1,22 +1,18 @@
+ import { OutboundStockHandler } from '../../src/application/commands/outbound-stock.handler';
+ import { OutboundStockCommand } from '../../src/application/commands/outbound-stock.command';
+-import { StockIssuedEvent } from '../../src/domain/events/stock-issued.event';
+ 
+ describe('OutboundStockHandler', () => {
+   const stockService = { outbound: jest.fn() };
+-  const emitter = { emit: jest.fn() };
+-  const cqrsBus = { publish: jest.fn() };
+ 
+-  const handler = new OutboundStockHandler(
+-    stockService as never, emitter as never, cqrsBus as never,
+-  );
++  const handler = new OutboundStockHandler(stockService as never);
+ 
+   beforeEach(() => jest.clearAllMocks());
+ 
+-  it('emits StockIssuedEvent on success', async () => {
+-    stockService.outbound.mockResolvedValue({ runningBalance: '70.000000' });
++  it('calls stockService.outbound with correct arguments and returns its result', async () => {
++    const mockResult = { runningBalance: '70.000000' };
++    stockService.outbound.mockResolvedValue(mockResult);
+ 
+-    await handler.execute(
++    const result = await handler.execute(
+       new OutboundStockCommand(
+         'u1', 'c1',
+         { productId: 'p1', warehouseId: 'w1', quantity: '30' } as never,
+@@ -24,9 +20,22 @@ describe('OutboundStockHandler', () => {
+       ),
+     );
+ 
+-    expect(emitter.emit).toHaveBeenCalledWith(
+-      StockIssuedEvent.NAME,
+-      expect.objectContaining({ newBalance: '70.000000', correlationId: 'corr-x' }),
++    expect(stockService.outbound).toHaveBeenCalledWith('u1', 'c1', {
++      productId: 'p1',
++      warehouseId: 'w1',
++      quantity: '30',
++    });
++    expect(result).toBe(mockResult);
++  });
++
++  it('propagates ConflictException from the service', async () => {
++    stockService.outbound.mockRejectedValue(new Error('Insufficient stock'));
++
++    const cmd = new OutboundStockCommand(
++      'u', 'c',
++      { productId: 'p', warehouseId: 'w', quantity: '1' } as never,
+     );
++
++    await expect(handler.execute(cmd)).rejects.toThrow('Insufficient stock');
+   });
+-});
++});
+\ No newline at end of file

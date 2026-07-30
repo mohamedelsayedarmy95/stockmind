@@ -49,3 +49,9 @@ settings.gradle.kts
 .gradle/
 build/
 local.properties
+# Firebase
+.firebase/
+
+# Firebase
+serviceAccountKey.json
+*.p12

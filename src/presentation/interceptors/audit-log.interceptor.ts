@@ -26,13 +26,24 @@ const REDACT_FIELDS = new Set([
 ]);
 
 function sanitize(obj: unknown): unknown {
-  if (!obj || typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) return obj.map(sanitize);
+  if (!obj || typeof obj !== 'object') {
+    if (typeof obj === 'string' && obj.length > 1000) {
+      return obj.substring(0, 1000) + '... [truncated]';
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitize);
+  }
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-    if (REDACT_FIELDS.has(k)) out[k] = '[REDACTED]';
-    else if (v && typeof v === 'object') out[k] = sanitize(v);
-    else out[k] = v;
+    if (REDACT_FIELDS.has(k)) {
+      out[k] = '[REDACTED]';
+    } else if (v && typeof v === 'object') {
+      out[k] = sanitize(v);
+    } else {
+      out[k] = v;
+    }
   }
   return out;
 }
@@ -50,7 +61,6 @@ function actionFromMethod(method: string): string {
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditLogInterceptor.name);
-
   constructor(private readonly audit: AuditLogService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -60,11 +70,11 @@ export class AuditLogInterceptor implements NestInterceptor {
     }
 
     const user = req.user as { sub?: string; companyId?: string; iat?: number } | undefined;
-    const correlationId = req.headers['x-correlation-id'] ?? (req as { id?: string }).id;
+    const correlationId = (req.headers['x-correlation-id'] as string) ?? (req as { id?: string }).id;
     const routePath = (req.route?.path as string | undefined) ?? req.url;
     const entityType = deriveEntityType(routePath);
     const idFromParams = (req.params?.id as string | undefined) ?? null;
-    // A stable per-session id: same JWT (sub + issued-at) ⇒ same session_id.
+    // A stable per-session id: same JWT (sub + issued-at) => same session_id.
     const sessionId =
       user?.sub && user?.iat ? `${user.sub}.${user.iat}` : null;
 
