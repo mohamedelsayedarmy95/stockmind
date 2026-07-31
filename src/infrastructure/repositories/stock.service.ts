@@ -16,6 +16,7 @@ import { OutboundDto } from '../../application/dtos/stock/outbound.dto';
 import { AdjustmentDto } from '../../application/dtos/stock/adjustment.dto';
 import { TransferDto } from '../../application/dtos/stock/transfer.dto';
 import { randomUUID } from 'crypto';
+import { RedisService } from '../../infrastructure/cache/redis.service';
 
 @Injectable()
 export class StockService {
@@ -29,7 +30,62 @@ export class StockService {
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
     private readonly dataSource: DataSource,
+    private readonly redisService: RedisService,
   ) {}
+
+  private async validateOwnership(
+    companyId: string,
+    productId: string,
+    warehouseId: string,
+  ) {
+    // Validate product belongs to company
+    const product = await this.productRepo.findOne({
+      where: { id: productId, companyId },
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found or access denied');
+    }
+
+    // Validate warehouse belongs to company
+    const warehouse = await this.warehouseRepo.findOne({
+      where: { id: warehouseId, companyId },
+    });
+    if (!warehouse) {
+      throw new NotFoundException('Warehouse not found or access denied');
+    }
+  }
+
+  private async invalidateStockCache(
+    productId: string,
+    warehouseIds: string[],
+  ) {
+    // Invalidate balance cache for each warehouse
+    for (const warehouseId of warehouseIds) {
+      const balanceKey = this.redisService.generateKey(
+        'stock:balance',
+        productId,
+        warehouseId,
+      );
+      await this.redisService.del(balanceKey);
+    }
+
+    // Invalidate memory caches: the 'all' list and each specific warehouse list
+    const movementAllKey = this.redisService.generateKey(
+      'stock:movements',
+      productId,
+      'all',
+    );
+    await this.redisService.del(movementAllKey);
+
+    for (const warehouseId of warehouseIds) {
+      const movementKey = this.redisService.generateKey(
+        'stock:movements',
+        productId,
+        warehouseId,
+      );
+      await this.redisService.del(movementKey);
+    }
+  }
 
   async inbound(userId: string, companyId: string, dto: InboundDto) {
     await this.validateOwnership(companyId, dto.productId, dto.warehouseId);
@@ -39,7 +95,7 @@ export class StockService {
       throw new ConflictException('Quantity must be greater than zero');
     }
 
-    return this.executeMovement({
+    const result = this.executeMovement({
       productId: dto.productId,
       warehouseId: dto.warehouseId,
       userId,
@@ -49,6 +105,11 @@ export class StockService {
       notes: dto.notes ?? null,
       autoCreateSlot: true,
     });
+
+    // Invalidate cache for the product-warehouse pair
+    await this.invalidateStockCache(dto.productId, [dto.warehouseId]);
+
+    return result;
   }
 
   async outbound(userId: string, companyId: string, dto: OutboundDto) {
@@ -59,7 +120,7 @@ export class StockService {
       throw new ConflictException('Quantity must be greater than zero');
     }
 
-    return this.executeMovement({
+    const result = this.executeMovement({
       productId: dto.productId,
       warehouseId: dto.warehouseId,
       userId,
@@ -69,6 +130,11 @@ export class StockService {
       notes: dto.notes ?? null,
       autoCreateSlot: false,
     });
+
+    // Invalidate cache for the product-warehouse pair
+    await this.invalidateStockCache(dto.productId, [dto.warehouseId]);
+
+    return result;
   }
 
   async adjustment(userId: string, companyId: string, dto: AdjustmentDto) {
@@ -79,7 +145,7 @@ export class StockService {
       throw new ConflictException('Adjustment quantity cannot be zero');
     }
 
-    return this.executeMovement({
+    const result = this.executeMovement({
       productId: dto.productId,
       warehouseId: dto.warehouseId,
       userId,
@@ -89,6 +155,11 @@ export class StockService {
       notes: dto.reason,
       autoCreateSlot: true,
     });
+
+    // Invalidate cache for the product-warehouse pair
+    await this.invalidateStockCache(dto.productId, [dto.warehouseId]);
+
+    return result;
   }
 
   async transfer(userId: string, companyId: string, dto: TransferDto) {
@@ -195,6 +266,12 @@ export class StockService {
 
       await qr.commitTransaction();
 
+      // Invalidate cache for both warehouses
+      await this.invalidateStockCache(dto.productId, [
+        dto.fromWarehouseId,
+        dto.toWarehouseId,
+      ]);
+
       return {
         referenceId,
         out: this.toMovementEntity(outResult[0]),
@@ -206,48 +283,6 @@ export class StockService {
     } finally {
       await qr.release();
     }
-  }
-
-  async getBalance(companyId: string, productId: string, warehouseId: string) {
-    await this.validateOwnership(companyId, productId, warehouseId);
-
-    const pw = await this.pwRepo.findOne({
-      where: { productId, warehouseId },
-    });
-
-    if (!pw) {
-      return {
-        productId,
-        warehouseId,
-        baseQuantity: '0.000000',
-        reservedQuantity: '0.000000',
-        availableQuantity: '0.000000',
-      };
-    }
-
-    const base = new Decimal(pw.baseQuantity);
-    const reserved = new Decimal(pw.reservedQuantity);
-
-    return {
-      productId,
-      warehouseId,
-      baseQuantity: base.toFixed(6),
-      reservedQuantity: reserved.toFixed(6),
-      availableQuantity: base.minus(reserved).toFixed(6),
-    };
-  }
-
-  async getMovements(companyId: string, productId: string) {
-    const product = await this.productRepo.findOne({
-      where: { id: productId, companyId },
-    });
-    if (!product) throw new NotFoundException('Product not found');
-
-    return this.movementRepo.find({
-      where: { productId },
-      order: { createdAt: 'DESC' },
-      relations: ['warehouse', 'user'],
-    });
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -340,19 +375,6 @@ export class StockService {
     }
   }
 
-  private async validateOwnership(
-    companyId: string,
-    productId: string,
-    warehouseId: string,
-  ) {
-    const [product, warehouse] = await Promise.all([
-      this.productRepo.findOne({ where: { id: productId, companyId } }),
-      this.warehouseRepo.findOne({ where: { id: warehouseId, companyId } }),
-    ]);
-    if (!product) throw new NotFoundException('Product not found');
-    if (!warehouse) throw new NotFoundException('Warehouse not found');
-  }
-
   private toMovementEntity(row: Record<string, unknown>): StockMovement {
     const m = new StockMovement();
     m.id = row.id as string;
@@ -366,5 +388,84 @@ export class StockService {
     m.notes = row.notes as string | null;
     m.createdAt = row.created_at as Date;
     return m;
+  }
+
+  // Cache methods for stock data
+  async getBalance(
+    companyId: string,
+    productId: string,
+    warehouseId: string,
+  ): Promise<{ runningBalance: string }> {
+    // Validate ownership
+    await this.validateOwnership(companyId, productId, warehouseId);
+
+    // Try to get from cache
+    const cacheKey = this.redisService.generateKey(
+      'stock:balance',
+      productId,
+      warehouseId,
+    );
+    const cached = await this.redisService.get(cacheKey);
+    if (cached !== null) {
+      return JSON.parse(cached);
+    }
+
+    // Cache miss: fetch from DB
+    const rows: Array<Record<string, unknown>> = await this.pwRepo.query(
+      `SELECT base_quantity FROM product_warehouse
+       WHERE product_id = $1 AND warehouse_id = $2`,
+      [productId, warehouseId],
+    );
+    if (!rows.length) {
+      throw new NotFoundException('Stock record not found');
+    }
+    const result = { runningBalance: (rows[0].base_quantity as string) ?? '0' };
+
+    // Save to cache with TTL 60 seconds
+    await this.redisService.set(cacheKey, JSON.stringify(result), 60);
+
+    return result;
+  }
+
+  async getMovements(
+    companyId: string,
+    productId: string,
+    warehouseId?: string,
+  ): Promise<any[]> {
+    // Validate product ownership (warehouseId optional)
+    await this.validateOwnership(
+      companyId,
+      productId,
+      // We need to pass a dummy warehouseId to validateOwnership if it's undefined, but we only care about product ownership
+      // For the 'all' case, we only need to check the product belongs to the company.
+      warehouseId ?? '00000000-0000-0000-0000-000000000000',
+    );
+
+    // Build cache key: use 'all' if warehouseId is not provided
+    const cacheKey = this.redisService.generateKey(
+      'stock:movements',
+      productId,
+      warehouseId ?? 'all',
+    );
+    const cached = await this.redisService.get(cacheKey);
+    if (cached !== null) {
+      return JSON.parse(cached);
+    }
+
+    // Cache miss: fetch from DB
+    const where: any = { productId };
+    if (warehouseId) {
+      where.warehouseId = warehouseId;
+    }
+    const result = await this.movementRepo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      relations: ['warehouse', 'user'],
+    });
+
+    // Save to cache with TTL 30 seconds
+    await this.redisService.set(cacheKey, JSON.stringify(result), 30);
+
+    return result;
   }
 }
