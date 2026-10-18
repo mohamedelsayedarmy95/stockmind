@@ -15,6 +15,10 @@ import { InboundDto } from '../../application/dtos/stock/inbound.dto';
 import { OutboundDto } from '../../application/dtos/stock/outbound.dto';
 import { AdjustmentDto } from '../../application/dtos/stock/adjustment.dto';
 import { TransferDto } from '../../application/dtos/stock/transfer.dto';
+import {
+  MovementResponseDto,
+  toMovementResponse,
+} from '../../application/dtos/stock/movement-response.dto';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -237,17 +241,34 @@ export class StockService {
     };
   }
 
-  async getMovements(companyId: string, productId: string) {
+  async getMovements(companyId: string, productId: string): Promise<MovementResponseDto[]> {
     const product = await this.productRepo.findOne({
       where: { id: productId, companyId },
     });
     if (!product) throw new NotFoundException('Product not found');
 
-    return this.movementRepo.find({
+    const movements = await this.movementRepo.find({
       where: { productId },
       order: { createdAt: 'DESC' },
       relations: ['warehouse', 'user'],
+      // Never read credential or contact columns of the acting user.
+      select: {
+        id: true,
+        productId: true,
+        warehouseId: true,
+        userId: true,
+        movementType: true,
+        referenceType: true,
+        referenceId: true,
+        quantityChange: true,
+        runningBalance: true,
+        notes: true,
+        createdAt: true,
+        warehouse: { id: true, name: true },
+        user: { id: true, name: true },
+      },
     });
+    return movements.map(toMovementResponse);
   }
 
   // ──────────────────────────────────────────────────────────────
