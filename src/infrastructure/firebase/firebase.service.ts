@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 
@@ -68,6 +68,10 @@ export class FirebaseService implements OnModuleInit {
       throw new Error('Firebase not initialised — set FIREBASE_PROJECT_ID / FIREBASE_PRIVATE_KEY / FIREBASE_CLIENT_EMAIL');
     }
     const decoded = await admin.auth(this.app).verifyIdToken(idToken, true);
+    // Accounts are linked by e-mail, so only an address the identity provider has verified can be trusted.
+    if (decoded.email_verified !== true || !decoded.email) {
+      throw new UnauthorizedException('Google account e-mail is not verified');
+    }
     return {
       uid: decoded.uid,
       email: decoded.email ?? '',

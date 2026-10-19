@@ -126,7 +126,14 @@ export class AuthService {
    * - If not → returns a partial payload so the client can complete registration.
    */
   async googleLogin(idToken: string, ctx: RequestContext = {}) {
-    const googleUser = await this.firebase.verifyGoogleIdToken(idToken);
+    let googleUser: Awaited<ReturnType<FirebaseService['verifyGoogleIdToken']>>;
+    try {
+      googleUser = await this.firebase.verifyGoogleIdToken(idToken);
+    } catch (error) {
+      // Any failure to verify the token (malformed, expired, wrong audience, unverified e-mail) is a 401, not a 500.
+      if (error instanceof UnauthorizedException) throw error;
+      throw new UnauthorizedException('Invalid Google token');
+    }
 
     const user = await this.userRepo.findOne({ where: { email: googleUser.email } });
 
