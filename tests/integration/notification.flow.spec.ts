@@ -25,7 +25,8 @@ describe('Notification Flow Integration', () => {
         {
           provide: FcmService,
           useValue: {
-            sendStockNotification: jest.fn(),
+            // The handler chains .catch() on this call, so the mock must return a Promise like the real method.
+            sendStockNotification: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -40,7 +41,8 @@ describe('Notification Flow Integration', () => {
     }).compile();
 
     inboundStockHandler = module.get<InboundStockHandler>(InboundStockHandler);
-    stockService = module.get<StockService>(StockService);
+    // Cast to any to access mock methods
+    stockService = module.get<StockService>(StockService) as any;
     fcmService = module.get<FcmService>(FcmService);
     tokensRepository = module.get<TokensRepository>(TokensRepository);
   });
@@ -60,13 +62,13 @@ describe('Notification Flow Integration', () => {
     const correlationId = 'corr-1';
 
     const stockResult = { runningBalance: '150.000000' };
-    stockService.inbound.mockResolvedValue(stockResult);
+    (stockService.inbound as jest.Mock).mockResolvedValue(stockResult);
 
     // Mock Firebase configuration to be true
     jest.spyOn(require('../../src/infrastructure/firebase/firebase-admin'), 'isFirebaseConfigured').mockReturnValue(true);
 
     // Mock tokens repository to return a token for the user
-    tokensRepository.getUserTokens.mockResolvedValue([
+    (tokensRepository.getUserTokens as jest.Mock).mockResolvedValue([
       { fcmToken: 'token-123', deviceType: 'android' },
     ]);
 
@@ -93,7 +95,7 @@ describe('Notification Flow Integration', () => {
       quantity: '100',
     };
 
-    stockService.inbound.mockRejectedValue(new Error('Insufficient stock'));
+    (stockService.inbound as jest.Mock).mockRejectedValue(new Error('Insufficient stock'));
 
     const command = new InboundStockCommand(userId, companyId, dto);
 
