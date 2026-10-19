@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 import { User } from '../../domain/entities/user.entity';
 import { Company } from '../../domain/entities/company.entity';
 import { Warehouse } from '../../domain/entities/warehouse.entity';
@@ -242,8 +243,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const hashMatch = await bcrypt.compare(refreshToken, user.refreshTokenHash);
-    if (!hashMatch) {
+    if (!this.refreshTokenMatches(refreshToken, user.refreshTokenHash)) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -374,7 +374,8 @@ export class AuthService {
         secret: this.cfg.get<string>('JWT_ACCESS_SECRET'),
         expiresIn: this.cfg.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
       }),
-      this.jwt.signAsync(payload, {
+      // jti makes every refresh token unique, even two issued in the same second.
+      this.jwt.signAsync({ ...payload, jti: randomUUID() }, {
         secret: this.cfg.get<string>('JWT_REFRESH_SECRET'),
         expiresIn: this.cfg.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
       }),
@@ -383,8 +384,20 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  // Refresh tokens are high-entropy JWTs, so a SHA-256 digest is the right fit. bcrypt only reads the first 72 bytes,
+  // which are identical for every refresh token of a user: any earlier token still matched, so rotation, logout and
+  // terminate-all did not revoke anything once the user signed in again.
+  private hashRefreshToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private refreshTokenMatches(token: string, stored: string): boolean {
+    // Legacy bcrypt values are not accepted; every token they were issued for expired before this change.
+    if (!/^[0-9a-f]{64}$/.test(stored)) return false;
+    return timingSafeEqual(Buffer.from(this.hashRefreshToken(token), 'hex'), Buffer.from(stored, 'hex'));
+  }
+
   private async storeRefreshHash(userId: string, token: string) {
-    const hash = await bcrypt.hash(token, 10);
-    await this.userRepo.update(userId, { refreshTokenHash: hash });
+    await this.userRepo.update(userId, { refreshTokenHash: this.hashRefreshToken(token) });
   }
 }
