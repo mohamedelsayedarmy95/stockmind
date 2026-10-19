@@ -5,11 +5,15 @@ import helmet from 'helmet';
 import * as compression from 'compression';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { applyTrustProxy } from './shared/http/trust-proxy';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
   app.useLogger(app.get(Logger));
+
+  // Off unless TRUST_PROXY_HOPS is set (see trust-proxy.ts); an invalid value stops the boot.
+  applyTrustProxy(app);
 
   app.setGlobalPrefix('api/v1');
 
