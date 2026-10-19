@@ -14,6 +14,7 @@ import { UnitOfMeasure } from '../domain/entities/unit-of-measure.entity';
 import { ProductService } from '../infrastructure/repositories/product.service';
 import { StockService } from '../infrastructure/repositories/stock.service';
 import { WarehouseService } from '../infrastructure/repositories/warehouse.service';
+import { RedisModule } from '../infrastructure/cache/redis.module';
 
 // Commands / Handlers
 import { InboundStockHandler } from '../application/commands/inbound-stock.handler';
@@ -57,6 +58,8 @@ const EventListeners = [
 @Module({
   imports: [
     CqrsModule,
+    // StockService caches balances and movement history through RedisService.
+    RedisModule,
     TypeOrmModule.forFeature([
       Product, Warehouse, ProductWarehouse, StockMovement, Category, UnitOfMeasure,
     ]),
