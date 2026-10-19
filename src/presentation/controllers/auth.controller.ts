@@ -59,8 +59,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify 2FA and complete login' })
   @ApiResponse({ status: 200, description: '2FA verified, tokens issued' })
-  twoFactorLogin(@Body() dto: TwoFactorLoginDto) {
-    return this.authService.twoFactorLogin(dto.tempToken, dto.otpCode);
+  twoFactorLogin(@Body() dto: TwoFactorLoginDto, @Req() req: Request) {
+    return this.authService.twoFactorLogin(dto.tempToken, dto.otpCode, this.ctx(req));
   }
 
   @Public()
