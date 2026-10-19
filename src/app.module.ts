@@ -27,8 +27,7 @@ import { GlobalExceptionFilter } from './presentation/filters/global-exception.f
 import { AuditLogInterceptor } from './presentation/interceptors/audit-log.interceptor';
 import { TenantMiddleware } from './presentation/middleware/tenant.middleware';
 import { TenantSubscriber } from './infrastructure/database/subscribers/tenant.subscriber';
-import { generateUuidV7 } from './shared/utils/uuid-v7';
-import type { IncomingMessage, ServerResponse } from 'http';
+import { httpLoggerOptions } from './shared/logging/http-logger.options';
 
 @Module({
   imports: [
@@ -36,22 +35,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 
     EventEmitterModule.forRoot({ wildcard: false, delimiter: '.', maxListeners: 20 }),
 
-    LoggerModule.forRoot({
-      pinoHttp: {
-        genReqId: (req: IncomingMessage, res: ServerResponse) => {
-          const existing = req.headers['x-correlation-id'];
-          const id = typeof existing === 'string' ? existing : generateUuidV7();
-          res.setHeader('X-Correlation-ID', id);
-          res.setHeader('X-Request-ID', id);
-          return id;
-        },
-        transport:
-          process.env.NODE_ENV === 'development'
-            ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
-            : undefined,
-        customProps: () => ({ service: 'stockmind' }),
-      },
-    }),
+    LoggerModule.forRoot({ pinoHttp: httpLoggerOptions() }),
 
     ThrottlerModule.forRoot([{ name: 'short', ttl: 60000, limit: 100 }]),
 
