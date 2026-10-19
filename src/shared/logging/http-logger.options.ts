@@ -4,7 +4,12 @@ import { generateUuidV7 } from '../utils/uuid-v7';
 
 // pino-http options for LoggerModule (AppModule). Every completed request is logged with its headers, so headers
 // that carry credentials are redacted: without this, every authenticated request wrote its Bearer token to the logs.
-export const REDACTED_LOG_PATHS = ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'];
+export const REDACTED_LOG_PATHS = [
+  'req.headers.authorization',
+  'req.headers["proxy-authorization"]',
+  'req.headers.cookie',
+  'res.headers["set-cookie"]',
+];
 
 export function httpLoggerOptions(): Options {
   return {

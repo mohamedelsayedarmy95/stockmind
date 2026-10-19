@@ -10,20 +10,15 @@ import { AuditLogService } from '../../infrastructure/audit/audit-log.service';
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-const REDACT_FIELDS = new Set([
-  'password',
-  'currentPassword',
-  'newPassword',
-  'passwordHash',
-  'refreshToken',
-  'refreshTokenHash',
-  'accessToken',
-  'tempToken',
-  'otpCode',
-  'secret',
-  'secretKey',
-  'backupCodes',
-]);
+// Keys whose values are credentials or second-factor material, matched regardless of case and style (idToken,
+// id_token, temp_token, REFRESH_TOKEN, otpauthUrl, qrCodeDataUrl...). A fixed list of camelCase names let the Google
+// ID token, the 2FA temp_token and the TOTP seed (otpauthUrl, QR code) reach audit_logs. Over-redacting an audit
+// field is acceptable; storing a credential is not.
+const SENSITIVE_KEY = /password|token|secret|otp|backupcode|qrcode|authorization|cookie|apikey/;
+
+function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEY.test(key.toLowerCase().replace(/[^a-z0-9]/g, ''));
+}
 
 function sanitize(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') {
@@ -37,7 +32,7 @@ function sanitize(obj: unknown): unknown {
   }
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-    if (REDACT_FIELDS.has(k)) {
+    if (isSensitiveKey(k)) {
       out[k] = '[REDACTED]';
     } else if (v && typeof v === 'object') {
       out[k] = sanitize(v);

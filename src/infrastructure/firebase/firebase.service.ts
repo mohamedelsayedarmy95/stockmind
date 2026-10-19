@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { OAuth2Client } from 'google-auth-library';
@@ -91,8 +91,9 @@ export class FirebaseService implements OnModuleInit {
 
     const ticket = await this.googleClient.verifyIdToken({ idToken, audience });
     const payload = ticket.getPayload();
-    if (!payload?.email) {
-      throw new Error('Google ID token has no email claim');
+    // Accounts are linked by e-mail, so only an address Google has verified can be trusted.
+    if (!payload?.email || payload.email_verified !== true) {
+      throw new UnauthorizedException('Google account e-mail is missing or not verified');
     }
     return {
       uid: payload.sub,
