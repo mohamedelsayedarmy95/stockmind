@@ -123,9 +123,7 @@ describe('StockService', () => {
   describe('getMovements', () => {
     it('should return cached movements if available', async () => {
       const cachedMoves = [{ id: '1' }];
-      // Mock ownership validation to pass
       (productRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'p1', companyId: 'c1' });
-      (warehouseRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: '00000000-0000-0000-0000-000000000000', companyId: 'c1' }); // dummy warehouseId for ownership check
 
       (redisService.get as jest.Mock).mockResolvedValueOnce(JSON.stringify(cachedMoves));
       (redisService.generateKey as jest.Mock).mockReturnValueOnce('mock-key');
@@ -133,34 +131,53 @@ describe('StockService', () => {
       const result = await service.getMovements('c1', 'p1');
 
       expect(result).toEqual(cachedMoves);
+      expect(redisService.generateKey).toHaveBeenCalledWith('stock:movements:v2', 'p1', 'all');
       expect(redisService.get).toHaveBeenCalledWith('mock-key');
+      expect(warehouseRepo.findOne).not.toHaveBeenCalled();
       expect(movementRepo.find).not.toHaveBeenCalled();
     });
 
-    it('should fetch from DB and cache when cache miss', async () => {
-      const dbMoves = [{ id: '1' }];
+    it('should fetch from DB and cache only the allowlisted DTO when cache miss', async () => {
+      const dbMoves = [
+        {
+          id: '1',
+          productId: 'p1',
+          warehouseId: 'w1',
+          userId: 'u1',
+          movementType: MovementType.INBOUND,
+          referenceType: ReferenceType.PURCHASE,
+          referenceId: null,
+          quantityChange: '5.000000',
+          runningBalance: '5.000000',
+          notes: null,
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+          warehouse: { id: 'w1', name: 'Main', address: 'private' },
+          user: { id: 'u1', name: 'Alice', email: 'a@x.test', passwordHash: 'secret-hash' },
+        },
+      ];
       (redisService.get as jest.Mock).mockResolvedValueOnce(null);
-
-      // Mock ownership validation to pass
       (productRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'p1', companyId: 'c1' });
-      (warehouseRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: '00000000-0000-0000-0000-000000000000', companyId: 'c1' }); // dummy warehouseId for ownership check
-
       (movementRepo.find as jest.Mock).mockResolvedValueOnce(dbMoves);
       (redisService.generateKey as jest.Mock).mockReturnValueOnce('mock-key');
 
       const result = await service.getMovements('c1', 'p1');
 
-      expect(result).toEqual(dbMoves);
-      expect(movementRepo.find).toHaveBeenCalledWith({
-        where: { productId: 'p1' },
-        order: { createdAt: 'DESC' },
-        relations: ['warehouse', 'user'],
-      });
-      expect(redisService.set).toHaveBeenCalledWith(
-        'mock-key',
-        JSON.stringify(dbMoves),
-        30,
+      expect(result[0].user).toEqual({ id: 'u1', name: 'Alice' });
+      expect(result[0].warehouse).toEqual({ id: 'w1', name: 'Main' });
+      expect(warehouseRepo.findOne).not.toHaveBeenCalled();
+      expect(movementRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { productId: 'p1' },
+          order: { createdAt: 'DESC' },
+          relations: ['warehouse', 'user'],
+          select: expect.objectContaining({ user: { id: true, name: true }, warehouse: { id: true, name: true } }),
+        }),
       );
+      expect(redisService.set).toHaveBeenCalledWith('mock-key', JSON.stringify(result), 30);
+      const cachedPayload = (redisService.set as jest.Mock).mock.calls[0][1] as string;
+      expect(cachedPayload).not.toContain('secret-hash');
+      expect(cachedPayload).not.toContain('a@x.test');
+      expect(cachedPayload).not.toContain('private');
     });
 
     it('should filter by warehouseId when provided', async () => {
@@ -177,11 +194,24 @@ describe('StockService', () => {
 
       await service.getMovements('c1', 'p1', 'w1');
 
-      expect(movementRepo.find).toHaveBeenCalledWith({
-        where: { productId: 'p1', warehouseId: 'w1' },
-        order: { createdAt: 'DESC' },
-        relations: ['warehouse', 'user'],
-      });
+      expect(warehouseRepo.findOne).toHaveBeenCalledWith({ where: { id: 'w1', companyId: 'c1' } });
+      expect(redisService.get).toHaveBeenCalledWith('stock:movements:v2:p1:w1');
+      expect(movementRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { productId: 'p1', warehouseId: 'w1' },
+          order: { createdAt: 'DESC' },
+          relations: ['warehouse', 'user'],
+        }),
+      );
+    });
+
+    it('should reject a warehouse filter outside the caller company', async () => {
+      (productRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'p1', companyId: 'c1' });
+      (warehouseRepo.findOne as jest.Mock).mockResolvedValueOnce(null);
+
+      await expect(service.getMovements('c1', 'p1', 'w-other')).rejects.toThrow(NotFoundException);
+      expect(redisService.get).not.toHaveBeenCalled();
+      expect(movementRepo.find).not.toHaveBeenCalled();
     });
   });
 

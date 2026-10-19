@@ -15,8 +15,16 @@ import { InboundDto } from '../../application/dtos/stock/inbound.dto';
 import { OutboundDto } from '../../application/dtos/stock/outbound.dto';
 import { AdjustmentDto } from '../../application/dtos/stock/adjustment.dto';
 import { TransferDto } from '../../application/dtos/stock/transfer.dto';
+import {
+  MovementResponseDto,
+  toMovementResponse,
+} from '../../application/dtos/stock/movement-response.dto';
 import { randomUUID } from 'crypto';
 import { RedisService } from '../../infrastructure/cache/redis.service';
+
+// v2: entries hold the allowlisted MovementResponseDto. Earlier 'stock:movements'
+// entries could hold raw entities with credential columns, so they are never read.
+const MOVEMENTS_CACHE_PREFIX = 'stock:movements:v2';
 
 @Injectable()
 export class StockService {
@@ -71,7 +79,7 @@ export class StockService {
 
     // Invalidate memory caches: the 'all' list and each specific warehouse list
     const movementAllKey = this.redisService.generateKey(
-      'stock:movements',
+      MOVEMENTS_CACHE_PREFIX,
       productId,
       'all',
     );
@@ -79,7 +87,7 @@ export class StockService {
 
     for (const warehouseId of warehouseIds) {
       const movementKey = this.redisService.generateKey(
-        'stock:movements',
+        MOVEMENTS_CACHE_PREFIX,
         productId,
         warehouseId,
       );
@@ -431,19 +439,27 @@ export class StockService {
     companyId: string,
     productId: string,
     warehouseId?: string,
-  ): Promise<any[]> {
-    // Validate product ownership (warehouseId optional)
-    await this.validateOwnership(
-      companyId,
-      productId,
-      // We need to pass a dummy warehouseId to validateOwnership if it's undefined, but we only care about product ownership
-      // For the 'all' case, we only need to check the product belongs to the company.
-      warehouseId ?? '00000000-0000-0000-0000-000000000000',
-    );
+  ): Promise<MovementResponseDto[]> {
+    // The product must belong to the caller's company; the warehouse is checked
+    // only when the caller filters by one.
+    const product = await this.productRepo.findOne({
+      where: { id: productId, companyId },
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found or access denied');
+    }
+    if (warehouseId) {
+      const warehouse = await this.warehouseRepo.findOne({
+        where: { id: warehouseId, companyId },
+      });
+      if (!warehouse) {
+        throw new NotFoundException('Warehouse not found or access denied');
+      }
+    }
 
     // Build cache key: use 'all' if warehouseId is not provided
     const cacheKey = this.redisService.generateKey(
-      'stock:movements',
+      MOVEMENTS_CACHE_PREFIX,
       productId,
       warehouseId ?? 'all',
     );
@@ -457,13 +473,30 @@ export class StockService {
     if (warehouseId) {
       where.warehouseId = warehouseId;
     }
-    const result = await this.movementRepo.find({
+    const movements = await this.movementRepo.find({
       where,
       order: { createdAt: 'DESC' },
       relations: ['warehouse', 'user'],
+      // Never read credential or contact columns of the acting user.
+      select: {
+        id: true,
+        productId: true,
+        warehouseId: true,
+        userId: true,
+        movementType: true,
+        referenceType: true,
+        referenceId: true,
+        quantityChange: true,
+        runningBalance: true,
+        notes: true,
+        createdAt: true,
+        warehouse: { id: true, name: true },
+        user: { id: true, name: true },
+      },
     });
+    const result = movements.map(toMovementResponse);
 
-    // Save to cache with TTL 30 seconds
+    // Save to cache with TTL 30 seconds (only the allowlisted DTO is cached)
     await this.redisService.set(cacheKey, JSON.stringify(result), 30);
 
     return result;
