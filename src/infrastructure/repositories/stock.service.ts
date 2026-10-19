@@ -26,6 +26,13 @@ import { RedisService } from '../../infrastructure/cache/redis.service';
 // entries could hold raw entities with credential columns, so they are never read.
 const MOVEMENTS_CACHE_PREFIX = 'stock:movements:v2';
 
+// Consistency model: no read that starts after a stock write has been acknowledged returns pre-write data.
+// Cached balances and movement lists are keyed by the product's cache generation, which a reader fetches BEFORE
+// it reads the database. A write moves the product to a new generation only after its transaction commits and
+// before it returns. A value read before that commit can therefore only be stored under the old generation, which
+// is never read again; if the generation cannot be moved, RedisService stops using the cache altogether.
+const stockCacheScope = (productId: string) => `stock:${productId}`;
+
 @Injectable()
 export class StockService {
   constructor(
@@ -63,36 +70,16 @@ export class StockService {
     }
   }
 
-  private async invalidateStockCache(
-    productId: string,
-    warehouseIds: string[],
-  ) {
-    // Invalidate balance cache for each warehouse
-    for (const warehouseId of warehouseIds) {
-      const balanceKey = this.redisService.generateKey(
-        'stock:balance',
-        productId,
-        warehouseId,
-      );
-      await this.redisService.del(balanceKey);
-    }
+  // Call only after the write's transaction has committed (see the consistency model above). It retires every
+  // cached balance and movement list of the product, across all warehouses.
+  private async invalidateStockCache(productId: string) {
+    await this.redisService.bumpGeneration(stockCacheScope(productId));
+  }
 
-    // Invalidate memory caches: the 'all' list and each specific warehouse list
-    const movementAllKey = this.redisService.generateKey(
-      MOVEMENTS_CACHE_PREFIX,
-      productId,
-      'all',
-    );
-    await this.redisService.del(movementAllKey);
-
-    for (const warehouseId of warehouseIds) {
-      const movementKey = this.redisService.generateKey(
-        MOVEMENTS_CACHE_PREFIX,
-        productId,
-        warehouseId,
-      );
-      await this.redisService.del(movementKey);
-    }
+  // Null when the cache is unavailable for this read: the caller then neither reads nor writes an entry.
+  private async stockCacheKey(prefix: string, productId: string, subKey: string): Promise<string | null> {
+    const generation = await this.redisService.getGeneration(stockCacheScope(productId));
+    return generation === null ? null : this.redisService.generateKey(prefix, productId, generation, subKey);
   }
 
   async inbound(userId: string, companyId: string, dto: InboundDto) {
@@ -103,7 +90,7 @@ export class StockService {
       throw new ConflictException('Quantity must be greater than zero');
     }
 
-    const result = this.executeMovement({
+    const result = await this.executeMovement({
       productId: dto.productId,
       warehouseId: dto.warehouseId,
       userId,
@@ -114,8 +101,8 @@ export class StockService {
       autoCreateSlot: true,
     });
 
-    // Invalidate cache for the product-warehouse pair
-    await this.invalidateStockCache(dto.productId, [dto.warehouseId]);
+    // The transaction has committed: retire cached reads of this product
+    await this.invalidateStockCache(dto.productId);
 
     return result;
   }
@@ -128,7 +115,7 @@ export class StockService {
       throw new ConflictException('Quantity must be greater than zero');
     }
 
-    const result = this.executeMovement({
+    const result = await this.executeMovement({
       productId: dto.productId,
       warehouseId: dto.warehouseId,
       userId,
@@ -139,8 +126,8 @@ export class StockService {
       autoCreateSlot: false,
     });
 
-    // Invalidate cache for the product-warehouse pair
-    await this.invalidateStockCache(dto.productId, [dto.warehouseId]);
+    // The transaction has committed: retire cached reads of this product
+    await this.invalidateStockCache(dto.productId);
 
     return result;
   }
@@ -153,7 +140,7 @@ export class StockService {
       throw new ConflictException('Adjustment quantity cannot be zero');
     }
 
-    const result = this.executeMovement({
+    const result = await this.executeMovement({
       productId: dto.productId,
       warehouseId: dto.warehouseId,
       userId,
@@ -164,8 +151,8 @@ export class StockService {
       autoCreateSlot: true,
     });
 
-    // Invalidate cache for the product-warehouse pair
-    await this.invalidateStockCache(dto.productId, [dto.warehouseId]);
+    // The transaction has committed: retire cached reads of this product
+    await this.invalidateStockCache(dto.productId);
 
     return result;
   }
@@ -187,6 +174,7 @@ export class StockService {
     await qr.connect();
     await qr.startTransaction();
 
+    let result: { referenceId: string; out: StockMovement; in: StockMovement };
     try {
       // Ensure destination slot exists
       await qr.query(
@@ -274,13 +262,7 @@ export class StockService {
 
       await qr.commitTransaction();
 
-      // Invalidate cache for both warehouses
-      await this.invalidateStockCache(dto.productId, [
-        dto.fromWarehouseId,
-        dto.toWarehouseId,
-      ]);
-
-      return {
+      result = {
         referenceId,
         out: this.toMovementEntity(outResult[0]),
         in: this.toMovementEntity(inResult[0]),
@@ -291,6 +273,10 @@ export class StockService {
     } finally {
       await qr.release();
     }
+
+    // The transaction has committed: retire cached reads of this product (both warehouses)
+    await this.invalidateStockCache(dto.productId);
+    return result;
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -407,13 +393,9 @@ export class StockService {
     // Validate ownership
     await this.validateOwnership(companyId, productId, warehouseId);
 
-    // Try to get from cache
-    const cacheKey = this.redisService.generateKey(
-      'stock:balance',
-      productId,
-      warehouseId,
-    );
-    const cached = await this.redisService.get(cacheKey);
+    // Try to get from cache (the key carries the generation, fetched before the database read)
+    const cacheKey = await this.stockCacheKey('stock:balance', productId, warehouseId);
+    const cached = cacheKey === null ? null : await this.redisService.get(cacheKey);
     if (cached !== null) {
       return JSON.parse(cached);
     }
@@ -430,7 +412,9 @@ export class StockService {
     const result = { runningBalance: (rows[0].base_quantity as string) ?? '0' };
 
     // Save to cache with TTL 60 seconds
-    await this.redisService.set(cacheKey, JSON.stringify(result), 60);
+    if (cacheKey !== null) {
+      await this.redisService.set(cacheKey, JSON.stringify(result), 60);
+    }
 
     return result;
   }
@@ -458,12 +442,8 @@ export class StockService {
     }
 
     // Build cache key: use 'all' if warehouseId is not provided
-    const cacheKey = this.redisService.generateKey(
-      MOVEMENTS_CACHE_PREFIX,
-      productId,
-      warehouseId ?? 'all',
-    );
-    const cached = await this.redisService.get(cacheKey);
+    const cacheKey = await this.stockCacheKey(MOVEMENTS_CACHE_PREFIX, productId, warehouseId ?? 'all');
+    const cached = cacheKey === null ? null : await this.redisService.get(cacheKey);
     if (cached !== null) {
       return JSON.parse(cached);
     }
@@ -497,7 +477,9 @@ export class StockService {
     const result = movements.map(toMovementResponse);
 
     // Save to cache with TTL 30 seconds (only the allowlisted DTO is cached)
-    await this.redisService.set(cacheKey, JSON.stringify(result), 30);
+    if (cacheKey !== null) {
+      await this.redisService.set(cacheKey, JSON.stringify(result), 30);
+    }
 
     return result;
   }

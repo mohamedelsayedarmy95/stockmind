@@ -48,6 +48,9 @@ describe('StockService', () => {
       set: jest.fn(),
       del: jest.fn(),
       generateKey: jest.fn(),
+      // F2: cache keys carry the product's cache generation; writes move it after commit.
+      getGeneration: jest.fn().mockResolvedValue('g1'),
+      bumpGeneration: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     // Create the service instance with our mocks
@@ -131,7 +134,7 @@ describe('StockService', () => {
       const result = await service.getMovements('c1', 'p1');
 
       expect(result).toEqual(cachedMoves);
-      expect(redisService.generateKey).toHaveBeenCalledWith('stock:movements:v2', 'p1', 'all');
+      expect(redisService.generateKey).toHaveBeenCalledWith('stock:movements:v2', 'p1', 'g1', 'all');
       expect(redisService.get).toHaveBeenCalledWith('mock-key');
       expect(warehouseRepo.findOne).not.toHaveBeenCalled();
       expect(movementRepo.find).not.toHaveBeenCalled();
@@ -188,14 +191,14 @@ describe('StockService', () => {
       (warehouseRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'w1', companyId: 'c1' });
 
       (movementRepo.find as jest.Mock).mockResolvedValueOnce([]);
-      (redisService.generateKey as jest.Mock).mockImplementation((prefix, productId, warehouseId) => {
-        return `${prefix}:${productId}:${warehouseId}`;
+      (redisService.generateKey as jest.Mock).mockImplementation((prefix, productId, generation, warehouseId) => {
+        return `${prefix}:${productId}:${generation}:${warehouseId}`;
       });
 
       await service.getMovements('c1', 'p1', 'w1');
 
       expect(warehouseRepo.findOne).toHaveBeenCalledWith({ where: { id: 'w1', companyId: 'c1' } });
-      expect(redisService.get).toHaveBeenCalledWith('stock:movements:v2:p1:w1');
+      expect(redisService.get).toHaveBeenCalledWith('stock:movements:v2:p1:g1:w1');
       expect(movementRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { productId: 'p1', warehouseId: 'w1' },
@@ -308,10 +311,8 @@ describe('StockService', () => {
           autoCreateSlot: true,
         }),
       );
-      expect(invalidateCacheSpy).toHaveBeenCalledWith(
-        dto.productId,
-        [dto.warehouseId],
-      );
+      expect(invalidateCacheSpy).toHaveBeenCalledWith(dto.productId);
+      expect(redisService.bumpGeneration).toHaveBeenCalledWith(`stock:${dto.productId}`);
     });
   });
 });

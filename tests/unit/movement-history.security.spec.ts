@@ -102,8 +102,18 @@ const redisService = {
     redisStore.delete(key);
   }),
   generateKey: (prefix: string, ...args: string[]) => [prefix, ...args].join(':'),
+  // F2: keys carry the product's cache generation (created on first use, replaced by a committed write).
+  getGeneration: jest.fn(async (scope: string) => {
+    const key = `cache:generation:${scope}`;
+    if (!redisStore.has(key)) redisStore.set(key, `gen-${redisStore.size}`);
+    return redisStore.get(key) as string;
+  }),
+  bumpGeneration: jest.fn(async (scope: string) => {
+    redisStore.set(`cache:generation:${scope}`, `gen-bumped-${Date.now()}-${redisStore.size}`);
+  }),
 };
-const V2_ALL_KEY = `stock:movements:v2:${PRODUCT_ID}:all`;
+const currentGeneration = () => redisStore.get(`cache:generation:stock:${PRODUCT_ID}`);
+const v2AllKey = () => `stock:movements:v2:${PRODUCT_ID}:${currentGeneration()}:all`;
 const LEGACY_ALL_KEY = `stock:movements:${PRODUCT_ID}:all`;
 
 let currentUser: JwtPayload;
@@ -162,7 +172,7 @@ describe('F4: movement history must not disclose user credentials', () => {
 
   it('caches only the allowlisted DTO, under the versioned key', async () => {
     await get().expect(200);
-    const cached = redisStore.get(V2_ALL_KEY);
+    const cached = redisStore.get(v2AllKey());
     expect(cached).toBeDefined();
     for (const secret of [SENTINEL_PASSWORD_HASH, SENTINEL_REFRESH_HASH, SENTINEL_EMAIL, SENTINEL_ADDRESS]) {
       expect(cached).not.toContain(secret);
@@ -184,14 +194,17 @@ describe('F4: movement history must not disclose user credentials', () => {
     expect(movementRepo.find).toHaveBeenCalledTimes(1);
   });
 
-  it('write-path invalidation clears the versioned movement keys', async () => {
+  it('write-path invalidation retires the cached versioned movement entries', async () => {
     await get().expect(200);
-    expect(redisStore.has(V2_ALL_KEY)).toBe(true);
+    const cachedKey = v2AllKey();
+    expect(redisStore.has(cachedKey)).toBe(true);
     const service = app.get(StockService) as unknown as {
-      invalidateStockCache(productId: string, warehouseIds: string[]): Promise<void>;
+      invalidateStockCache(productId: string): Promise<void>;
     };
-    await service.invalidateStockCache(PRODUCT_ID, [WAREHOUSE_ID]);
-    expect(redisStore.has(V2_ALL_KEY)).toBe(false);
+    await service.invalidateStockCache(PRODUCT_ID);
+    expect(v2AllKey()).not.toBe(cachedKey); // the old entry is never read again
+    await get().expect(200);
+    expect(movementRepo.find).toHaveBeenCalledTimes(2);
   });
 
   it('never serializes credential material or private contact data', async () => {
