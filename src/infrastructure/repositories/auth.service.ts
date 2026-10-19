@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  HttpException,
   UnauthorizedException,
   BadRequestException,
   UnprocessableEntityException,
@@ -96,11 +97,16 @@ export class AuthService {
       };
     } catch (err) {
       await qr.rollbackTransaction().catch(() => undefined);
-      // TEMP DEBUG: expose the exact error so we can diagnose the 500
       const errType = err instanceof Error ? err.constructor.name : typeof err;
       const errMsg = err instanceof Error ? err.message : String(err);
       this.logger.error(`[register] caught ${errType}: ${errMsg}`, err instanceof Error ? err.stack : undefined);
-      throw new InternalServerErrorException(`[DEBUG:${errType}] ${errMsg}`);
+      // The details stay in the server log; this is a public endpoint, so clients get no internal error text.
+      if ((err as { code?: string }).code === '23505') {
+        // A concurrent registration won the race for this e-mail: the same answer as the pre-check above.
+        throw new ConflictException('Email already registered');
+      }
+      if (err instanceof HttpException) throw err;
+      throw new InternalServerErrorException();
     } finally {
       await qr.release();
     }
