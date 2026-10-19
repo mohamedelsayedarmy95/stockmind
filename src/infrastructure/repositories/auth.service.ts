@@ -99,11 +99,13 @@ export class AuthService {
   }
 
   /**
-   * Issues a full token pair for an already-authenticated SSO user (called from
-   * SamlController after Passport validates the SAML assertion).
-   * Never touches brute-force counters or 2FA — the IdP already handled auth.
+   * Issues a token pair for a user authenticated by an identity provider (Google, SAML). The provider proves the
+   * identity, not StockMind's own second factor: a user who enabled 2FA gets a temp token for /auth/2fa/login.
    */
   async issueTokensForSsoUser(user: User, ctx: RequestContext = {}) {
+    const pending = await this.secondFactorGate(user);
+    if (pending) return pending;
+
     const tokens = await this.generateTokens(user);
     await this.storeRefreshHash(user.id, tokens.refreshToken);
     await this.audit.write({
@@ -186,13 +188,8 @@ export class AuthService {
 
     // Gate 2: if 2FA is active, do NOT issue real tokens yet. Hand back a
     // short-lived temp token that only the /2fa/login step can redeem.
-    if (await this.twoFactor.isEnabled(user.id)) {
-      const tempToken = await this.jwt.signAsync(
-        { sub: user.id, purpose: '2fa_pending' },
-        { secret: this.twoFactorSecret(), expiresIn: '2m' },
-      );
-      return { requires_2fa: true as const, temp_token: tempToken };
-    }
+    const pending = await this.secondFactorGate(user);
+    if (pending) return pending;
 
     const tokens = await this.generateTokens(user);
     await this.storeRefreshHash(user.id, tokens.refreshToken);
@@ -203,7 +200,7 @@ export class AuthService {
   }
 
   /** Second step of a 2FA login: temp token + OTP → final token pair. */
-  async twoFactorLogin(tempToken: string, otpCode: string) {
+  async twoFactorLogin(tempToken: string, otpCode: string, ctx: RequestContext = {}) {
     let payload: { sub?: string; purpose?: string };
     try {
       payload = this.jwt.verify(tempToken, { secret: this.twoFactorSecret() });
@@ -217,8 +214,17 @@ export class AuthService {
     const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException('Invalid 2FA session');
 
+    // The same lockout as the password step: without it, anyone holding the password could request fresh temp
+    // tokens and guess the 6-digit code.
+    const ip = ctx.ipAddress ?? null;
+    const ua = ctx.userAgent ?? null;
+    await this.bruteForce.assertNotLocked(user.email, ip);
     const ok = await this.twoFactor.verifyCode(user.id, otpCode);
-    if (!ok) throw new UnauthorizedException('Invalid verification code');
+    if (!ok) {
+      await this.bruteForce.record(user.email, ip, ua, false);
+      throw new UnauthorizedException('Invalid verification code');
+    }
+    await this.bruteForce.record(user.email, ip, ua, true);
 
     const tokens = await this.generateTokens(user);
     await this.storeRefreshHash(user.id, tokens.refreshToken);
@@ -355,6 +361,17 @@ export class AuthService {
       userAgent: ctx.userAgent ?? null,
     });
     return { disabled: true };
+  }
+
+  // The one place that decides whether a sign-in may produce a session: password, Google and SAML logins all pass
+  // here, and a user with 2FA enabled only gets a short-lived temp token that /auth/2fa/login alone can redeem.
+  private async secondFactorGate(user: User) {
+    if (!(await this.twoFactor.isEnabled(user.id))) return null;
+    const tempToken = await this.jwt.signAsync(
+      { sub: user.id, purpose: '2fa_pending' },
+      { secret: this.twoFactorSecret(), expiresIn: '2m' },
+    );
+    return { requires_2fa: true as const, temp_token: tempToken };
   }
 
   private twoFactorSecret(): string {

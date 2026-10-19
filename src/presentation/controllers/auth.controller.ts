@@ -49,8 +49,8 @@ export class AuthController {
   @Public()
   @Post('2fa/login')
   @HttpCode(HttpStatus.OK)
-  twoFactorLogin(@Body() dto: TwoFactorLoginDto) {
-    return this.authService.twoFactorLogin(dto.tempToken, dto.otpCode);
+  twoFactorLogin(@Body() dto: TwoFactorLoginDto, @Req() req: Request) {
+    return this.authService.twoFactorLogin(dto.tempToken, dto.otpCode, this.ctx(req));
   }
 
   @Public()
