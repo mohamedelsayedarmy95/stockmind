@@ -47,6 +47,11 @@ export class FirebaseService implements OnModuleInit {
     this.logger.log('Firebase Admin initialized');
   }
 
+  /** True when the Admin SDK was initialised from a complete credential set; false when push is deliberately off. */
+  isEnabled(): boolean {
+    return this.app !== null;
+  }
+
   async sendPushNotification(
     deviceToken: string,
     title: string,
