@@ -1,37 +1,27 @@
 import * as admin from 'firebase-admin';
 
-let firebaseApp: admin.app.App | null = null;
+// FirebaseService (Nest-managed) is the only owner of the Firebase Admin app: it initialises the default app once,
+// from a complete credential set. These helpers only read that app. Initialising a second default app here failed
+// with a duplicate-app error, so every FCM send failed as soon as Firebase was configured.
 
-export function getFirebaseAdmin(): admin.app.App {
-  if (!firebaseApp && process.env.FIREBASE_PROJECT_ID) {
-    try {
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\n/g, '\n'),
-        }),
-      });
-      console.log('[Firebase] Initialized successfully');
-    } catch (error) {
-      console.error('[Firebase] Initialization failed:', error);
-    }
-  }
-  return firebaseApp!;
+export function getFirebaseAdmin(): admin.app.App | null {
+  return admin.apps.find((app) => app?.name === '[DEFAULT]') ?? null;
 }
 
+/** True once FirebaseService has initialised the Admin app; false when Firebase is deliberately disabled. */
 export function isFirebaseConfigured(): boolean {
-  return !!process.env.FIREBASE_PROJECT_ID;
+  return getFirebaseAdmin() !== null;
 }
 
+// Callers check isFirebaseConfigured() first.
 export function getAuth() {
-  return getFirebaseAdmin().auth();
+  return getFirebaseAdmin()!.auth();
 }
 
 export function getMessaging() {
-  return getFirebaseAdmin().messaging();
+  return getFirebaseAdmin()!.messaging();
 }
 
 export function getStorage() {
-  return getFirebaseAdmin().storage();
+  return getFirebaseAdmin()!.storage();
 }
