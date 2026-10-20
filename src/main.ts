@@ -6,6 +6,7 @@ import * as compression from 'compression';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { applyTrustProxy } from './shared/http/trust-proxy';
+import { swaggerEnabled } from './shared/http/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -44,8 +45,8 @@ async function bootstrap() {
 
   // GlobalExceptionFilter is registered via APP_FILTER in AppModule (DI-aware for i18n).
 
-  // Swagger setup (only in non-production)
-  if (process.env.NODE_ENV !== 'production') {
+  // Swagger setup: opt-in (see swaggerEnabled)
+  if (swaggerEnabled()) {
     const config = new DocumentBuilder()
       .setTitle('StockMind API')
       .setDescription('Intelligent Warehouse Operating System — Atomic Ledger Engine')
