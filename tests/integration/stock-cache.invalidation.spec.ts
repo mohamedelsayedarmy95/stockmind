@@ -79,12 +79,15 @@ describe('StockService - Cache Invalidation Integration', () => {
 
   describe('getBalance cache invalidation flow', () => {
     it('should verify DB fallback, cache hit, write operation, and cache invalidation', async () => {
-      const keyBefore = `stock:balance:${productId}:g1:${warehouseId}`;
-      const keyAfter = `stock:balance:${productId}:g2:${warehouseId}`;
+      const keyBefore = `stock:balance:v2:${productId}:g1:${warehouseId}`;
+      const keyAfter = `stock:balance:v2:${productId}:g2:${warehouseId}`;
 
       // === Step 1: Initial state - cache miss, query DB ===
-      const initialBalance = { runningBalance: '10.000000' };
-      const updatedBalance = { runningBalance: '60.000000' }; // 10 + 50
+      const balanceOf = (q: string) => ({
+        productId, warehouseId, baseQuantity: q, reservedQuantity: '0.000000', availableQuantity: q,
+      });
+      const initialBalance = balanceOf('10.000000');
+      const updatedBalance = balanceOf('60.000000'); // 10 + 50
 
       // Mock ownership validation for getBalance calls
       (productRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: productId, companyId: companyId });

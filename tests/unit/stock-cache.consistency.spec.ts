@@ -173,7 +173,7 @@ function setup() {
     pwRepo as any, movementRepo as any, productRepo as any, warehouseRepo as any,
     { createQueryRunner: () => db.createQueryRunner() } as any, redis as any,
   );
-  const balance = async () => (await service.getBalance(COMPANY_A, PRODUCT, WAREHOUSE)).runningBalance;
+  const balance = async () => (await service.getBalance(COMPANY_A, PRODUCT, WAREHOUSE)).baseQuantity;
   const history = async () => (await service.getMovements(COMPANY_A, PRODUCT)).length;
   const inbound = (quantity: string) => service.inbound(USER, COMPANY_A, { productId: PRODUCT, warehouseId: WAREHOUSE, quantity } as any);
   const outbound = (quantity: string) => service.outbound(USER, COMPANY_A, { productId: PRODUCT, warehouseId: WAREHOUSE, quantity } as any);

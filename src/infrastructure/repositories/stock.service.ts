@@ -25,6 +25,17 @@ import { RedisService } from '../../infrastructure/cache/redis.service';
 // v2: entries hold the allowlisted MovementResponseDto. Earlier 'stock:movements'
 // entries could hold raw entities with credential columns, so they are never read.
 const MOVEMENTS_CACHE_PREFIX = 'stock:movements:v2';
+// v2: the contract production serves and the mobile app reads. Earlier 'stock:balance' entries held only
+// { runningBalance }, so they are never read.
+const BALANCE_CACHE_PREFIX = 'stock:balance:v2';
+
+export interface StockBalance {
+  productId: string;
+  warehouseId: string;
+  baseQuantity: string;
+  reservedQuantity: string;
+  availableQuantity: string;
+}
 
 // Consistency model: no read that starts after a stock write has been acknowledged returns pre-write data.
 // Cached balances and movement lists are keyed by the product's cache generation, which a reader fetches BEFORE
@@ -389,27 +400,32 @@ export class StockService {
     companyId: string,
     productId: string,
     warehouseId: string,
-  ): Promise<{ runningBalance: string }> {
+  ): Promise<StockBalance> {
     // Validate ownership
     await this.validateOwnership(companyId, productId, warehouseId);
 
     // Try to get from cache (the key carries the generation, fetched before the database read)
-    const cacheKey = await this.stockCacheKey('stock:balance', productId, warehouseId);
+    const cacheKey = await this.stockCacheKey(BALANCE_CACHE_PREFIX, productId, warehouseId);
     const cached = cacheKey === null ? null : await this.redisService.get(cacheKey);
     if (cached !== null) {
       return JSON.parse(cached);
     }
 
-    // Cache miss: fetch from DB
+    // Cache miss: fetch from DB. No stock row in this warehouse yet means a zero balance, not an error.
     const rows: Array<Record<string, unknown>> = await this.pwRepo.query(
-      `SELECT base_quantity FROM product_warehouse
+      `SELECT base_quantity, reserved_quantity FROM product_warehouse
        WHERE product_id = $1 AND warehouse_id = $2`,
       [productId, warehouseId],
     );
-    if (!rows.length) {
-      throw new NotFoundException('Stock record not found');
-    }
-    const result = { runningBalance: (rows[0].base_quantity as string) ?? '0' };
+    const base = new Decimal((rows[0]?.base_quantity as string | undefined) ?? 0);
+    const reserved = new Decimal((rows[0]?.reserved_quantity as string | undefined) ?? 0);
+    const result: StockBalance = {
+      productId,
+      warehouseId,
+      baseQuantity: base.toFixed(6),
+      reservedQuantity: reserved.toFixed(6),
+      availableQuantity: base.minus(reserved).toFixed(6),
+    };
 
     // Save to cache with TTL 60 seconds
     if (cacheKey !== null) {

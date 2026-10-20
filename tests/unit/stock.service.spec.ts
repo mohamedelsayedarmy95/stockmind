@@ -69,7 +69,10 @@ describe('StockService', () => {
 
   describe('getBalance', () => {
     it('should return cached balance if available', async () => {
-      const cachedBalance = { runningBalance: '10.000000' };
+      const cachedBalance = {
+        productId: 'p1', warehouseId: 'w1', baseQuantity: '10.000000', reservedQuantity: '0.000000',
+        availableQuantity: '10.000000',
+      };
       // Mock ownership validation to pass
       (productRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'p1', companyId: 'c1' });
       (warehouseRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'w1', companyId: 'c1' });
@@ -85,20 +88,23 @@ describe('StockService', () => {
     });
 
     it('should fetch from DB and cache when cache miss', async () => {
-      const dbBalance = { runningBalance: '5.000000' };
+      const dbBalance = {
+        productId: 'p1', warehouseId: 'w1', baseQuantity: '5.000000', reservedQuantity: '1.000000',
+        availableQuantity: '4.000000',
+      };
       // Mock ownership validation to pass
       (productRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'p1', companyId: 'c1' });
       (warehouseRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'w1', companyId: 'c1' });
 
       (redisService.get as jest.Mock).mockResolvedValueOnce(null);
-      (pwRepo.query as jest.Mock).mockResolvedValueOnce([{ base_quantity: '5.000000' }]);
+      (pwRepo.query as jest.Mock).mockResolvedValueOnce([{ base_quantity: '5.000000', reserved_quantity: '1.000000' }]);
       (redisService.generateKey as jest.Mock).mockReturnValueOnce('mock-key');
 
       const result = await service.getBalance('c1', 'p1', 'w1');
 
       expect(result).toEqual(dbBalance);
       expect(pwRepo.query).toHaveBeenCalledWith(
-        `SELECT base_quantity FROM product_warehouse
+        `SELECT base_quantity, reserved_quantity FROM product_warehouse
        WHERE product_id = $1 AND warehouse_id = $2`,
         ['p1', 'w1'],
       );
@@ -109,17 +115,18 @@ describe('StockService', () => {
       );
     });
 
-    it('should throw NotFoundException if stock record not found', async () => {
-      // Mock ownership validation to pass (so we can test the stock record not found case)
+    it('returns a zero balance when the product has no stock row in the warehouse (as production does)', async () => {
+      // Ownership passes; only the stock row is missing. Foreign products/warehouses still get 404 (validateOwnership).
       (productRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'p1', companyId: 'c1' });
       (warehouseRepo.findOne as jest.Mock).mockResolvedValueOnce({ id: 'w1', companyId: 'c1' });
 
       (redisService.get as jest.Mock).mockResolvedValueOnce(null);
       (pwRepo.query as jest.Mock).mockResolvedValueOnce([]);
 
-      await expect(service.getBalance('c1', 'p1', 'w1')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getBalance('c1', 'p1', 'w1')).resolves.toMatchObject({
+        baseQuantity: '0.000000',
+        availableQuantity: '0.000000',
+      });
     });
   });
 

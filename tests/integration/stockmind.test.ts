@@ -126,7 +126,7 @@ const RUN_E2E = Boolean(process.env.DB_HOST && process.env.JWT_ACCESS_SECRET && 
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(parseFloat(balanceRes.body.runningBalance)).toBe(100);
+    expect(parseFloat(balanceRes.body.baseQuantity)).toBe(100);
 
     // Outbound Stock
     const outboundRes = await request(app.getHttpServer())
@@ -145,6 +145,6 @@ const RUN_E2E = Boolean(process.env.DB_HOST && process.env.JWT_ACCESS_SECRET && 
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(parseFloat(balanceRes2.body.runningBalance)).toBe(70);
+    expect(parseFloat(balanceRes2.body.baseQuantity)).toBe(70);
   });
 });
