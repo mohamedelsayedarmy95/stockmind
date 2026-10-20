@@ -420,7 +420,10 @@
       "signOutTitle": "Actions not sent yet",
       "signOutBody": "{{count}} actions are saved on this device. They stay here and are sent the next time {{email}} signs in.",
       "signOutContinue": "Sign out",
-      "resetNotice": "The server rebuilt its stock history. Figures were reloaded from scratch."
+      "resetNotice": "The server rebuilt its stock history. Figures were reloaded from scratch.",
+      "banner_one": "1 action waiting to send",
+      "bannerReview_one": "1 action needs your review",
+      "signOutBody_one": "1 action is saved on this device. It stays here and is sent the next time {{email}} signs in."
     }
   }
 }
