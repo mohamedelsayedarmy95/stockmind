@@ -2,9 +2,11 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  UnprocessableEntityException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryRunner } from 'typeorm';
+import { Repository, DataSource, QueryRunner, In } from 'typeorm';
 import Decimal from 'decimal.js';
 import { ProductWarehouse } from '../../domain/entities/product-warehouse.entity';
 import { StockMovement } from '../../domain/entities/stock-movement.entity';
@@ -19,7 +21,7 @@ import {
   MovementResponseDto,
   toMovementResponse,
 } from '../../application/dtos/stock/movement-response.dto';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { RedisService } from '../../infrastructure/cache/redis.service';
 
 // v2: entries hold the allowlisted MovementResponseDto. Earlier 'stock:movements'
@@ -28,6 +30,19 @@ const MOVEMENTS_CACHE_PREFIX = 'stock:movements:v2';
 // v2: the contract production serves and the mobile app reads. Earlier 'stock:balance' entries held only
 // { runningBalance }, so they are never read.
 const BALANCE_CACHE_PREFIX = 'stock:balance:v2';
+
+/** Options of a stock write. A repeated Idempotency-Key replays the first result instead of writing again. */
+export interface StockWriteOptions {
+  idempotencyKey?: string;
+}
+
+/** A write's result as the API returns it; `replayed` marks a response served from an earlier request. */
+export type WriteResult<T> = T & { replayed?: true };
+
+const requestHash = (kind: string, dto: object) =>
+  createHash('sha256')
+    .update(JSON.stringify([kind, Object.entries(dto).filter(([, v]) => v !== undefined).sort(([a], [b]) => (a < b ? -1 : 1))]))
+    .digest('hex');
 
 export interface StockBalance {
   productId: string;
@@ -93,7 +108,7 @@ export class StockService {
     return generation === null ? null : this.redisService.generateKey(prefix, productId, generation, subKey);
   }
 
-  async inbound(userId: string, companyId: string, dto: InboundDto) {
+  async inbound(userId: string, companyId: string, dto: InboundDto, options: StockWriteOptions = {}) {
     await this.validateOwnership(companyId, dto.productId, dto.warehouseId);
 
     const qty = new Decimal(dto.quantity);
@@ -110,7 +125,10 @@ export class StockService {
       quantityChange: qty,
       notes: dto.notes ?? null,
       autoCreateSlot: true,
+      companyId,
+      idempotency: this.idempotency(options, 'inbound', dto),
     });
+    if (result.replayed) return result;
 
     // The transaction has committed: retire cached reads of this product
     await this.invalidateStockCache(dto.productId);
@@ -118,7 +136,7 @@ export class StockService {
     return result;
   }
 
-  async outbound(userId: string, companyId: string, dto: OutboundDto) {
+  async outbound(userId: string, companyId: string, dto: OutboundDto, options: StockWriteOptions = {}) {
     await this.validateOwnership(companyId, dto.productId, dto.warehouseId);
 
     const qty = new Decimal(dto.quantity);
@@ -135,7 +153,10 @@ export class StockService {
       quantityChange: qty.neg(),
       notes: dto.notes ?? null,
       autoCreateSlot: false,
+      companyId,
+      idempotency: this.idempotency(options, 'outbound', dto),
     });
+    if (result.replayed) return result;
 
     // The transaction has committed: retire cached reads of this product
     await this.invalidateStockCache(dto.productId);
@@ -143,7 +164,7 @@ export class StockService {
     return result;
   }
 
-  async adjustment(userId: string, companyId: string, dto: AdjustmentDto) {
+  async adjustment(userId: string, companyId: string, dto: AdjustmentDto, options: StockWriteOptions = {}) {
     await this.validateOwnership(companyId, dto.productId, dto.warehouseId);
 
     const qty = new Decimal(dto.quantity);
@@ -160,7 +181,10 @@ export class StockService {
       quantityChange: qty,
       notes: dto.reason,
       autoCreateSlot: true,
+      companyId,
+      idempotency: this.idempotency(options, 'adjustment', dto),
     });
+    if (result.replayed) return result;
 
     // The transaction has committed: retire cached reads of this product
     await this.invalidateStockCache(dto.productId);
@@ -168,7 +192,7 @@ export class StockService {
     return result;
   }
 
-  async transfer(userId: string, companyId: string, dto: TransferDto) {
+  async transfer(userId: string, companyId: string, dto: TransferDto, options: StockWriteOptions = {}) {
     if (dto.fromWarehouseId === dto.toWarehouseId) {
       throw new ConflictException('Source and destination warehouses must differ');
     }
@@ -185,8 +209,23 @@ export class StockService {
     await qr.connect();
     await qr.startTransaction();
 
-    let result: { referenceId: string; out: StockMovement; in: StockMovement };
+    const idempotency = this.idempotency(options, 'transfer', dto);
+    let result: WriteResult<{ referenceId: string; out: StockMovement; in: StockMovement }>;
     try {
+      if (idempotency) {
+        const replay = await this.claimIdempotencyKey(qr, companyId, userId, idempotency);
+        if (replay !== undefined) {
+          await qr.rollbackTransaction();
+          return { ...(replay as typeof result), replayed: true };
+        }
+      }
+
+      // Both warehouses' revisions, in id order like the stock rows below (no lock-order deadlock).
+      const revisions = new Map<string, string>();
+      for (const id of [dto.fromWarehouseId, dto.toWarehouseId].sort()) {
+        revisions.set(id, await this.bumpRevision(qr, id));
+      }
+
       // Ensure destination slot exists
       await qr.query(
         `INSERT INTO product_warehouse (id, product_id, warehouse_id, base_quantity, reserved_quantity)
@@ -232,30 +271,34 @@ export class StockService {
       // Ledger: OUT leg
       const outResult = await qr.query(
         `INSERT INTO stock_movements
-           (id, product_id, warehouse_id, user_id, movement_type, reference_type, reference_id, quantity_change, running_balance, notes)
+           (id, product_id, warehouse_id, user_id, movement_type, reference_type, reference_id, quantity_change, running_balance, notes,
+            revision)
          VALUES
-           (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
+           (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           dto.productId, dto.fromWarehouseId, userId,
           MovementType.TRANSFER_OUT, ReferenceType.TRANSFER, referenceId,
           qty.neg().toFixed(6), newSrcBalance.toFixed(6),
           dto.notes ?? `Transfer to warehouse ${dto.toWarehouseId}`,
+          revisions.get(dto.fromWarehouseId),
         ],
       );
 
       // Ledger: IN leg
       const inResult = await qr.query(
         `INSERT INTO stock_movements
-           (id, product_id, warehouse_id, user_id, movement_type, reference_type, reference_id, quantity_change, running_balance, notes)
+           (id, product_id, warehouse_id, user_id, movement_type, reference_type, reference_id, quantity_change, running_balance, notes,
+            revision)
          VALUES
-           (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
+           (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           dto.productId, dto.toWarehouseId, userId,
           MovementType.TRANSFER_IN, ReferenceType.TRANSFER, referenceId,
           qty.toFixed(6), newDstBalance.toFixed(6),
           dto.notes ?? `Transfer from warehouse ${dto.fromWarehouseId}`,
+          revisions.get(dto.toWarehouseId),
         ],
       );
 
@@ -271,13 +314,14 @@ export class StockService {
         [newDstBalance.toFixed(6), dto.productId, dto.toWarehouseId],
       );
 
-      await qr.commitTransaction();
-
       result = {
         referenceId,
         out: this.toMovementEntity(outResult[0]),
         in: this.toMovementEntity(inResult[0]),
       };
+      if (idempotency) await this.storeIdempotentResponse(qr, companyId, userId, idempotency, result);
+
+      await qr.commitTransaction();
     } catch (err) {
       await qr.rollbackTransaction();
       throw err;
@@ -303,12 +347,26 @@ export class StockService {
     quantityChange: Decimal;
     notes: string | null;
     autoCreateSlot: boolean;
-  }): Promise<StockMovement> {
+    companyId: string;
+    idempotency?: { key: string; hash: string };
+  }): Promise<WriteResult<StockMovement>> {
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
     await qr.startTransaction();
 
     try {
+      // Idempotency first: a duplicate waits here for the first request's outcome, then replays it.
+      if (params.idempotency) {
+        const replay = await this.claimIdempotencyKey(qr, params.companyId, params.userId, params.idempotency);
+        if (replay !== undefined) {
+          await qr.rollbackTransaction();
+          return { ...(replay as StockMovement), replayed: true };
+        }
+      }
+
+      // The warehouse's revision is bumped under its row lock, so revisions commit in order (see getChanges).
+      const revision = await this.bumpRevision(qr, params.warehouseId);
+
       // Step 0: auto-create ProductWarehouse row if needed (atomic upsert)
       if (params.autoCreateSlot) {
         await qr.query(
@@ -345,9 +403,10 @@ export class StockService {
       // Step 4: insert immutable ledger entry
       const movementResult = await qr.query(
         `INSERT INTO stock_movements
-           (id, product_id, warehouse_id, user_id, movement_type, reference_type, quantity_change, running_balance, notes)
+           (id, product_id, warehouse_id, user_id, movement_type, reference_type, quantity_change, running_balance, notes,
+            revision)
          VALUES
-           (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)
+           (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
           params.productId,
@@ -358,6 +417,7 @@ export class StockService {
           params.quantityChange.toFixed(6),
           newBalance.toFixed(6),
           params.notes,
+          revision,
         ],
       );
 
@@ -368,16 +428,70 @@ export class StockService {
         [newBalance.toFixed(6), params.productId, params.warehouseId],
       );
 
+      const movement = this.toMovementEntity(movementResult[0]);
+      if (params.idempotency) {
+        await this.storeIdempotentResponse(qr, params.companyId, params.userId, params.idempotency, movement);
+      }
+
       // Step 6: commit
       await qr.commitTransaction();
 
-      return this.toMovementEntity(movementResult[0]);
+      return movement;
     } catch (err) {
       await qr.rollbackTransaction();
       throw err;
     } finally {
       await qr.release();
     }
+  }
+
+  private idempotency(options: StockWriteOptions, kind: string, dto: object) {
+    return options.idempotencyKey ? { key: options.idempotencyKey, hash: requestHash(kind, dto) } : undefined;
+  }
+
+  /**
+   * Claims an Idempotency-Key inside the write's transaction. undefined: claimed, go ahead. Otherwise the stored
+   * response of the first request with this key (that request has committed: a concurrent duplicate waits on the
+   * key's unique index until it does). The same key with a different request is refused.
+   */
+  private async claimIdempotencyKey(
+    qr: QueryRunner, companyId: string, userId: string, idem: { key: string; hash: string },
+  ): Promise<unknown | undefined> {
+    const claimed: unknown[] = await qr.query(
+      `INSERT INTO stock_idempotency_keys (company_id, user_id, idempotency_key, request_hash)
+       VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING request_hash`,
+      [companyId, userId, idem.key, idem.hash],
+    );
+    if (claimed.length) return undefined;
+    const [prior] = await qr.query(
+      `SELECT request_hash, response FROM stock_idempotency_keys
+       WHERE company_id = $1 AND user_id = $2 AND idempotency_key = $3`,
+      [companyId, userId, idem.key],
+    );
+    if (prior.request_hash !== idem.hash) {
+      throw new UnprocessableEntityException('This Idempotency-Key was already used for a different request');
+    }
+    return prior.response;
+  }
+
+  private async storeIdempotentResponse(
+    qr: QueryRunner, companyId: string, userId: string, idem: { key: string; hash: string }, response: unknown,
+  ): Promise<void> {
+    await qr.query(
+      `UPDATE stock_idempotency_keys SET response = $4
+       WHERE company_id = $1 AND user_id = $2 AND idempotency_key = $3`,
+      [companyId, userId, idem.key, JSON.stringify(response)],
+    );
+  }
+
+  /** Locks the warehouse row and returns its next stock revision (as a string: bigint). */
+  private async bumpRevision(qr: QueryRunner, warehouseId: string): Promise<string> {
+    const [rows] = await qr.query(
+      `UPDATE warehouses SET stock_revision = stock_revision + 1 WHERE id = $1 RETURNING stock_revision`,
+      [warehouseId],
+    );
+    if (!rows.length) throw new NotFoundException('Warehouse not found or access denied');
+    return String(rows[0].stock_revision);
   }
 
   private toMovementEntity(row: Record<string, unknown>): StockMovement {
@@ -391,8 +505,87 @@ export class StockService {
     m.quantityChange = row.quantity_change as string;
     m.runningBalance = row.running_balance as string;
     m.notes = row.notes as string | null;
+    m.revision = (row.revision as string | null) ?? null;
     m.createdAt = row.created_at as Date;
     return m;
+  }
+
+  /**
+   * Sync contract for a warehouse. Revisions are assigned under the warehouse row lock (bumpRevision), so they
+   * commit in order: a client that has applied everything up to revision N can never later meet a write numbered
+   * below N. Read in one REPEATABLE READ transaction, so the movements, the balances and the returned cursor come from
+   * the same snapshot.
+   * - delta: movements with revision > since (oldest first, at most `limit`) and the current balances of the
+   *   products they touch; `revision` is the cursor for the next call (hasMore: call again right away).
+   * - snapshot: no `since`, or a revision this warehouse never issued: every balance of the warehouse, no movements.
+   * Balances are always the server's: a client replaces its copy, it never adds quantities up.
+   */
+  async getChanges(companyId: string, warehouseId: string, sinceRaw?: string, limitRaw?: string) {
+    if (sinceRaw !== undefined && sinceRaw !== '' && !/^\d{1,18}$/.test(sinceRaw)) {
+      throw new BadRequestException('since must be a non-negative integer revision');
+    }
+    const parsedLimit = Number.parseInt(limitRaw ?? '', 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 500) : 200;
+
+    return this.dataSource.transaction('REPEATABLE READ', async (m) => {
+      const [wh] = await m.query(
+        `SELECT stock_revision::text AS revision FROM warehouses WHERE id = $1 AND company_id = $2`,
+        [warehouseId, companyId],
+      );
+      if (!wh) throw new NotFoundException('Warehouse not found or access denied');
+      const current = BigInt(wh.revision);
+      const since = sinceRaw ? BigInt(sinceRaw) : null;
+
+      const balances = async (productIds?: string[]) => {
+        const rows: Array<{ productId: string; base: string; reserved: string }> = await m.query(
+          `SELECT product_id AS "productId", base_quantity AS base, reserved_quantity AS reserved
+           FROM product_warehouse
+           WHERE warehouse_id = $1 ${productIds ? 'AND product_id = ANY($2::uuid[])' : ''}
+           ORDER BY product_id`,
+          productIds ? [warehouseId, productIds] : [warehouseId],
+        );
+        return rows.map((r) => {
+          const base = new Decimal(r.base);
+          const reserved = new Decimal(r.reserved ?? 0);
+          return {
+            productId: r.productId,
+            baseQuantity: base.toFixed(6),
+            reservedQuantity: reserved.toFixed(6),
+            availableQuantity: base.minus(reserved).toFixed(6),
+          };
+        });
+      };
+
+      if (since === null || since > current) {
+        return {
+          warehouseId, mode: 'snapshot' as const, revision: current.toString(), hasMore: false,
+          movements: [], balances: await balances(),
+        };
+      }
+
+      const movements: Array<Record<string, unknown> & { revision: string; productId: string }> = await m.query(
+        `SELECT id, product_id AS "productId", user_id AS "userId", movement_type AS "movementType",
+                reference_type AS "referenceType", reference_id AS "referenceId",
+                quantity_change AS "quantityChange", running_balance AS "runningBalance",
+                sm.revision::text AS revision, created_at AS "createdAt"
+         FROM stock_movements sm
+         WHERE sm.warehouse_id = $1 AND sm.revision > $2
+         ORDER BY sm.revision -- the bigint column: the text alias would sort '10' before '9'
+         LIMIT $3`,
+        [warehouseId, since.toString(), limit + 1],
+      );
+      const hasMore = movements.length > limit;
+      if (hasMore) movements.length = limit;
+      const touched = [...new Set(movements.map((mv) => mv.productId))];
+      return {
+        warehouseId,
+        mode: 'delta' as const,
+        revision: hasMore ? movements[movements.length - 1].revision : current.toString(),
+        hasMore,
+        movements,
+        balances: touched.length ? await balances(touched) : [],
+      };
+    });
   }
 
   // Cache methods for stock data
@@ -439,6 +632,8 @@ export class StockService {
     companyId: string,
     productId: string,
     warehouseId?: string,
+    // null/undefined: every warehouse of the company; otherwise only these (a Staff member's grants).
+    allowedWarehouseIds?: string[] | null,
   ): Promise<MovementResponseDto[]> {
     // The product must belong to the caller's company; the warehouse is checked
     // only when the caller filters by one.
@@ -457,8 +652,16 @@ export class StockService {
       }
     }
 
-    // Build cache key: use 'all' if warehouseId is not provided
-    const cacheKey = await this.stockCacheKey(MOVEMENTS_CACHE_PREFIX, productId, warehouseId ?? 'all');
+    const scoped = Array.isArray(allowedWarehouseIds);
+    if (scoped && warehouseId && !allowedWarehouseIds.includes(warehouseId)) {
+      throw new NotFoundException('Warehouse not found or access denied');
+    }
+
+    // Build cache key: use 'all' if warehouseId is not provided. A scoped list is never cached: the 'all' entry
+    // holds every warehouse's movements and must not be served to a member with fewer grants.
+    const cacheKey = scoped && !warehouseId
+      ? null
+      : await this.stockCacheKey(MOVEMENTS_CACHE_PREFIX, productId, warehouseId ?? 'all');
     const cached = cacheKey === null ? null : await this.redisService.get(cacheKey);
     if (cached !== null) {
       return JSON.parse(cached);
@@ -468,6 +671,8 @@ export class StockService {
     const where: any = { productId };
     if (warehouseId) {
       where.warehouseId = warehouseId;
+    } else if (scoped) {
+      where.warehouseId = In(allowedWarehouseIds);
     }
     const movements = await this.movementRepo.find({
       where,

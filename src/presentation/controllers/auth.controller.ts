@@ -10,6 +10,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagg
 import type { Request } from 'express';
 import { AuthService, RequestContext } from '../../infrastructure/repositories/auth.service';
 import { RegisterDto } from '../../application/dtos/auth/register.dto';
+import { AcceptInvitationDto } from '../../application/dtos/team/team.dto';
 import { LoginDto } from '../../application/dtos/auth/login.dto';
 import { GoogleAuthDto } from '../../application/dtos/auth/google-auth.dto';
 import { RefreshTokenDto } from '../../application/dtos/auth/refresh-token.dto';
@@ -42,6 +43,15 @@ export class AuthController {
   @ApiResponse({ status: 409, description: 'Email already exists' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Public()
+  @Post('accept-invitation')
+  @ApiOperation({ summary: 'Join a company with an invitation token' })
+  @ApiResponse({ status: 201, description: 'Member created, tokens issued' })
+  @ApiResponse({ status: 400, description: 'Invitation invalid, used, revoked or expired' })
+  acceptInvitation(@Body() dto: AcceptInvitationDto, @Req() req: Request) {
+    return this.authService.acceptInvitation(dto, this.ctx(req));
   }
 
   @Public()

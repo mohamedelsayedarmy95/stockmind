@@ -30,7 +30,7 @@ describe('OutboundStockHandler', () => {
       productId: 'p1',
       warehouseId: 'w1',
       quantity: '30',
-    });
+    }, { idempotencyKey: undefined });
     expect(fcmService.sendStockNotification).toHaveBeenCalledWith(
       'u1',
       'STOCK_SHIPPED',

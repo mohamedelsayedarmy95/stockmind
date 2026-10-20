@@ -37,6 +37,10 @@ export class Warehouse extends AuditableEntity {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
+  // Sync cursor: bumped by every stock write in this warehouse (bigint, read as a string).
+  @Column({ name: 'stock_revision', type: 'bigint', default: 0 })
+  stockRevision!: string;
+
   @OneToMany(() => ProductWarehouse, (pw) => pw.warehouse)
   productWarehouses!: ProductWarehouse[];
 }

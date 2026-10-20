@@ -22,6 +22,7 @@ import { AiModule } from './modules/ai.module';
 import { FirebaseModule } from './modules/firebase.module';
 
 import { GlobalJwtGuard } from './presentation/guards/global-auth.guard';
+import { TeamModule } from './modules/team.module';
 import { IpAllowlistGuard } from './presentation/guards/ip-allowlist.guard';
 import { GlobalExceptionFilter } from './presentation/filters/global-exception.filter';
 import { AuditLogInterceptor } from './presentation/interceptors/audit-log.interceptor';
@@ -96,6 +97,7 @@ import { THROTTLERS } from './shared/constants/throttling.constant';
     WarehouseModule,
     ProductModule,
     StockModule,
+    TeamModule,
     HealthModule,
   ],
   providers: [

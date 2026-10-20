@@ -75,6 +75,10 @@ export class StockMovement {
   @Column({ type: 'text', nullable: true })
   notes!: string | null;
 
+  // The warehouse's stock_revision assigned to this movement (null only for rows written by older code).
+  @Column({ type: 'bigint', nullable: true })
+  revision!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

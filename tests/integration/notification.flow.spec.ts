@@ -81,7 +81,7 @@ describe('Notification Flow Integration', () => {
 
     const result = await inboundStockHandler.execute(command);
 
-    expect(stockService.inbound).toHaveBeenCalledWith(userId, companyId, dto);
+    expect(stockService.inbound).toHaveBeenCalledWith(userId, companyId, dto, { idempotencyKey: undefined });
     expect(fcmService.sendStockNotification).toHaveBeenCalledWith(
       userId,
       'STOCK_RECEIVED',
@@ -106,7 +106,7 @@ describe('Notification Flow Integration', () => {
 
     await expect(inboundStockHandler.execute(command)).rejects.toThrow('Insufficient stock');
 
-    expect(stockService.inbound).toHaveBeenCalledWith(userId, companyId, dto);
+    expect(stockService.inbound).toHaveBeenCalledWith(userId, companyId, dto, { idempotencyKey: undefined });
     expect(fcmService.sendStockNotification).not.toHaveBeenCalled();
   });
 });

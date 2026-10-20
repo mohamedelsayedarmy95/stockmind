@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { WarehouseAccessService } from '../../src/infrastructure/security/warehouse-access.service';
 import { INestApplication, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -131,6 +132,8 @@ let currentUser: JwtPayload;
     { provide: DataSource, useValue: {} },
     { provide: PermissionService, useValue: permissionService },
     { provide: RedisService, useValue: redisService },
+    // Full warehouse scope (null): this suite is about credential columns, not warehouse grants.
+    { provide: WarehouseAccessService, useValue: { scope: async () => null, assertCanUse: async () => undefined } },
   ],
 })
 class MovementHistoryTestModule {}

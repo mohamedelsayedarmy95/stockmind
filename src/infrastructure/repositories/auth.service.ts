@@ -20,6 +20,7 @@ import { Warehouse } from '../../domain/entities/warehouse.entity';
 import { UserRole } from '../../shared/constants/enums';
 import { RegisterDto } from '../../application/dtos/auth/register.dto';
 import { LoginDto } from '../../application/dtos/auth/login.dto';
+import { AcceptInvitationDto } from '../../application/dtos/team/team.dto';
 import { TwoFactorService } from '../security/two-factor.service';
 import { BruteForceService } from '../security/brute-force.service';
 import { AuditLogService } from '../audit/audit-log.service';
@@ -110,6 +111,80 @@ export class AuthService {
     } finally {
       await qr.release();
     }
+  }
+
+  /**
+   * Joins the inviting company with a single-use invitation token: creates the member with the invited role and, for
+   * Staff, the invited warehouse grants. The invitation row is locked, so a token can be used once even when two
+   * requests race; an expired, revoked or used token answers the same 400 as an unknown one.
+   */
+  async acceptInvitation(dto: AcceptInvitationDto, ctx: RequestContext = {}) {
+    const tokenHash = createHash('sha256').update(dto.token, 'utf8').digest('hex');
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    let user: User;
+    try {
+      const [inv] = await qr.query(
+        `SELECT id, company_id, email, role, warehouse_ids, expires_at, accepted_at, revoked_at
+         FROM team_invitations WHERE token_hash = $1 FOR UPDATE`,
+        [tokenHash],
+      );
+      if (!inv || inv.accepted_at || inv.revoked_at || new Date(inv.expires_at).getTime() <= Date.now()) {
+        throw new BadRequestException('Invitation is invalid or has expired');
+      }
+      if (await qr.manager.findOne(User, { where: { email: inv.email } })) {
+        throw new ConflictException('Email already registered');
+      }
+      const warehouseIds: string[] = inv.warehouse_ids ?? [];
+      user = qr.manager.create(User, {
+        companyId: inv.company_id,
+        warehouseId: warehouseIds[0] ?? null,
+        name: dto.name,
+        email: inv.email,
+        passwordHash: await bcrypt.hash(dto.password, 12),
+        role: inv.role as UserRole,
+      });
+      await qr.manager.save(user);
+      if (inv.role === UserRole.STAFF && warehouseIds.length) {
+        // Only warehouses that still exist in the inviting company are granted.
+        await qr.query(
+          `INSERT INTO warehouse_access (company_id, user_id, warehouse_id)
+           SELECT $1, $2, w.id FROM warehouses w WHERE w.company_id = $1 AND w.id = ANY($3::uuid[])
+           ON CONFLICT (user_id, warehouse_id) DO NOTHING`,
+          [inv.company_id, user.id, warehouseIds],
+        );
+      }
+      await qr.query(
+        `UPDATE team_invitations SET accepted_at = now(), accepted_user_id = $2 WHERE id = $1`,
+        [inv.id, user.id],
+      );
+      await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction().catch(() => undefined);
+      if ((err as { code?: string }).code === '23505') throw new ConflictException('Email already registered');
+      throw err;
+    } finally {
+      await qr.release();
+    }
+
+    await this.audit.write({
+      actorUserId: user.id,
+      companyId: user.companyId,
+      action: 'TEAM_INVITATION_ACCEPTED',
+      entityType: 'user',
+      entityId: user.id,
+      newValues: { role: user.role },
+      ipAddress: ctx.ipAddress ?? null,
+      userAgent: ctx.userAgent ?? null,
+    });
+    const tokens = await this.generateTokens(user);
+    await this.storeRefreshHash(user.id, tokens.refreshToken);
+    return {
+      ...tokens,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      company: { id: user.companyId },
+    };
   }
 
   /**

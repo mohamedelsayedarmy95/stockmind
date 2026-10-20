@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Param, Body, Req, UseGuards, Headers, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import type { Request } from 'express';
 import { InboundDto } from '../../application/dtos/stock/inbound.dto';
@@ -14,6 +14,19 @@ import { GetMovementHistoryQuery } from '../../application/queries/get-movement-
 import { CurrentUser, JwtPayload } from '../decorators/current-user.decorator';
 import { RequirePermissions } from '../decorators/require-permissions.decorator';
 import { PermissionsGuard } from '../guards/permissions.guard';
+import { WarehouseScoped } from '../guards/warehouse-access.guard';
+import { StockService } from '../../infrastructure/repositories/stock.service';
+
+const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{8,128}$/;
+
+/** Optional Idempotency-Key header (8-128 of A-Z a-z 0-9 _ -); a malformed key is refused, not ignored. */
+function idempotencyKey(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  if (!IDEMPOTENCY_KEY.test(raw)) {
+    throw new BadRequestException('Idempotency-Key must be 8-128 characters of A-Z, a-z, 0-9, _ or -');
+  }
+  return raw;
+}
 import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
 @Controller('stock')
@@ -22,6 +35,7 @@ export class StockController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly stock: StockService,
   ) {}
 
   private corr(req: Request): string | undefined {
@@ -31,30 +45,55 @@ export class StockController {
 
   @Post('inbound')
   @RequirePermissions(PERMISSIONS.STOCK_INBOUND)
-  inbound(@CurrentUser() user: JwtPayload, @Body() dto: InboundDto, @Req() req: Request) {
-    return this.commandBus.execute(new InboundStockCommand(user.sub, user.companyId, dto, this.corr(req)));
+  @WarehouseScoped('body.warehouseId')
+  inbound(
+    @CurrentUser() user: JwtPayload, @Body() dto: InboundDto, @Req() req: Request,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.commandBus.execute(
+      new InboundStockCommand(user.sub, user.companyId, dto, this.corr(req), idempotencyKey(key)),
+    );
   }
 
   @Post('outbound')
   @RequirePermissions(PERMISSIONS.STOCK_OUTBOUND)
-  outbound(@CurrentUser() user: JwtPayload, @Body() dto: OutboundDto, @Req() req: Request) {
-    return this.commandBus.execute(new OutboundStockCommand(user.sub, user.companyId, dto, this.corr(req)));
+  @WarehouseScoped('body.warehouseId')
+  outbound(
+    @CurrentUser() user: JwtPayload, @Body() dto: OutboundDto, @Req() req: Request,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.commandBus.execute(
+      new OutboundStockCommand(user.sub, user.companyId, dto, this.corr(req), idempotencyKey(key)),
+    );
   }
 
   @Post('adjustment')
   @RequirePermissions(PERMISSIONS.STOCK_ADJUSTMENT)
-  adjustment(@CurrentUser() user: JwtPayload, @Body() dto: AdjustmentDto, @Req() req: Request) {
-    return this.commandBus.execute(new AdjustStockCommand(user.sub, user.companyId, dto, this.corr(req)));
+  @WarehouseScoped('body.warehouseId')
+  adjustment(
+    @CurrentUser() user: JwtPayload, @Body() dto: AdjustmentDto, @Req() req: Request,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.commandBus.execute(
+      new AdjustStockCommand(user.sub, user.companyId, dto, this.corr(req), idempotencyKey(key)),
+    );
   }
 
   @Post('transfer')
   @RequirePermissions(PERMISSIONS.STOCK_TRANSFER)
-  transfer(@CurrentUser() user: JwtPayload, @Body() dto: TransferDto, @Req() req: Request) {
-    return this.commandBus.execute(new TransferStockCommand(user.sub, user.companyId, dto, this.corr(req)));
+  @WarehouseScoped('body.fromWarehouseId', 'body.toWarehouseId')
+  transfer(
+    @CurrentUser() user: JwtPayload, @Body() dto: TransferDto, @Req() req: Request,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.commandBus.execute(
+      new TransferStockCommand(user.sub, user.companyId, dto, this.corr(req), idempotencyKey(key)),
+    );
   }
 
   @Get('balance/:productId/:warehouseId')
   @RequirePermissions(PERMISSIONS.VIEW_BALANCE)
+  @WarehouseScoped('params.warehouseId')
   getBalance(
     @CurrentUser() user: JwtPayload,
     @Param('productId') productId: string,
@@ -63,9 +102,25 @@ export class StockController {
     return this.queryBus.execute(new GetBalanceQuery(user.companyId, productId, warehouseId));
   }
 
+  /**
+   * Sync: what changed in a warehouse since the client's revision. Without `since` (or with a revision the server
+   * never issued) the answer is a full balance snapshot. The returned `revision` is the cursor for the next call.
+   */
+  @Get('changes/:warehouseId')
+  @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
+  @WarehouseScoped('params.warehouseId')
+  getChanges(
+    @CurrentUser() user: JwtPayload,
+    @Param('warehouseId') warehouseId: string,
+    @Query('since') since?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.stock.getChanges(user.companyId, warehouseId, since, limit);
+  }
+
   @Get('movements/:productId')
   @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
   getMovements(@CurrentUser() user: JwtPayload, @Param('productId') productId: string) {
-    return this.queryBus.execute(new GetMovementHistoryQuery(user.companyId, productId));
+    return this.queryBus.execute(new GetMovementHistoryQuery(user.companyId, productId, user.sub));
   }
 }

@@ -15,7 +15,11 @@ export class AdjustStockHandler implements ICommandHandler<AdjustStockCommand> {
   ) {}
 
   async execute(cmd: AdjustStockCommand) {
-    const movement = await this.stock.adjustment(cmd.userId, cmd.companyId, cmd.dto);
+    const movement = await this.stock.adjustment(cmd.userId, cmd.companyId, cmd.dto, {
+      idempotencyKey: cmd.idempotencyKey,
+    });
+    // A replay wrote nothing: its event and push were already sent by the first request.
+    if (movement.replayed) return movement;
 
     // Published like every stock event (production does the same); no listener writes an audit row for it yet.
     const event = new StockAdjustedEvent(

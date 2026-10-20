@@ -62,6 +62,8 @@ class FakeDb {
     return value;
   }
 
+  readonly revisions = new Map<string, number>();
+
   createQueryRunner() {
     const staged = new Map<string, string>();
     const stagedMovements: MovementRow[] = [];
@@ -88,10 +90,16 @@ class FakeDb {
           const row = {
             id: randomUUID(), product_id: params[0], warehouse_id: params[1], user_id: params[2],
             movement_type: params[3], reference_type: params[4], quantity_change: params[5],
-            running_balance: params[6], notes: params[7], created_at: new Date(),
+            running_balance: params[6], notes: params[7], revision: params[8], created_at: new Date(),
           };
           stagedMovements.push(row);
           return [row];
+        }
+        if (sql.includes('UPDATE warehouses SET stock_revision')) {
+          // Stock writes number themselves per warehouse; TypeORM returns [rows, affected] for UPDATE.
+          const next = (this.revisions.get(params[0] as string) ?? 0) + 1;
+          this.revisions.set(params[0] as string, next);
+          return [[{ stock_revision: String(next) }], 1];
         }
         if (sql.includes('UPDATE product_warehouse')) {
           staged.set(rowKey(params[1], params[2]), params[0] as string);

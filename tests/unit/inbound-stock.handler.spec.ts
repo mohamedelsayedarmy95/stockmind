@@ -27,7 +27,7 @@ describe('InboundStockHandler', () => {
 
     const result = await handler.execute(cmd);
 
-    expect(stockService.inbound).toHaveBeenCalledWith('user-1', 'company-1', cmd.dto);
+    expect(stockService.inbound).toHaveBeenCalledWith('user-1', 'company-1', cmd.dto, { idempotencyKey: undefined });
     expect(result).toBe(mockResult);
     expect(fcmService.sendStockNotification).toHaveBeenCalledWith(
       'user-1',

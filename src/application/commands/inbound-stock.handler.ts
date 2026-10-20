@@ -15,7 +15,11 @@ export class InboundStockHandler implements ICommandHandler<InboundStockCommand>
   ) {}
 
   async execute(cmd: InboundStockCommand) {
-    const movement = await this.stock.inbound(cmd.userId, cmd.companyId, cmd.dto);
+    const movement = await this.stock.inbound(cmd.userId, cmd.companyId, cmd.dto, {
+      idempotencyKey: cmd.idempotencyKey,
+    });
+    // A replay wrote nothing: its event and push were already sent by the first request.
+    if (movement.replayed) return movement;
 
     // The listeners write the STOCK_RECEIVED audit row; the event is part of the write, not optional.
     const event = new StockReceivedEvent(

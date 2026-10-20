@@ -7,5 +7,7 @@ export class AdjustStockCommand implements ICommand {
     public readonly companyId: string,
     public readonly dto: AdjustmentDto,
     public readonly correlationId?: string,
+    // Client-chosen Idempotency-Key: a retry with the same key replays the first result.
+    public readonly idempotencyKey?: string,
   ) {}
 }

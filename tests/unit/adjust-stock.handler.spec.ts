@@ -30,7 +30,7 @@ describe('AdjustStockHandler', () => {
       productId: 'p1',
       warehouseId: 'w1',
       quantity: '20',
-    });
+    }, { idempotencyKey: undefined });
     expect(fcmService.sendStockNotification).toHaveBeenCalledWith(
       'u1',
       'STOCK_ADJUSTED',

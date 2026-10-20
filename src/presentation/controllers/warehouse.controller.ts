@@ -8,6 +8,7 @@ import { UpdateWarehouseDto } from '../../application/dtos/warehouse/update-ware
 import { CurrentUser, JwtPayload } from '../decorators/current-user.decorator';
 import { RequirePermissions } from '../decorators/require-permissions.decorator';
 import { PermissionsGuard } from '../guards/permissions.guard';
+import { WarehouseScoped } from '../guards/warehouse-access.guard';
 import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
 @ApiTags('Warehouses')
@@ -32,11 +33,12 @@ export class WarehouseController {
   @ApiResponse({ status: 200, description: 'Returns list of warehouses' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   findAll(@CurrentUser() user: JwtPayload) {
-    return this.service.findAll(user.companyId);
+    return this.service.findAll(user.companyId, user.sub);
   }
 
   @Get(':id')
   @RequirePermissions(PERMISSIONS.VIEW_WAREHOUSE)
+  @WarehouseScoped('params.id')
   @ApiOperation({ summary: 'Get warehouse by ID' })
   @ApiResponse({ status: 200, description: 'Returns warehouse details' })
   @ApiResponse({ status: 404, description: 'Warehouse not found' })
@@ -47,6 +49,7 @@ export class WarehouseController {
 
   @Patch(':id')
   @RequirePermissions(PERMISSIONS.UPDATE_WAREHOUSE)
+  @WarehouseScoped('params.id')
   @ApiOperation({ summary: 'Update warehouse' })
   @ApiResponse({ status: 200, description: 'Warehouse updated' })
   @ApiResponse({ status: 404, description: 'Warehouse not found' })
@@ -61,6 +64,7 @@ export class WarehouseController {
 
   @Delete(':id')
   @RequirePermissions(PERMISSIONS.DELETE_WAREHOUSE)
+  @WarehouseScoped('params.id')
   @ApiOperation({ summary: 'Delete warehouse' })
   @ApiResponse({ status: 200, description: 'Warehouse deleted' })
   @ApiResponse({ status: 404, description: 'Warehouse not found' })

@@ -216,6 +216,7 @@ describe('F1: @Public route allowlist on the real controllers', () => {
     'GET /auth/saml/logout',
     'GET /health',
     'POST /auth/2fa/login',
+    'POST /auth/accept-invitation',
     'POST /auth/google',
     'POST /auth/login',
     'POST /auth/refresh-token',

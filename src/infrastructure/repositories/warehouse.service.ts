@@ -1,15 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Warehouse } from '../../domain/entities/warehouse.entity';
 import { CreateWarehouseDto } from '../../application/dtos/warehouse/create-warehouse.dto';
 import { UpdateWarehouseDto } from '../../application/dtos/warehouse/update-warehouse.dto';
+import { WarehouseAccessService } from '../security/warehouse-access.service';
 
 @Injectable()
 export class WarehouseService {
   constructor(
     @InjectRepository(Warehouse)
     private readonly repo: Repository<Warehouse>,
+    private readonly access: WarehouseAccessService,
   ) {}
 
   async create(companyId: string, dto: CreateWarehouseDto): Promise<Warehouse> {
@@ -21,8 +23,14 @@ export class WarehouseService {
     return this.repo.save(warehouse);
   }
 
-  async findAll(companyId: string): Promise<Warehouse[]> {
-    return this.repo.find({ where: { companyId }, order: { createdAt: 'DESC' } });
+  /** With a viewer, only the warehouses that member may use (a Staff member: their grants). */
+  async findAll(companyId: string, viewerId?: string): Promise<Warehouse[]> {
+    const allowed = viewerId ? await this.access.scope(viewerId, companyId) : null;
+    if (allowed && !allowed.length) return [];
+    return this.repo.find({
+      where: allowed ? { companyId, id: In(allowed) } : { companyId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(companyId: string, id: string): Promise<Warehouse> {

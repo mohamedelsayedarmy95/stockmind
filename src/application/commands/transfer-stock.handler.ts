@@ -14,7 +14,11 @@ export class TransferStockHandler implements ICommandHandler<TransferStockComman
   ) {}
 
   async execute(cmd: TransferStockCommand) {
-    const result = await this.stock.transfer(cmd.userId, cmd.companyId, cmd.dto);
+    const result = await this.stock.transfer(cmd.userId, cmd.companyId, cmd.dto, {
+      idempotencyKey: cmd.idempotencyKey,
+    });
+    // A replay wrote nothing: its events were already emitted by the first request.
+    if (result.replayed) return result;
 
     const outEvent = new StockIssuedEvent(
       cmd.dto.productId, cmd.dto.fromWarehouseId, cmd.companyId,

@@ -80,7 +80,9 @@ const column = async (ds: DataSource) =>
     );
     await before.destroy();
 
-    a = await new DataSource(options([path.join(MIGRATIONS, '*.ts')])).initialize();
+    // Up to and including the TOTP migration only: later migrations are tested by their own suites.
+    a = await new DataSource(options([path.join(MIGRATIONS, '172*.ts'), path.join(MIGRATIONS, '1792473600000-*.ts')]))
+      .initialize();
     ran = (await a.runMigrations()).map((m) => m.name);
     b = await new DataSource(options()).initialize();
     svcA = new TwoFactorService(a.getRepository(UserTwoFactor));
