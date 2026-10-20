@@ -229,6 +229,8 @@ export interface MovementInput {
 /** Result of a movement, including which lots a dispatch actually drew from. */
 export interface MovementResult extends StockMovement {
   picks?: PickLine[];
+  /** Online: saved on this device, waiting for the network. NOT in stock until the server confirms it. */
+  queued?: boolean;
 }
 
 export interface ProductRepository {

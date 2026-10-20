@@ -3,15 +3,20 @@ import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { create } from 'zustand';
 import { api } from '@/api/client';
+import { getStorage } from '@/store/secure-storage';
 import { httpStatusOf } from '@/domain/auth-flow';
 import { WriteRejection } from '@/domain/idempotent-write';
 import { ChangesResponse, initialSyncState, WarehouseSyncState } from '@/domain/stock-sync';
 import { PollError, pollWarehouse, syncDisplay } from '@/domain/sync-runner';
+import { currentScopeKey } from './account-scope';
 
 /**
- * Online stock state per warehouse, reconciled from GET /stock/changes/:warehouseId. In memory only: the server is the
- * authority, so a cold start begins with a snapshot. Polls run on app foreground, after the user's own write, and on
- * an interval while a stock screen is focused (see useWarehouseSync).
+ * Online stock state per warehouse, reconciled from GET /stock/changes/:warehouseId. Polls run on app foreground,
+ * after the user's own write, and on an interval while a stock screen is focused (see useWarehouseSync).
+ *
+ * The last confirmed state is also cached per account (encrypted MMKV), so a relaunch without network shows the
+ * last synced figures - labelled Offline with their time - and resumes from the same cursor. The server stays the
+ * authority: the cache only replaces "nothing" until the next poll, and an explicit sign-out deletes it.
  */
 export interface WarehouseSyncEntry {
   sync: WarehouseSyncState;
@@ -31,16 +36,55 @@ export const useWarehouseSyncStore = create<SyncStore>(() => ({ entries: {} }));
 /** 30–60 s per the backend contract; polling (not sockets) because the free backend instance sleeps. */
 export const STOCK_SCREEN_POLL_MS = 45_000;
 
+// ── Per-account cache ────────────────────────────────────────────────────────
+const CACHE_PREFIX = 'stockmind-sync-v1|';
+
+interface CachedWarehouse {
+  sync: WarehouseSyncState;
+  lastSuccessAt: number;
+}
+
+function readCache(scope: string): Record<string, CachedWarehouse> {
+  try {
+    const raw = getStorage().getString(CACHE_PREFIX + scope);
+    const doc = raw ? (JSON.parse(raw) as { warehouses?: Record<string, CachedWarehouse> }) : null;
+    return doc?.warehouses ?? {};
+  } catch {
+    return {}; // a cache is disposable: the next poll rebuilds it from the server
+  }
+}
+
+function writeCache(scope: string, warehouseId: string, entry: CachedWarehouse) {
+  const warehouses = { ...readCache(scope), [warehouseId]: entry };
+  getStorage().set(CACHE_PREFIX + scope, JSON.stringify({ warehouses }));
+}
+
+/** On an explicit sign-out: the figures can be fetched again; they should not stay on the device. */
+export function forgetSyncCache(scope: string | null) {
+  if (scope) getStorage().delete(CACHE_PREFIX + scope);
+}
+
 function entryOf(warehouseId: string): WarehouseSyncEntry {
-  return (
-    useWarehouseSyncStore.getState().entries[warehouseId] ?? {
-      sync: initialSyncState(warehouseId),
-      inFlight: false,
-      lastError: null,
-      lastSuccessAt: null,
-      rejection: null,
-    }
-  );
+  const live = useWarehouseSyncStore.getState().entries[warehouseId];
+  if (live) return live;
+  const scope = currentScopeKey();
+  const cached = scope ? readCache(scope)[warehouseId] : undefined;
+  return {
+    // Older caches lack fields added since; fill them from the initial state.
+    sync: cached ? { ...initialSyncState(warehouseId), ...cached.sync } : initialSyncState(warehouseId),
+    inFlight: false,
+    lastError: null,
+    lastSuccessAt: cached?.lastSuccessAt ?? null,
+    rejection: null,
+  };
+}
+
+const pollListeners = new Set<() => void>();
+
+/** Called after every poll that reached the server: proof the network works (the outbox drains on it). */
+export function onPollSucceeded(listener: () => void): () => void {
+  pollListeners.add(listener);
+  return () => pollListeners.delete(listener);
 }
 
 function patch(warehouseId: string, change: Partial<WarehouseSyncEntry>) {
@@ -54,24 +98,28 @@ const again = new Set<string>();
 let generation = 0;
 
 async function runOnce(warehouseId: string, gen: number) {
+  const scope = currentScopeKey();
   patch(warehouseId, { inFlight: true });
   const result = await pollWarehouse(
     entryOf(warehouseId).sync,
-    async ({ since, limit }) => {
-      const { data } = await api.get<ChangesResponse>(`/stock/changes/${warehouseId}`, {
-        params: since === undefined ? { limit } : { since, limit },
-      });
+    async (query) => {
+      const { data } = await api.get<ChangesResponse>(`/stock/changes/${warehouseId}`, { params: query });
       return data;
     },
     { statusOf: httpStatusOf },
   );
-  if (gen !== generation) return;
+  if (gen !== generation || scope !== currentScopeKey()) return;
+  const now = Date.now();
   patch(warehouseId, {
     sync: result.state,
     inFlight: false,
     lastError: result.error,
-    ...(result.error ? {} : { lastSuccessAt: Date.now() }),
+    ...(result.error ? {} : { lastSuccessAt: now }),
   });
+  if (!result.error && scope) {
+    writeCache(scope, warehouseId, { sync: result.state, lastSuccessAt: now });
+    for (const listener of pollListeners) listener();
+  }
 }
 
 /**

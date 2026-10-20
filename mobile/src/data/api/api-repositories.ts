@@ -3,6 +3,18 @@ import { api } from '@/api/client';
 import { Product, BalanceResponse, StockMovement, ActivityEntry } from '@/api/types';
 import { httpStatusOf } from '@/domain/auth-flow';
 import { sendIdempotent } from '@/domain/idempotent-write';
+import { StockIntent } from '@/domain/outbox';
+import { submitIntent } from '@/sync/outbox-drain';
+
+/** A queued intent the server refused (or whose outcome needs review); shaped like an HTTP error for the screens. */
+export class IntentRefusedError extends Error {
+  readonly response: { status: number | undefined };
+  constructor(readonly intent: StockIntent) {
+    super(`INTENT_${intent.state}`);
+    this.name = 'IntentRefusedError';
+    this.response = { status: intent.lastError?.status ?? undefined };
+  }
+}
 import {
   ProductRepository,
   WarehouseRepository,
@@ -131,7 +143,18 @@ class ApiStockRepository implements StockRepository {
       idempotencyKey,
       ...body
     } = input;
-    return postStockWrite<StockMovement>(`/stock/${kind}`, body, idempotencyKey);
+    // Receipts and dispatches go through the durable outbox: confirmed now when the server answers, otherwise kept
+    // on the device (same key, same payload) until it does. The intent id is the action's Idempotency-Key.
+    const intent = await submitIntent({ id: idempotencyKey ?? randomUUID(), kind, payload: body });
+    const result = (id: string, balanceAfter: string, queued: boolean): MovementResult => ({
+      id, type: kind, quantity: body.quantity, balanceAfter, createdAt: new Date(intent.createdAt).toISOString(),
+      ...(queued ? { queued } : {}),
+    });
+    if (intent.state === 'CONFIRMED') {
+      return result(intent.result?.movementId || intent.id, intent.result?.runningBalance ?? '', false);
+    }
+    if (intent.state === 'PENDING' || intent.state === 'SENDING') return result(intent.id, '', true);
+    throw new IntentRefusedError(intent);
   }
   async movements(productId: string): Promise<StockMovement[]> {
     const { data } = await api.get<StockMovement[]>(`/stock/movements/${productId}`);

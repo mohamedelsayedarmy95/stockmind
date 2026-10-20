@@ -10,7 +10,8 @@ import {
   requireSession,
   SessionPayload,
 } from '@/domain/auth-flow';
-import { resetWarehouseSync } from '@/sync/warehouse-sync';
+import { forgetSyncCache, resetWarehouseSync } from '@/sync/warehouse-sync';
+import { sessionScopeKey } from '@/sync/account-scope';
 import { queryClient } from './queryClient';
 
 export interface RegisterInput {
@@ -35,11 +36,16 @@ export function startOnlineSession(session: SessionPayload) {
   });
 }
 
-/** Drops the session together with every cached server answer and sync cursor. */
+/**
+ * Drops the session together with every cached server answer and sync cursor, including the account's on-device
+ * cache. Its unsent stock intents are kept, untouched and unsendable, until the same account signs in again.
+ */
 function endSession() {
+  const scope = sessionScopeKey();
   useAuthStore.getState().clear();
   queryClient.clear();
   resetWarehouseSync();
+  forgetSyncCache(scope);
 }
 
 export function useRegister() {

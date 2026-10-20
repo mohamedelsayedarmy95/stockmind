@@ -17,6 +17,7 @@ import { BiometricLockScreen } from '@/components/BiometricLockScreen';
 import { SessionExpiredOverlay } from '@/components/SessionExpiredOverlay';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ONLINE_MODE_DEV_PREVIEW } from '@/lib/dev-flags';
+import { startOutboxRuntime } from '@/sync/outbox-drain';
 
 /** Redirects between onboarding, the auth flow and the app based on state. */
 function AuthGate() {
@@ -32,6 +33,11 @@ function AuthGate() {
     s.operationMode === 'online' && !ONLINE_MODE_DEV_PREVIEW ? null : s.operationMode,
   );
   const helpSeen = useSettingsStore((s) => s.helpSeen);
+
+  // Mounted only after the biometric unlock: queued stock intents start sending from here, never before.
+  useEffect(() => {
+    startOutboxRuntime();
+  }, []);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -115,6 +121,10 @@ function AuthGate() {
       />
       <Stack.Screen
         name="help"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="outbox"
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
     </Stack>

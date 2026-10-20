@@ -5,6 +5,7 @@ import { runEventBackfill } from '@/db/event-migration';
 import { installGlobalCrashHandler, captureException } from '@/lib/crash-reporting';
 import { useAuthStore } from '@/store/auth.store';
 import { useSettingsStore } from '@/store/settings.store';
+import { loadOutbox } from '@/sync/outbox-store';
 import i18n from '@/i18n';
 
 /**
@@ -46,6 +47,9 @@ export async function bootstrapApp(): Promise<void> {
     useAuthStore.persist.rehydrate(),
     useSettingsStore.persist.rehydrate(),
   ]);
+
+  // Queued online stock intents survive app kills; sending them starts after the unlock (see AuthGate).
+  loadOutbox();
 
   const lang = useSettingsStore.getState().language;
   if (i18n.language !== lang) {
