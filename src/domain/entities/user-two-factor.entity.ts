@@ -36,6 +36,11 @@ export class UserTwoFactor {
   @Column({ name: 'backup_codes', type: 'text', nullable: true, transformer: encryptedColumn() })
   backupCodes!: string | null;
 
+  // Time-step (unix seconds / 30) of the last accepted TOTP code; only a later step is accepted (no replay).
+  // bigint: TypeORM returns it as a string.
+  @Column({ name: 'last_totp_step', type: 'bigint', nullable: true })
+  lastTotpStep!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
