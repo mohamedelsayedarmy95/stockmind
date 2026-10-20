@@ -71,8 +71,10 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
       ) : null}
       <OutboxBanner />
 
-      <Text style={{ color: t.textSecondary, fontWeight: '700' }}>{tr('online.stockTitle')}</Text>
-      {balances.length === 0 ? (
+      {status?.reason === 'no-access' ? null : (
+        <Text style={{ color: t.textSecondary, fontWeight: '700' }}>{tr('online.stockTitle')}</Text>
+      )}
+      {status?.reason === 'no-access' ? null : balances.length === 0 ? (
         <Text style={{ color: t.textMuted }}>
           {entry?.sync.revision === null ? tr('common.loading') : tr('online.stockEmpty')}
         </Text>
@@ -105,7 +107,7 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
         ))
       )}
 
-      {recent.length > 0 ? (
+      {recent.length > 0 && status?.reason !== 'no-access' ? (
         <GlassCard style={{ gap: 8 }}>
           <Text style={{ color: t.textSecondary, fontWeight: '700' }}>{tr('online.recentTitle')}</Text>
           {recent.map((m) => (

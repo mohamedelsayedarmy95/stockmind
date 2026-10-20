@@ -5,6 +5,7 @@ import { httpStatusOf } from '@/domain/auth-flow';
 import { sendIdempotent } from '@/domain/idempotent-write';
 import { StockIntent } from '@/domain/outbox';
 import { submitIntent } from '@/sync/outbox-drain';
+import { withReferenceFallback } from '@/sync/reference-cache';
 
 /** A queued intent the server refused (or whose outcome needs review); shaped like an HTTP error for the screens. */
 export class IntentRefusedError extends Error {
@@ -53,8 +54,7 @@ import {
 
 class ApiProductRepository implements ProductRepository {
   async list(): Promise<Product[]> {
-    const { data } = await api.get<Product[]>('/products');
-    return data;
+    return withReferenceFallback('products', async () => (await api.get<Product[]>('/products')).data);
   }
   async create(input: NewProduct): Promise<Product> {
     const { data } = await api.post<Product>('/products', input);
@@ -77,8 +77,7 @@ class ApiProductRepository implements ProductRepository {
 
 class ApiWarehouseRepository implements WarehouseRepository {
   async list(): Promise<Warehouse[]> {
-    const { data } = await api.get<Warehouse[]>('/warehouses');
-    return data;
+    return withReferenceFallback('warehouses', async () => (await api.get<Warehouse[]>('/warehouses')).data);
   }
   async create(input: { name: string }): Promise<Warehouse> {
     const { data } = await api.post<Warehouse>('/warehouses', input);

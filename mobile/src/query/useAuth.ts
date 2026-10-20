@@ -12,6 +12,7 @@ import {
 } from '@/domain/auth-flow';
 import { forgetSyncCache, resetWarehouseSync } from '@/sync/warehouse-sync';
 import { sessionScopeKey } from '@/sync/account-scope';
+import { forgetReferences } from '@/sync/reference-cache';
 import { queryClient } from './queryClient';
 
 export interface RegisterInput {
@@ -46,6 +47,7 @@ function endSession() {
   queryClient.clear();
   resetWarehouseSync();
   forgetSyncCache(scope);
+  forgetReferences(scope);
 }
 
 export function useRegister() {

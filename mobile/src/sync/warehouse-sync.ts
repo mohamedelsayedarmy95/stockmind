@@ -59,6 +59,11 @@ function writeCache(scope: string, warehouseId: string, entry: CachedWarehouse) 
   getStorage().set(CACHE_PREFIX + scope, JSON.stringify({ warehouses }));
 }
 
+function dropCached(scope: string, warehouseId: string) {
+  const { [warehouseId]: _dropped, ...rest } = readCache(scope);
+  getStorage().set(CACHE_PREFIX + scope, JSON.stringify({ warehouses: rest }));
+}
+
 /** On an explicit sign-out: the figures can be fetched again; they should not stay on the device. */
 export function forgetSyncCache(scope: string | null) {
   if (scope) getStorage().delete(CACHE_PREFIX + scope);
@@ -110,6 +115,12 @@ async function runOnce(warehouseId: string, gen: number) {
   );
   if (gen !== generation || scope !== currentScopeKey()) return;
   const now = Date.now();
+  if (result.error === 'denied') {
+    // Access revoked (or warehouse gone): its figures must not stay readable on this device.
+    patch(warehouseId, { sync: initialSyncState(warehouseId), inFlight: false, lastError: 'denied', lastSuccessAt: null });
+    if (scope) dropCached(scope, warehouseId);
+    return;
+  }
   patch(warehouseId, {
     sync: result.state,
     inFlight: false,

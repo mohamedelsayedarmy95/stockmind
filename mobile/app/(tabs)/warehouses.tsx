@@ -45,7 +45,7 @@ export default function WarehousesScreen() {
   const t = useTheme();
   const { t: tr } = useTranslation();
   const router = useRouter();
-  const { data, isLoading } = useWarehouses();
+  const { data, isLoading, isError } = useWarehouses();
 
   return (
     <ScreenBackground>
@@ -91,7 +91,12 @@ export default function WarehousesScreen() {
           }
           contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 100, gap: 10, flexGrow: 1 }}
           ListEmptyComponent={
-            !isLoading ? (
+            // A failed fetch is not "no warehouses": say what is true.
+            !isLoading && isError ? (
+              <Text style={{ color: t.textMuted, textAlign: 'center', paddingHorizontal: 30, marginTop: 40 }}>
+                {tr('online.network')}
+              </Text>
+            ) : !isLoading ? (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
                 <GradientIconCircle icon="business-outline" size={72} iconSize={32} />
                 <Text style={{ color: t.textPrimary, fontWeight: '700', fontSize: 16 }}>
