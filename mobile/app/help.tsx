@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -30,6 +30,12 @@ export default function HelpScreen() {
   const router = useRouter();
   const markHelpSeen = useSettingsStore((s) => s.markHelpSeen);
   const [index, setIndex] = useState(0);
+
+  // Shown once is enough for the first-run gate: skip (✕), the hardware back button or an app kill all count as
+  // dismissed, so the tour no longer reopens on every sign-in. It stays reachable from Settings.
+  useEffect(() => {
+    markHelpSeen();
+  }, [markHelpSeen]);
 
   const step = STEPS[index];
   const isLast = index === STEPS.length - 1;
