@@ -36,16 +36,17 @@ export interface PollOptions {
 /** Fetches pages from the state's cursor until the server has nothing more, maxPages is reached, or an error. */
 export async function pollWarehouse(
   initial: WarehouseSyncState,
-  fetchPage: (query: { since?: string; limit: number }) => Promise<ChangesResponse>,
+  fetchPage: (query: { since?: string; anchor?: string; limit: number }) => Promise<ChangesResponse>,
   { limit = 200, maxPages = 5, statusOf }: PollOptions,
 ): Promise<PollResult> {
   let state = initial;
   let pages = 0;
   while (pages < maxPages) {
-    const { since } = nextRequest(state);
+    const cursor = nextRequest(state);
+    const { since } = cursor;
     let response: ChangesResponse;
     try {
-      response = await fetchPage(since === undefined ? { limit } : { since, limit });
+      response = await fetchPage({ ...cursor, limit });
     } catch (err) {
       return { state, pages, error: pollErrorOf(statusOf(err)) };
     }
@@ -54,7 +55,8 @@ export async function pollWarehouse(
     // A discarded answer cannot advance the cursor: stop instead of asking the same question again.
     if (next === state) break;
     state = next;
-    if (!response.hasMore) break;
+    // A snapshot (first load or reset) is complete by itself.
+    if (!response.hasMore || response.mode === 'snapshot') break;
   }
   return { state, pages, error: null };
 }

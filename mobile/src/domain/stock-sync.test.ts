@@ -57,6 +57,27 @@ describe('stock sync reconciliation', () => {
     expect(applyChanges(s3, undefined, snapshot('9'))).toBe(s3); // '9' < '11' numerically
   });
 
+  it('sends the anchor back with the cursor and follows the anchor of each answer', () => {
+    const s1 = applyChanges(initialSyncState(W), undefined, { ...snapshot('5'), anchor: 'm5' });
+    expect(nextRequest(s1)).toEqual({ since: '5', anchor: 'm5' });
+    const s2 = applyChanges(s1, '5', { ...delta('7', [mv('a', '6'), mv('b', '7')]), anchor: 'b' });
+    expect(nextRequest(s2)).toEqual({ since: '7', anchor: 'b' });
+    // An older server sends no anchor: the client must not keep one that names an earlier revision.
+    const s3 = applyChanges(s2, '7', delta('8', [mv('c', '8')]));
+    expect(nextRequest(s3)).toEqual({ since: '8' });
+  });
+
+  it('a snapshot answering the current delta cursor is a server reset: rebase even onto a LOWER revision', () => {
+    const s2 = applyChanges(applyChanges(initialSyncState(W), undefined, { ...snapshot('5'), anchor: 'm5' }), '5',
+      { ...delta('9', [mv('a', '9')]), anchor: 'a' });
+    const reset = applyChanges(s2, '9', { ...snapshot('4', [bal('p1', '22.000000')]), anchor: 'n4', reset: true });
+    expect(reset).toMatchObject({ revision: '4', anchor: 'n4', status: 'synced', resets: 1, recent: [] });
+    expect(reset.balances.p1.baseQuantity).toBe('22.000000');
+    expect(nextRequest(reset)).toEqual({ since: '4', anchor: 'n4' });
+    // A late reset answer to an older cursor is discarded like any stale reply.
+    expect(applyChanges(reset, '9', { ...snapshot('2'), reset: true })).toBe(reset);
+  });
+
   it("ignores another warehouse's response and a delta before any snapshot", () => {
     const s0 = initialSyncState(W);
     expect(applyChanges(s0, undefined, { ...snapshot('3'), warehouseId: 'other' })).toBe(s0);
