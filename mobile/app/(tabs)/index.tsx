@@ -87,7 +87,7 @@ export default function DashboardScreen() {
           {/* KPI row */}
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <KpiCard
-              label={tr('dashboard.kpiTotalStock')}
+              label={tr('dashboard.kpiProducts')}
               value={String(products?.length ?? '—')}
               accent={[BRAND_GRADIENT[0], BRAND_GRADIENT[0]]}
               index={0}

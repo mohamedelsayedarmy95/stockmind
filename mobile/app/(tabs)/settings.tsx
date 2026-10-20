@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Switch, Alert, I18nManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,6 +81,16 @@ export default function SettingsScreen() {
    * Two deliberate confirmations, the second naming what is destroyed. The
    * spec requires erasure to be a conscious admin act, never a side effect.
    */
+  // Text switches at once; React Native mirrors the layout (RTL/LTR) only on the next app start.
+  const onLanguage = (lang: AppLanguage) => {
+    const directionChanges = I18nManager.isRTL !== (lang === 'ar');
+    changeLanguage(lang);
+    // In the language just chosen, not the one being left.
+    if (directionChanges) {
+      Alert.alert(tr('settings.restartForLayoutTitle', { lng: lang }), tr('settings.restartForLayout', { lng: lang }));
+    }
+  };
+
   const confirmWipe = () => {
     Alert.alert(tr('settings.wipeTitle'), tr('settings.wipeWarning'), [
       { text: tr('common.cancel'), style: 'cancel' },
@@ -148,7 +158,7 @@ export default function SettingsScreen() {
                 { key: 'ar', label: 'العربية' },
               ]}
               value={language}
-              onSelect={changeLanguage}
+              onSelect={onLanguage}
             />
           </GlassCard>
 

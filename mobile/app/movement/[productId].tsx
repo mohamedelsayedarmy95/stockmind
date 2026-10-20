@@ -20,6 +20,7 @@ import { useStorageUnits } from '@/query/useStorageUnits';
 import { useBatches } from '@/query/useBatches';
 import { Store, StorageUnit, Batch, PickStrategy, PICK_STRATEGIES } from '@/data/repositories';
 import { quantityFromWeight, weightCountDrift, WEIGHT_DRIFT_TOLERANCE } from '@/domain/inventory-math';
+import { MAX_MOVEMENT_QUANTITY, parseQuantityInput } from '@/domain/quantity-input';
 import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
 
@@ -40,6 +41,8 @@ export default function MovementScreen() {
   const movement = useStockMovement();
 
   const [qty, setQty] = useState(1);
+  // The typed field and the slider edit the same quantity; the text is what the user sees and is validated.
+  const [qtyText, setQtyText] = useState('1');
   const [confetti, setConfetti] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [storeId, setStoreId] = useState<string | undefined>();
@@ -56,7 +59,20 @@ export default function MovementScreen() {
   // Outbound may only consume what isn't already promised to someone else.
   const onHand = balance ? Math.floor(Number(balance.baseQuantity)) : 0;
   const issuable = availability ? Math.floor(availability.available) : onHand;
-  const sliderMax = kind === 'outbound' ? Math.max(issuable, 1) : 500;
+  const qtyLimit = kind === 'outbound' ? issuable : MAX_MOVEMENT_QUANTITY;
+  const typedQty = parseQuantityInput(qtyText, qtyLimit);
+  // The slider covers everyday amounts; a larger typed receipt moves its knob to the end.
+  const sliderMax = kind === 'outbound' ? Math.max(issuable, 1) : Math.max(500, qty);
+
+  const setQuantity = (value: number) => {
+    setQty(value);
+    setQtyText(String(value));
+  };
+  const onQuantityText = (text: string) => {
+    setQtyText(text);
+    const value = parseQuantityInput(text, qtyLimit);
+    if (value !== null) setQty(value);
+  };
 
   const weightCount = useMemo(() => {
     const parsed = Number(weightText.trim());
@@ -91,12 +107,16 @@ export default function MovementScreen() {
   const applyWeight = () => {
     if (!weightCount) return;
     void haptics.select();
-    setQty(Math.max(1, weightCount.rounded));
+    setQuantity(Math.max(1, weightCount.rounded));
   };
 
   const submit = () => {
     if (!warehouseId || !product) return;
     setErrorMsg(null);
+    if (typedQty === null) {
+      setErrorMsg(tr('movement.quantityInvalid', { max: qtyLimit }));
+      return;
+    }
 
     const serials = serialText
       .split(/[\n,]/)
@@ -111,7 +131,7 @@ export default function MovementScreen() {
         kind,
         productId: product.id,
         warehouseId,
-        quantity: String(qty),
+        quantity: String(typedQty),
         storeId,
         storageUnitId,
         batchCode: kind === 'inbound' && batchCode.trim() ? batchCode.trim() : undefined,
@@ -338,7 +358,24 @@ export default function MovementScreen() {
             <Text style={{ color: t.textSecondary, fontWeight: '600' }}>
               {tr('movement.quantity')}
             </Text>
-            <QuantitySlider value={qty} max={sliderMax} onChange={setQty} width={width - 56} />
+            <QuantitySlider value={qty} max={sliderMax} onChange={setQuantity} width={width - 56} />
+            <TextInput
+              value={qtyText}
+              onChangeText={onQuantityText}
+              keyboardType="number-pad"
+              accessibilityLabel={tr('movement.quantityInput')}
+              placeholder={tr('movement.quantityInput')}
+              placeholderTextColor={t.textMuted}
+              selectTextOnFocus
+              maxLength={9}
+              style={[field, { minWidth: 140, textAlign: 'center', fontSize: 20, fontWeight: '700' },
+                typedQty === null ? { borderColor: STATUS.error } : null]}
+            />
+            {typedQty === null ? (
+              <Text style={{ color: STATUS.error, fontSize: 12 }}>
+                {tr('movement.quantityInvalid', { max: qtyLimit })}
+              </Text>
+            ) : null}
           </View>
 
           <GlassCard>
@@ -369,7 +406,7 @@ export default function MovementScreen() {
             label={kind === 'inbound' ? tr('movement.confirmInbound') : tr('movement.confirmOutbound')}
             onPress={submit}
             loading={movement.isPending}
-            disabled={qty < 1 || !warehouseId}
+            disabled={typedQty === null || !warehouseId}
           />
         </ScrollView>
       </SafeAreaView>

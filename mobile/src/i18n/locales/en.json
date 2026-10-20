@@ -46,7 +46,7 @@
   },
   "dashboard": {
     "greeting": "Hello",
-    "kpiTotalStock": "Total Stock",
+    "kpiProducts": "Products",
     "kpiStockValue": "Stock Value",
     "kpiPendingSync": "Pending Sync",
     "quickActions": "Quick Actions",
@@ -252,7 +252,9 @@
     "insufficient": "Insufficient stock",
     "reserved": "Reserved",
     "issuable": "Available to dispatch",
-    "reservedBlocked": "That much is reserved. Release a hold first."
+    "reservedBlocked": "That much is reserved. Release a hold first.",
+    "quantityInput": "Type a quantity",
+    "quantityInvalid": "Enter a whole number from 1 to {{max}}"
   },
   "analytics": {
     "title": "Analytics",
@@ -266,6 +268,8 @@
     "emptyHint": "Add products and record stock movements to see your inventory analytics here."
   },
   "settings": {
+    "restartForLayoutTitle": "Layout direction",
+    "restartForLayout": "Close and reopen StockMind to finish switching the layout direction.",
     "title": "Settings",
     "language": "Language",
     "theme": "Appearance",

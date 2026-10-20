@@ -46,7 +46,7 @@
   },
   "dashboard": {
     "greeting": "مرحباً",
-    "kpiTotalStock": "إجمالي المخزون",
+    "kpiProducts": "المنتجات",
     "kpiStockValue": "قيمة المخزون",
     "kpiPendingSync": "قيد المزامنة",
     "quickActions": "إجراءات سريعة",
@@ -252,7 +252,9 @@
     "insufficient": "المخزون غير كافٍ",
     "reserved": "محجوز",
     "issuable": "المتاح للصرف",
-    "reservedBlocked": "الكمية دي محجوزة. فك حجز الأول."
+    "reservedBlocked": "الكمية دي محجوزة. فك حجز الأول.",
+    "quantityInput": "اكتب الكمية",
+    "quantityInvalid": "اكتب رقم صحيح من 1 لحد {{max}}"
   },
   "analytics": {
     "title": "التحليلات",
@@ -266,6 +268,8 @@
     "emptyHint": "أضف منتجات وسجّل حركات المخزون لعرض تحليلات مخزونك هنا."
   },
   "settings": {
+    "restartForLayoutTitle": "اتجاه الشاشة",
+    "restartForLayout": "اقفل StockMind وافتحه تاني علشان اتجاه الشاشة يتغير بالكامل.",
     "title": "الإعدادات",
     "language": "اللغة",
     "theme": "المظهر",
