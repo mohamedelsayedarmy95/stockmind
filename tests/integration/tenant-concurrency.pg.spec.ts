@@ -94,10 +94,11 @@ const TAG = randomBytes(4).toString('hex');
     expect(statuses).toEqual([201, 201, 201, 201, 201, 201, 409, 409, 409, 409]);
     expect(await balance(A.token, productA, A.warehouseId)).toBe(10);
 
-    // The ledger is one consistent chain: each running balance follows from the previous one.
+    // The ledger is one consistent chain: each running balance follows from the previous one. created_at is the
+    // transaction start, not the commit order; here (one receipt, then dispatches only) balances strictly decrease.
     const rows: Array<{ quantity_change: string; running_balance: string }> = await db.query(
       `SELECT quantity_change, running_balance FROM stock_movements
-       WHERE product_id = $1 AND warehouse_id = $2 ORDER BY created_at, running_balance DESC`,
+       WHERE product_id = $1 AND warehouse_id = $2 ORDER BY running_balance DESC`,
       [productA, A.warehouseId],
     );
     let running = 0;
