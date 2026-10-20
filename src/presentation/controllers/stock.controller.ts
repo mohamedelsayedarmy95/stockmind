@@ -104,7 +104,8 @@ export class StockController {
 
   /**
    * Sync: what changed in a warehouse since the client's revision. Without `since` (or with a revision the server
-   * never issued) the answer is a full balance snapshot. The returned `revision` is the cursor for the next call.
+   * never issued) the answer is a full balance snapshot. The returned `revision` and `anchor` are the cursor for the
+   * next call; a cursor that no longer matches the server's history is answered with a snapshot and `reset: true`.
    */
   @Get('changes/:warehouseId')
   @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
@@ -114,8 +115,9 @@ export class StockController {
     @Param('warehouseId') warehouseId: string,
     @Query('since') since?: string,
     @Query('limit') limit?: string,
+    @Query('anchor') anchor?: string,
   ) {
-    return this.stock.getChanges(user.companyId, warehouseId, since, limit);
+    return this.stock.getChanges(user.companyId, warehouseId, since, limit, anchor);
   }
 
   @Get('movements/:productId')

@@ -58,6 +58,7 @@ export interface StockBalance {
 // before it returns. A value read before that commit can therefore only be stored under the old generation, which
 // is never read again; if the generation cannot be moved, RedisService stops using the cache altogether.
 const stockCacheScope = (productId: string) => `stock:${productId}`;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class StockService {
@@ -519,10 +520,20 @@ export class StockService {
    *   products they touch; `revision` is the cursor for the next call (hasMore: call again right away).
    * - snapshot: no `since`, or a revision this warehouse never issued: every balance of the warehouse, no movements.
    * Balances are always the server's: a client replaces its copy, it never adds quantities up.
+   *
+   * Cursor check: every answer carries `anchor`, the id of the movement at its `revision` (null at revision 0). A
+   * client that sends it back with `since` proves the revision still names the same history. When it does not (the
+   * database was restored or rebuilt, so revision numbers were reused) or `since` is ahead of the warehouse, the answer
+   * is a snapshot with `reset: true` and the client must rebuild its state, instead of a delta with a silent gap.
+   * Clients that send no anchor keep the old behaviour.
    */
-  async getChanges(companyId: string, warehouseId: string, sinceRaw?: string, limitRaw?: string) {
+  async getChanges(companyId: string, warehouseId: string, sinceRaw?: string, limitRaw?: string, anchorRaw?: string) {
     if (sinceRaw !== undefined && sinceRaw !== '' && !/^\d{1,18}$/.test(sinceRaw)) {
       throw new BadRequestException('since must be a non-negative integer revision');
+    }
+    const anchor = anchorRaw === undefined || anchorRaw === '' ? null : anchorRaw;
+    if (anchor !== null && !UUID_PATTERN.test(anchor)) {
+      throw new BadRequestException('anchor must be the movement id returned with the cursor');
     }
     const parsedLimit = Number.parseInt(limitRaw ?? '', 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 500) : 200;
@@ -556,10 +567,22 @@ export class StockService {
         });
       };
 
-      if (since === null || since > current) {
+      const movementAt = async (revision: bigint): Promise<string | null> => {
+        if (revision === 0n) return null;
+        const [row] = await m.query(
+          `SELECT id FROM stock_movements WHERE warehouse_id = $1 AND revision = $2 LIMIT 1`,
+          [warehouseId, revision.toString()],
+        );
+        return (row?.id as string | undefined) ?? null;
+      };
+
+      const reset =
+        since !== null && (since > current || (anchor !== null && since > 0n && (await movementAt(since)) !== anchor));
+
+      if (since === null || reset) {
         return {
-          warehouseId, mode: 'snapshot' as const, revision: current.toString(), hasMore: false,
-          movements: [], balances: await balances(),
+          warehouseId, mode: 'snapshot' as const, revision: current.toString(), anchor: await movementAt(current),
+          reset, hasMore: false, movements: [], balances: await balances(),
         };
       }
 
@@ -577,10 +600,13 @@ export class StockService {
       const hasMore = movements.length > limit;
       if (hasMore) movements.length = limit;
       const touched = [...new Set(movements.map((mv) => mv.productId))];
+      const revision = hasMore ? BigInt(movements[movements.length - 1].revision) : current;
       return {
         warehouseId,
         mode: 'delta' as const,
-        revision: hasMore ? movements[movements.length - 1].revision : current.toString(),
+        revision: revision.toString(),
+        anchor: await movementAt(revision),
+        reset: false,
         hasMore,
         movements,
         balances: touched.length ? await balances(touched) : [],
