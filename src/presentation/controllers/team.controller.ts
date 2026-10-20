@@ -32,6 +32,12 @@ export class TeamController {
     return this.team.revokeInvitation(user.companyId, user.sub, id);
   }
 
+  /** Plan, status, limits and current usage (seats, invitations, warehouses). */
+  @Get('entitlements')
+  entitlements(@CurrentUser() user: JwtPayload) {
+    return this.team.getEntitlements(user.companyId);
+  }
+
   @Get('members')
   members(@CurrentUser() user: JwtPayload) {
     return this.team.listMembers(user.companyId);

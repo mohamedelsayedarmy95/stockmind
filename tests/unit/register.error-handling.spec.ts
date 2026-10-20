@@ -16,7 +16,7 @@ function make(failure: Error) {
   return new AuthService(
     { findOne: jest.fn().mockResolvedValue(null) } as never, {} as never, {} as never, {} as never,
     { get: () => undefined } as never, { createQueryRunner: () => qr } as never,
-    {} as never, {} as never, { write: jest.fn() } as never, {} as never,
+    {} as never, {} as never, { write: jest.fn() } as never, {} as never, { assertSeatAvailable: async () => undefined } as never
   );
 }
 

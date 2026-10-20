@@ -25,6 +25,7 @@ import { TwoFactorService } from '../security/two-factor.service';
 import { BruteForceService } from '../security/brute-force.service';
 import { AuditLogService } from '../audit/audit-log.service';
 import { FirebaseService } from '../firebase/firebase.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 
 /** Per-request network context, used for brute-force tracking and audit. */
 export interface RequestContext {
@@ -47,6 +48,7 @@ export class AuthService {
     private readonly bruteForce: BruteForceService,
     private readonly audit: AuditLogService,
     private readonly firebase: FirebaseService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -133,6 +135,9 @@ export class AuthService {
       if (!inv || inv.accepted_at || inv.revoked_at || new Date(inv.expires_at).getTime() <= Date.now()) {
         throw new BadRequestException('Invitation is invalid or has expired');
       }
+      // Seat limit: the company row lock serializes concurrent acceptances into the same company.
+      await qr.query(`SELECT id FROM companies WHERE id = $1 FOR UPDATE`, [inv.company_id]);
+      await this.entitlements.assertSeatAvailable(inv.company_id, qr.manager);
       if (await qr.manager.findOne(User, { where: { email: inv.email } })) {
         throw new ConflictException('Email already registered');
       }

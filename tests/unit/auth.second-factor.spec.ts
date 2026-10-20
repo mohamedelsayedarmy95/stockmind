@@ -43,7 +43,7 @@ async function setup(twoFactorEnabled: boolean) {
   const auth = new AuthService(
     userRepo as never, {} as never, {} as never, jwt, { get: (k: string, d?: string) => cfgValues[k] ?? d } as never,
     {} as never, twoFactor as never, bruteForce as never, { write: jest.fn() } as never,
-    { verifyGoogleIdToken: async () => ({ uid: 'g', email: user.email, name: 'U' }) } as never,
+    { verifyGoogleIdToken: async () => ({ uid: 'g', email: user.email, name: 'U' }) } as never, { assertSeatAvailable: async () => undefined } as never
   );
   return { auth, user, stored, jwt };
 }

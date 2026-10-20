@@ -108,4 +108,28 @@ const options = (migrations: string[] = [], schema: string | undefined = SCHEMA)
     expect((await ds.runMigrations()).map((m) => m.name)).toEqual([NEW_MIGRATION]);
     expect(await one(`SELECT count(*)::int AS n FROM warehouse_access`)).toEqual({ n: 2 });
   });
+
+  it('1792570000000 (entitlements): existing companies get free/active; down drops only its columns', async () => {
+    const withPlans = await new DataSource(options([
+      ...PREVIOUS, path.join(MIGRATIONS, '1792560000000-*.ts'), path.join(MIGRATIONS, '1792570000000-*.ts'),
+    ])).initialize();
+    try {
+      expect((await withPlans.runMigrations()).map((m) => m.name)).toEqual(['CompanyEntitlements1792570000000']);
+      const [c] = await withPlans.query(
+        `SELECT name, plan, subscription_status, plan_expires_at, entitlement_source FROM companies WHERE id = $1`,
+        [ids.company]);
+      expect(c).toEqual({ name: 'Legacy', plan: 'free', subscription_status: 'active', plan_expires_at: null,
+        entitlement_source: 'default' });
+      await expect(withPlans.query(`UPDATE companies SET plan = 'platinum' WHERE id = $1`, [ids.company]))
+        .rejects.toThrow(/chk_companies_plan/);
+      await withPlans.undoLastMigration();
+      const cols = await withPlans.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'companies'
+         AND column_name IN ('plan', 'subscription_status', 'plan_expires_at', 'entitlement_source')`, [SCHEMA]);
+      expect(cols).toEqual([]);
+      expect(await withPlans.query(`SELECT name FROM companies WHERE id = $1`, [ids.company])).toEqual([{ name: 'Legacy' }]);
+    } finally {
+      await withPlans.destroy();
+    }
+  });
 });

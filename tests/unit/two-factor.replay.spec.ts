@@ -198,7 +198,7 @@ describe('twoFactorLogin with a replayed code', () => {
         stored.refreshTokenHash = p.refreshTokenHash ?? null;
       }) } as never,
       {} as never, {} as never, jwt, { get: (k: string, d?: string) => cfg[k] ?? d } as never,
-      {} as never, service as never, bruteForce as never, { write: jest.fn() } as never, {} as never,
+      {} as never, service as never, bruteForce as never, { write: jest.fn() } as never, {} as never, { assertSeatAvailable: async () => undefined } as never
     );
     const temp = () => jwt.signAsync({ sub: USER, purpose: '2fa_pending' }, { secret: cfg.JWT_2FA_SECRET, expiresIn: '2m' });
 

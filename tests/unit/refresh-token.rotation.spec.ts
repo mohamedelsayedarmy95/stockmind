@@ -25,7 +25,7 @@ function setup() {
   const cfg = { get: (key: string, fallback?: string) => cfgValues[key] ?? fallback };
   const auth = new AuthService(
     userRepo as never, {} as never, {} as never, new JwtService({}), cfg as never, {} as never,
-    {} as never, {} as never, { write: jest.fn() } as never, {} as never,
+    {} as never, {} as never, { write: jest.fn() } as never, {} as never, { assertSeatAvailable: async () => undefined } as never
   );
   // Issue a session exactly as login does (private helpers).
   const issue = async () => {

@@ -28,7 +28,7 @@ describe('Google login trusts only verified e-mail addresses', () => {
     const make = (verify: () => Promise<unknown>) =>
       new AuthService(
         userRepo as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-        {} as never, {} as never, { write: jest.fn() } as never, { verifyGoogleIdToken: verify } as never,
+        {} as never, {} as never, { write: jest.fn() } as never, { verifyGoogleIdToken: verify } as never, { assertSeatAvailable: async () => undefined } as never
       );
 
     beforeEach(() => jest.clearAllMocks());

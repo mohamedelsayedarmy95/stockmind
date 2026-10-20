@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { DataSource } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { AuditLogService } from '../audit/audit-log.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 import { CreateInvitationDto } from '../../application/dtos/team/team.dto';
 import { UserRole } from '../../shared/constants/enums';
 
@@ -27,7 +28,12 @@ export class TeamService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly audit: AuditLogService,
+    private readonly entitlements: EntitlementsService,
   ) {}
+
+  getEntitlements(companyId: string) {
+    return this.entitlements.get(companyId);
+  }
 
   /** Returns the invitation token once; only its SHA-256 is stored. */
   async createInvitation(companyId: string, inviterId: string, dto: CreateInvitationDto) {
@@ -37,6 +43,7 @@ export class TeamService {
       throw new BadRequestException('A Staff invitation needs at least one warehouse');
     }
     await this.assertCompanyWarehouses(companyId, warehouseIds);
+    await this.entitlements.assertCanInvite(companyId);
     const [taken] = await this.dataSource.query(`SELECT 1 FROM users WHERE email = $1`, [email]);
     if (taken) throw new ConflictException('Email already registered');
 

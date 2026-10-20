@@ -5,6 +5,7 @@ import { Warehouse } from '../../domain/entities/warehouse.entity';
 import { CreateWarehouseDto } from '../../application/dtos/warehouse/create-warehouse.dto';
 import { UpdateWarehouseDto } from '../../application/dtos/warehouse/update-warehouse.dto';
 import { WarehouseAccessService } from '../security/warehouse-access.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 
 @Injectable()
 export class WarehouseService {
@@ -12,9 +13,11 @@ export class WarehouseService {
     @InjectRepository(Warehouse)
     private readonly repo: Repository<Warehouse>,
     private readonly access: WarehouseAccessService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async create(companyId: string, dto: CreateWarehouseDto): Promise<Warehouse> {
+    await this.entitlements.assertCanAddWarehouse(companyId);
     const warehouse = this.repo.create({
       companyId,
       name: dto.name,
