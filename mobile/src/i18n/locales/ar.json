@@ -48,7 +48,7 @@
     "greeting": "مرحباً",
     "kpiProducts": "المنتجات",
     "kpiStockValue": "قيمة المخزون",
-    "kpiPendingSync": "قيد المزامنة",
+    "kpiPendingSync": "تغييرات محلية (غير متزامنة)",
     "quickActions": "إجراءات سريعة",
     "scan": "مسح",
     "receive": "استلام",

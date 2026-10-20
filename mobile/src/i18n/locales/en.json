@@ -48,7 +48,7 @@
     "greeting": "Hello",
     "kpiProducts": "Products",
     "kpiStockValue": "Stock Value",
-    "kpiPendingSync": "Pending Sync",
+    "kpiPendingSync": "Local changes (not synced)",
     "quickActions": "Quick Actions",
     "scan": "Scan",
     "receive": "Receive",
