@@ -14,14 +14,29 @@ import { onOwnWriteRejected, onOwnWriteSucceeded, onPollSucceeded, resetWarehous
  */
 const SEND_TIMEOUT_MS = 20_000;
 
-let running: Promise<void> | null = null;
-let again = false;
-let timer: ReturnType<typeof setTimeout> | null = null;
+interface Engine {
+  running: Promise<void> | null;
+  again: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
+  started: boolean;
+}
+
+/**
+ * One engine per JS runtime, even if this module is evaluated again (development Fast Refresh re-runs modules while
+ * listeners registered by the earlier copy stay alive): every copy shares this state, so they coalesce instead of
+ * sending in parallel. Seen on the device as a duplicate POST of one key, which the server collapsed to one movement.
+ */
+const engine: Engine = ((globalThis as { __stockmindOutboxEngine?: Engine }).__stockmindOutboxEngine ??= {
+  running: null,
+  again: false,
+  timer: null,
+  started: false,
+});
 
 function arm(waitMs: number) {
-  if (timer) clearTimeout(timer);
-  timer = setTimeout(() => {
-    timer = null;
+  if (engine.timer) clearTimeout(engine.timer);
+  engine.timer = setTimeout(() => {
+    engine.timer = null;
     void drainOutbox();
   }, Math.max(250, waitMs));
 }
@@ -66,21 +81,21 @@ async function runPass(): Promise<void> {
 }
 
 export function drainOutbox(): Promise<void> {
-  if (running) {
-    again = true;
-    return running;
+  if (engine.running) {
+    engine.again = true;
+    return engine.running;
   }
-  running = (async () => {
+  engine.running = (async () => {
     try {
       do {
-        again = false;
+        engine.again = false;
         await runPass();
-      } while (again);
+      } while (engine.again);
     } finally {
-      running = null;
+      engine.running = null;
     }
   })();
-  return running;
+  return engine.running;
 }
 
 /** The network seems back: due now, then drain. */
@@ -106,15 +121,13 @@ export async function submitIntent(args: { id: string; kind: IntentKind; payload
   return getIntent(args.id) as StockIntent;
 }
 
-let started = false;
-
 /**
  * Once at startup (after the stores rehydrate): drain on foreground, after any successful poll (the network works),
  * and whenever the signed-in account changes. Switching accounts also drops the in-memory figures of the previous one.
  */
 export function startOutboxRuntime() {
-  if (started) return;
-  started = true;
+  if (engine.started) return;
+  engine.started = true;
   let scope = currentScopeKey();
   AppState.addEventListener('change', (state) => {
     if (state === 'active') void wakeOutbox();
