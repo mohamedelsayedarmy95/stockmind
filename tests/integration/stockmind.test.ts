@@ -1,12 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
+import { randomBytes } from 'crypto';
 import { AppModule } from '@/app.module';
-import { Connection } from 'typeorm';
 
-describe('StockMind e2e', () => {
+// Unique per run: the suite writes to a real database and must not collide with a previous run's users.
+const RUN = randomBytes(4).toString('hex');
+
+// Needs a migrated PostgreSQL and JWT secrets (CI provides both); skipped without them.
+const RUN_E2E = Boolean(process.env.DB_HOST && process.env.JWT_ACCESS_SECRET && process.env.JWT_REFRESH_SECRET);
+
+(RUN_E2E ? describe : describe.skip)('StockMind e2e', () => {
   let app: INestApplication;
-  let dbConnection: Connection;
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -14,6 +19,7 @@ describe('StockMind e2e', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api/v1'); // as in main.ts
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -23,11 +29,6 @@ describe('StockMind e2e', () => {
     );
     await app.init();
 
-    // Get the database connection
-    const configService = moduleRef.get('ConfigService');
-    // We don't have a direct way to get the connection, but we can get it from the TypeOrmModule
-    // For simplicity, we assume the connection is available and we don't need to close it in the test.
-    // In a real scenario, we might want to use a test database and rollback transactions.
   });
 
   afterAll(async () => {
@@ -40,7 +41,7 @@ describe('StockMind e2e', () => {
       .send({
         companyName: 'Test Company',
         name: 'Test User',
-        email: 'test@example.com',
+        email: `test.${RUN}@example.com`,
         password: 'StrongPassword123!',
       })
       .expect(201)
@@ -58,7 +59,7 @@ describe('StockMind e2e', () => {
       .send({
         companyName: 'Test Company 2',
         name: 'Test User 2',
-        email: 'test2@example.com',
+        email: `test2.${RUN}@example.com`,
         password: 'StrongPassword123!',
       })
       .expect(201)
@@ -68,7 +69,7 @@ describe('StockMind e2e', () => {
         return request(app.getHttpServer())
           .post('/api/v1/auth/login')
           .send({
-            email: 'test2@example.com',
+            email: `test2.${RUN}@example.com`,
             password: 'StrongPassword123!',
           })
           .expect(200)
@@ -86,7 +87,7 @@ describe('StockMind e2e', () => {
       .send({
         companyName: 'Test Company 3',
         name: 'Test User 3',
-        email: 'test3@example.com',
+        email: `test3.${RUN}@example.com`,
         password: 'StrongPassword123!',
       })
       .expect(201);
@@ -100,7 +101,7 @@ describe('StockMind e2e', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
         name: 'Test Product',
-        sku: 'TEST-001',
+        sku: `TEST-${RUN}`,
         unitsOfMeasure: [{ uomType: 'piece', code: 'PCS', conversionFactorToBase: '1' }],
       })
       .expect(201);
@@ -125,7 +126,7 @@ describe('StockMind e2e', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(parseFloat(balanceRes.body)).toBe(100);
+    expect(parseFloat(balanceRes.body.runningBalance)).toBe(100);
 
     // Outbound Stock
     const outboundRes = await request(app.getHttpServer())
@@ -144,6 +145,6 @@ describe('StockMind e2e', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(parseFloat(balanceRes2.body)).toBe(70);
+    expect(parseFloat(balanceRes2.body.runningBalance)).toBe(70);
   });
 });

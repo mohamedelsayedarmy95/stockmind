@@ -26,7 +26,9 @@ describe('HTTP request logging redacts credentials', () => {
         done();
       },
     });
-    const logger = pinoHttp(httpLoggerOptions(), sink);
+    // In development the options add a pino-pretty transport, which writes from a worker thread instead of to this
+    // sink. Redaction happens before any transport, so the test drops it and checks the same redaction everywhere.
+    const logger = pinoHttp({ ...httpLoggerOptions(), transport: undefined }, sink);
     server = http.createServer((req, res) => {
       logger(req, res);
       req.resume();

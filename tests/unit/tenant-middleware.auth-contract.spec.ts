@@ -78,7 +78,11 @@ describe('F1: TenantMiddleware and GlobalJwtGuard route contract', () => {
     return `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ sub: USER_B, companyId: COMPANY_B, role: 'Admin' })}.`;
   };
 
+  // ConfigService prefers process.env over `load`, so an ambient JWT_ACCESS_SECRET (CI sets one) would replace SECRET.
+  const ambientSecret = process.env.JWT_ACCESS_SECRET;
+
   beforeAll(async () => {
+    process.env.JWT_ACCESS_SECRET = SECRET;
     const moduleRef = await Test.createTestingModule({ imports: [ProbeAppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     app.setGlobalPrefix('api/v1');
@@ -88,6 +92,8 @@ describe('F1: TenantMiddleware and GlobalJwtGuard route contract', () => {
 
   afterAll(async () => {
     await app?.close();
+    if (ambientSecret === undefined) delete process.env.JWT_ACCESS_SECRET;
+    else process.env.JWT_ACCESS_SECRET = ambientSecret;
   });
 
   describe('@Public routes are reachable without a valid token', () => {
