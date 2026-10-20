@@ -81,10 +81,13 @@ export default function SettingsScreen() {
   const logout = useLogout();
   const terminateAll = useTerminateAllSessions();
 
-  /** Dev preview only: leaving a mode signs out of it; the local encrypted DB is kept as it is. */
+  /**
+   * Dev preview only: leaving a mode signs out of it; the local encrypted DB is kept as it is. The mode is set first:
+   * a callback passed to mutate() would be dropped once this screen unmounts, and sign-out unmounts it.
+   */
   const switchMode = () => {
-    const next = operationMode === 'online' ? 'offline' : 'online';
-    logout.mutate(undefined, { onSettled: () => setOperationMode(next) });
+    setOperationMode(operationMode === 'online' ? 'offline' : 'online');
+    logout.mutate();
   };
 
   /**
