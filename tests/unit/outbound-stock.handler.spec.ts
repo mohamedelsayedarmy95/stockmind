@@ -5,7 +5,9 @@ describe('OutboundStockHandler', () => {
   const stockService = { outbound: jest.fn() };
   const fcmService = { sendStockNotification: jest.fn().mockResolvedValue(undefined) };
 
-  const handler = new OutboundStockHandler(stockService as never, fcmService as never);
+  const handler = new OutboundStockHandler(
+    stockService as never, { emit: jest.fn() } as never, { publish: jest.fn() } as never, fcmService as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();

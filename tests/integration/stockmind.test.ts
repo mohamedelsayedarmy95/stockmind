@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { randomBytes } from 'crypto';
+import { DataSource } from 'typeorm';
 import { AppModule } from '@/app.module';
 
 // Unique per run: the suite writes to a real database and must not collide with a previous run's users.
@@ -146,5 +147,15 @@ const RUN_E2E = Boolean(process.env.DB_HOST && process.env.JWT_ACCESS_SECRET && 
       .expect(200);
 
     expect(parseFloat(balanceRes2.body.baseQuantity)).toBe(70);
+
+    // The domain-event listeners write the audit trail of each movement (asynchronously).
+    const db = app.get(DataSource);
+    const actions = async () =>
+      (await db.query(`SELECT action FROM audit_logs WHERE entity_id = $1 ORDER BY created_at`, [productId]))
+        .map((r: { action: string }) => r.action);
+    for (let i = 0; i < 20 && !(await actions()).includes('STOCK_ISSUED'); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(await actions()).toEqual(expect.arrayContaining(['PRODUCT_CREATED', 'STOCK_RECEIVED', 'STOCK_ISSUED']));
   });
 });

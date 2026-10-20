@@ -1,5 +1,7 @@
 // notification.flow.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventBus } from '@nestjs/cqrs';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InboundStockHandler } from '../../src/application/commands/inbound-stock.handler';
 import { InboundStockCommand } from '../../src/application/commands/inbound-stock.command';
 import { StockService } from '../../src/infrastructure/repositories/stock.service';
@@ -29,6 +31,9 @@ describe('Notification Flow Integration', () => {
             sendStockNotification: jest.fn().mockResolvedValue(undefined),
           },
         },
+        // The handler also emits the domain event that the audit listeners consume.
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        { provide: EventBus, useValue: { publish: jest.fn() } },
         {
           provide: TokensRepository,
           useValue: {

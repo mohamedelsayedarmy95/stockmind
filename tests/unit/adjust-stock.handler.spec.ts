@@ -6,7 +6,9 @@ describe('AdjustStockHandler', () => {
   const stockService = { adjustment: jest.fn() };
   const fcmService = { sendStockNotification: jest.fn().mockResolvedValue(undefined) };
 
-  const handler = new AdjustStockHandler(stockService as never, fcmService as never);
+  const handler = new AdjustStockHandler(
+    stockService as never, { emit: jest.fn() } as never, { publish: jest.fn() } as never, fcmService as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
