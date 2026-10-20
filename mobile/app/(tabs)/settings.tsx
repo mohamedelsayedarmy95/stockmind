@@ -15,6 +15,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useTerminateAllSessions } from '@/query/useAuth';
 import { haptics } from '@/lib/haptics';
 import { wipeAllUserData } from '@/lib/data-wipe';
+import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
+import { BASE_URL } from '@/api/client';
 
 function SegmentedRow<T extends string>({
   options,
@@ -74,8 +76,16 @@ export default function SettingsScreen() {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled);
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled);
   const user = useAuthStore((s) => s.user);
+  const operationMode = useSettingsStore((s) => s.operationMode);
+  const setOperationMode = useSettingsStore((s) => s.setOperationMode);
   const logout = useLogout();
   const terminateAll = useTerminateAllSessions();
+
+  /** Dev preview only: leaving a mode signs out of it; the local encrypted DB is kept as it is. */
+  const switchMode = () => {
+    const next = operationMode === 'online' ? 'offline' : 'online';
+    logout.mutate(undefined, { onSettled: () => setOperationMode(next) });
+  };
 
   /**
    * Two deliberate confirmations, the second naming what is destroyed. The
@@ -144,9 +154,36 @@ export default function SettingsScreen() {
                   {user?.name ?? '—'}
                 </Text>
                 <Text style={{ color: t.textMuted }}>{user?.email ?? ''}</Text>
+                {operationMode === 'online' && user?.role ? (
+                  <Text testID="session-role" style={{ color: t.textMuted, fontSize: 12 }}>{user.role}</Text>
+                ) : null}
               </View>
             </View>
           </GlassCard>
+
+          {ONLINE_MODE_DEV_PREVIEW ? (
+            <GlassCard>
+              <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 6 }}>
+                {tr('online.modeTitle')}
+              </Text>
+              <Text style={{ color: t.textPrimary, fontWeight: '700' }}>
+                {tr('online.current', {
+                  mode: tr(operationMode === 'online' ? 'online.modeOnline' : 'online.modeOffline'),
+                })}
+              </Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 4 }}>
+                {tr('online.apiHost', { host: apiHostLabel(BASE_URL) })}
+              </Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 4, marginBottom: 12 }}>
+                {tr('online.modeHint')}
+              </Text>
+              <PremiumButton
+                label={tr(operationMode === 'online' ? 'online.switchToOffline' : 'online.switchToOnline')}
+                onPress={switchMode}
+                loading={logout.isPending}
+              />
+            </GlassCard>
+          ) : null}
 
           <GlassCard>
             <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 14 }}>

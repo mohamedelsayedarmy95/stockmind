@@ -16,6 +16,7 @@ import { biometricsAvailable, requireBiometricUnlock } from '@/lib/biometric-gua
 import { BiometricLockScreen } from '@/components/BiometricLockScreen';
 import { SessionExpiredOverlay } from '@/components/SessionExpiredOverlay';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ONLINE_MODE_DEV_PREVIEW } from '@/lib/dev-flags';
 
 /** Redirects between onboarding, the auth flow and the app based on state. */
 function AuthGate() {
@@ -26,7 +27,10 @@ function AuthGate() {
   const isLocal = useAuthStore((s) => s.isLocal);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const languageChosen = useSettingsStore((s) => s.languageChosen);
-  const operationMode = useSettingsStore((s) => s.operationMode);
+  // Online without the dev preview flag (e.g. a later build) is treated as "not chosen yet": back to the picker.
+  const operationMode = useSettingsStore((s) =>
+    s.operationMode === 'online' && !ONLINE_MODE_DEV_PREVIEW ? null : s.operationMode,
+  );
   const helpSeen = useSettingsStore((s) => s.helpSeen);
 
   useEffect(() => {
@@ -49,7 +53,8 @@ function AuthGate() {
       // Offline accounts enter locally; Online reuses the existing auth screens.
       if (operationMode === 'offline') {
         router.replace('/(onboarding)/offline-start');
-      } else {
+      } else if (!inAuthGroup) {
+        // Stay on register / accept-invitation once the user navigated there from login.
         router.replace('/(auth)/login');
       }
       return;

@@ -1,4 +1,5 @@
 import { useSettingsStore } from '@/store/settings.store';
+import { ONLINE_MODE_DEV_PREVIEW } from '@/lib/dev-flags';
 import { Repositories } from './repositories';
 import { localRepositories } from './local/local-repositories';
 import { apiRepositories } from './api/api-repositories';
@@ -10,14 +11,13 @@ import { apiRepositories } from './api/api-repositories';
  * change here.
  *
  * Default is offline: the local encrypted DB is the source of truth unless the
- * user explicitly picked Online.
+ * user explicitly picked Online — which only the dev preview flag allows.
  */
 export function getRepositories(): Repositories {
-  const mode = useSettingsStore.getState().operationMode;
-  return mode === 'online' ? apiRepositories : localRepositories;
+  return activeSource() === 'online' ? apiRepositories : localRepositories;
 }
 
 /** For query keys — so caches are scoped per data source. */
 export function activeSource(): 'online' | 'offline' {
-  return useSettingsStore.getState().operationMode === 'online' ? 'online' : 'offline';
+  return ONLINE_MODE_DEV_PREVIEW && useSettingsStore.getState().operationMode === 'online' ? 'online' : 'offline';
 }
