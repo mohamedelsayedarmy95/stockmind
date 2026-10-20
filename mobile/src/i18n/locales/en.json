@@ -379,6 +379,48 @@
     "current": "Current: {{mode}}",
     "modeOnline": "Online",
     "modeOffline": "Offline",
-    "noWarehouseAccess": "You have no warehouse access yet. Ask your admin to grant one."
+    "noWarehouseAccess": "You have no warehouse access yet. Ask your admin to grant one.",
+    "outbox": {
+      "banner": "{{count}} actions waiting to send",
+      "bannerReview": "{{count}} actions need your review",
+      "review": "Review",
+      "title": "Pending actions",
+      "subtitle": "Saved on this device. Nothing here is in stock until the server confirms it.",
+      "empty": "Nothing waiting. Every action was confirmed by the server.",
+      "recent": "Confirmed recently",
+      "state": {
+        "PENDING": "Waiting to send",
+        "SENDING": "Sending…",
+        "CONFIRMED": "Confirmed",
+        "REJECTED": "Refused",
+        "NEEDS_REVIEW": "Needs review"
+      },
+      "reason": {
+        "network": "No connection. Retries automatically.",
+        "server": "Server error. Retries automatically.",
+        "busy": "Server busy. Retries automatically.",
+        "auth": "Waits until you sign in again.",
+        "insufficient-stock": "Not enough stock when it was sent.",
+        "no-access": "You have no access to this warehouse.",
+        "invalid": "The server refused this request.",
+        "key-reused": "Conflicts with an earlier request.",
+        "plan-limit": "Not allowed on your plan.",
+        "too-old": "Saved more than 7 days ago. Check it before sending."
+      },
+      "maybeRecorded": "May already be recorded. It is resolved with the same request, never doubled.",
+      "unknownOutcome": "Access was removed before the result was known. Ask your manager to check the stock history.",
+      "retry": "Retry now",
+      "discard": "Discard",
+      "discardTitle": "Discard this action?",
+      "discardBody": "It will not be sent. Stock does not change.",
+      "pendingLine": "Pending {{qty}} · not sent yet",
+      "awaitingLine": "Sent {{qty}} · waiting for sync",
+      "queued": "Saved on this device. It is sent when the connection is back, and is not in stock until confirmed.",
+      "needsReview": "This action needs your review in Pending actions.",
+      "signOutTitle": "Actions not sent yet",
+      "signOutBody": "{{count}} actions are saved on this device. They stay here and are sent the next time {{email}} signs in.",
+      "signOutContinue": "Sign out",
+      "resetNotice": "The server rebuilt its stock history. Figures were reloaded from scratch."
+    }
   }
 }

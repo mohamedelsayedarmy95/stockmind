@@ -10,7 +10,11 @@ import { useProducts } from '@/query/useProducts';
 import { useAuthStore } from '@/store/auth.store';
 import { dismissRejection, useWarehouseSync } from '@/sync/warehouse-sync';
 import { ServerBalance } from '@/domain/stock-sync';
+import { pendingEffects } from '@/domain/outbox';
 import { Product } from '@/api/types';
+import { OutboxBanner } from '@/components/OutboxBanner';
+import { useCurrentScopeKey } from '@/sync/account-scope';
+import { useOutboxStore } from '@/sync/outbox-store';
 
 /** Server decimals ("93.000000") shown without trailing zeros. */
 const qty = (value: string) => String(Number(value));
@@ -31,6 +35,11 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
     () => new Map<string, string>((products ?? []).map((p: Product) => [p.id, p.name] as const)),
     [products],
   );
+  const scope = useCurrentScopeKey();
+  const intents = useOutboxStore((s) => s.intents);
+  // This account's not-yet-confirmed intents, per product: shown beside the server figure, never added into it.
+  const effects = scope ? pendingEffects(intents, scope, warehouseId, entry?.sync.revision ?? null) : {};
+  const signedQty = (q: number) => `${q > 0 ? '+' : ''}${q}`;
   const balances: ServerBalance[] = entry ? Object.values(entry.sync.balances) : [];
   balances.sort((a, b) => (names.get(a.productId) ?? a.productId).localeCompare(names.get(b.productId) ?? b.productId));
   const recent = entry ? [...entry.sync.recent].reverse().slice(0, 6) : [];
@@ -55,6 +64,12 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
       {entry && status ? (
         <SyncStatusPill status={status} entry={entry} onDismiss={() => dismissRejection(warehouseId)} />
       ) : null}
+      {entry && entry.sync.resets > 0 ? (
+        <Text testID="sync-reset-notice" style={{ color: t.textMuted, fontSize: 12 }}>
+          {tr('online.outbox.resetNotice')}
+        </Text>
+      ) : null}
+      <OutboxBanner />
 
       <Text style={{ color: t.textSecondary, fontWeight: '700' }}>{tr('online.stockTitle')}</Text>
       {balances.length === 0 ? (
@@ -72,6 +87,16 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
                 {qty(b.baseQuantity)}
               </Text>
             </View>
+            {effects[b.productId]?.pending ? (
+              <Text testID={`pending-${b.productId}`} style={{ color: STATUS.warning, fontSize: 12, fontWeight: '700' }}>
+                {tr('online.outbox.pendingLine', { qty: signedQty(effects[b.productId].pending) })}
+              </Text>
+            ) : null}
+            {effects[b.productId]?.awaitingSync ? (
+              <Text style={{ color: t.textMuted, fontSize: 12 }}>
+                {tr('online.outbox.awaitingLine', { qty: signedQty(effects[b.productId].awaitingSync) })}
+              </Text>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
               {action(tr('online.receive'), BRAND_GRADIENT[1], () => openMovement(b.productId, 'inbound'))}
               {action(tr('online.dispatch'), STATUS.warning, () => openMovement(b.productId, 'outbound'))}

@@ -17,6 +17,8 @@ import { haptics } from '@/lib/haptics';
 import { wipeAllUserData } from '@/lib/data-wipe';
 import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
 import { BASE_URL } from '@/api/client';
+import { currentScopeKey } from '@/sync/account-scope';
+import { openIntents, useOutboxStore } from '@/sync/outbox-store';
 
 function SegmentedRow<T extends string>({
   options,
@@ -85,9 +87,24 @@ export default function SettingsScreen() {
    * Dev preview only: leaving a mode signs out of it; the local encrypted DB is kept as it is. The mode is set first:
    * a callback passed to mutate() would be dropped once this screen unmounts, and sign-out unmounts it.
    */
-  const switchMode = () => {
-    setOperationMode(operationMode === 'online' ? 'offline' : 'online');
-    logout.mutate();
+  const switchMode = () =>
+    confirmUnsent(() => {
+      setOperationMode(operationMode === 'online' ? 'offline' : 'online');
+      logout.mutate();
+    });
+
+  /** Signing out keeps this account's unsent stock actions on the device (dormant); say so before it happens. */
+  const confirmUnsent = (proceed: () => void) => {
+    const open = openIntents(useOutboxStore.getState().intents, currentScopeKey());
+    if (open.length === 0) return proceed();
+    Alert.alert(
+      tr('online.outbox.signOutTitle'),
+      tr('online.outbox.signOutBody', { count: open.length, email: user?.email ?? '' }),
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        { text: tr('online.outbox.signOutContinue'), style: 'destructive', onPress: proceed },
+      ],
+    );
   };
 
   /**
@@ -319,7 +336,7 @@ export default function SettingsScreen() {
           <PremiumButton
             label={tr('settings.signOut')}
             variant="ghost"
-            onPress={() => logout.mutate()}
+            onPress={() => confirmUnsent(() => logout.mutate())}
           />
         </ScrollView>
       </SafeAreaView>

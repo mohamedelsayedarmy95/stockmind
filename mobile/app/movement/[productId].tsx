@@ -26,6 +26,11 @@ import { activeSource } from '@/data/repository-provider';
 import { httpStatusOf } from '@/domain/auth-flow';
 import { writeRejectionOf } from '@/domain/idempotent-write';
 import { useActionKey } from '@/lib/action-key';
+import { IntentRefusedError } from '@/data/api/api-repositories';
+import { pendingEffects } from '@/domain/outbox';
+import { useCurrentScopeKey } from '@/sync/account-scope';
+import { useOutboxStore } from '@/sync/outbox-store';
+import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
 import { haptics } from '@/lib/haptics';
 
 export default function MovementScreen() {
@@ -53,6 +58,7 @@ export default function MovementScreen() {
   const [qtyText, setQtyText] = useState('1');
   const [confetti, setConfetti] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [storeId, setStoreId] = useState<string | undefined>();
   const [storageUnitId, setStorageUnitId] = useState<string | undefined>();
   const [batchCode, setBatchCode] = useState('');
@@ -64,9 +70,29 @@ export default function MovementScreen() {
   const { data: units } = useStorageUnits(storeId);
   const { data: batches } = useBatches(params.productId, warehouseId ?? undefined);
 
+  // Online, the confirmed figure is the reconciled server balance (still known without network), and this account's
+  // queued dispatches reduce what may be dispatched; queued receipts do not add until the server confirms them.
+  const syncEntry = useWarehouseSyncStore((s) => (online && warehouseId ? s.entries[warehouseId] : undefined));
+  const scope = useCurrentScopeKey();
+  const intents = useOutboxStore((s) => s.intents);
+  const syncedBalance = syncEntry?.sync.balances[params.productId]?.baseQuantity;
+  const pending =
+    online && scope && warehouseId
+      ? pendingEffects(intents, scope, warehouseId, syncEntry?.sync.revision ?? null)[params.productId]?.pending ?? 0
+      : 0;
+
   // Outbound may only consume what isn't already promised to someone else.
-  const onHand = balance ? Math.floor(Number(balance.baseQuantity)) : 0;
-  const issuable = availability ? Math.floor(availability.available) : onHand;
+  const onHand =
+    syncedBalance !== undefined
+      ? Math.floor(Number(syncedBalance))
+      : balance
+        ? Math.floor(Number(balance.baseQuantity))
+        : 0;
+  const issuable = online
+    ? Math.max(0, onHand + Math.min(0, pending))
+    : availability
+      ? Math.floor(availability.available)
+      : onHand;
   const qtyLimit = kind === 'outbound' ? issuable : MAX_MOVEMENT_QUANTITY;
   const typedQty = parseQuantityInput(qtyText, qtyLimit);
   // The slider covers everyday amounts; a larger typed receipt moves its knob to the end.
@@ -148,8 +174,16 @@ export default function MovementScreen() {
         serialNumbers: serials.length > 0 ? serials : undefined,
       },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
+          // The action now lives in the outbox (confirmed or queued) under this key; a new tap is a new action.
           actionKey.spend();
+          if (result.queued) {
+            // Saved on the device only: no celebration, and nothing changed in stock yet.
+            void haptics.warning();
+            setInfoMsg(tr('online.outbox.queued'));
+            setTimeout(() => router.back(), 2500);
+            return;
+          }
           void haptics.heavy();
           void haptics.success();
           setConfetti((c) => c + 1);
@@ -157,6 +191,18 @@ export default function MovementScreen() {
         },
         onError: (err) => {
           void haptics.error();
+          if (err instanceof IntentRefusedError) {
+            actionKey.spend();
+            const reason = err.intent.lastError?.reason;
+            setErrorMsg(
+              reason === 'insufficient-stock'
+                ? tr('movement.insufficient')
+                : err.intent.state === 'NEEDS_REVIEW'
+                  ? tr('online.outbox.needsReview')
+                  : tr(`online.outbox.reason.${reason ?? 'invalid'}`),
+            );
+            return;
+          }
           const message = err instanceof Error ? err.message : '';
           const status = httpStatusOf(err);
           const rejection = online ? writeRejectionOf(status) : null;
@@ -224,6 +270,11 @@ export default function MovementScreen() {
                 <Text style={{ color: t.textMuted, fontSize: 13 }}>
                   {tr('common.currentBalance')}: {onHand}
                 </Text>
+                {pending ? (
+                  <Text style={{ color: STATUS.warning, fontSize: 13, fontWeight: '600' }}>
+                    {tr('online.outbox.pendingLine', { qty: `${pending > 0 ? '+' : ''}${pending}` })}
+                  </Text>
+                ) : null}
                 {availability && availability.reserved > 0 ? (
                   <Text style={{ color: STATUS.warning, fontSize: 13, fontWeight: '600' }}>
                     {tr('movement.reserved')}: {Math.floor(availability.reserved)}
@@ -417,6 +468,11 @@ export default function MovementScreen() {
           {errorMsg ? (
             <Text style={{ color: STATUS.error, textAlign: 'center', fontWeight: '600' }}>
               {errorMsg}
+            </Text>
+          ) : null}
+          {infoMsg ? (
+            <Text testID="movement-queued" style={{ color: STATUS.warning, textAlign: 'center', fontWeight: '600' }}>
+              {infoMsg}
             </Text>
           ) : null}
 
