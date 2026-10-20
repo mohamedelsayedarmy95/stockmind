@@ -13,6 +13,7 @@ import { BRAND_GRADIENT } from '@/theme/colors';
 import { useWarehouses } from '@/query/useWarehouses';
 import { useStores } from '@/query/useStores';
 import { Warehouse } from '@/data/repositories';
+import { activeSource } from '@/data/repository-provider';
 
 function WarehouseRow({ item, onPress }: { item: Warehouse; onPress: () => void }) {
   const t = useTheme();
@@ -27,9 +28,12 @@ function WarehouseRow({ item, onPress }: { item: Warehouse; onPress: () => void 
           <Text style={{ color: t.textPrimary, fontWeight: '700', fontSize: 16 }} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 2 }}>
-            {tr('warehouse.sectionCount', { count: stores?.length ?? 0 })}
-          </Text>
+          {/* Sections are not on the server yet: online, a "0 sections" line would be noise, not information. */}
+          {activeSource() === 'offline' ? (
+            <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 2 }}>
+              {tr('warehouse.sectionCount', { count: stores?.length ?? 0 })}
+            </Text>
+          ) : null}
         </View>
         <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
       </GlassCard>

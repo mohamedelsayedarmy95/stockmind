@@ -67,7 +67,14 @@ export function useStockMovement() {
       qc.invalidateQueries({ queryKey: queryKeys.activity });
       reportOnlineWrite([vars.warehouseId]);
     },
-    onError: (err, vars) => reportOnlineWrite([vars.warehouseId], err),
+    onError: (err, vars) => {
+      reportOnlineWrite([vars.warehouseId], err);
+      // A refusal usually means the figure on screen is stale (someone else moved stock first): refetch it.
+      if (writeRejectionOf(httpStatusOf(err))) {
+        qc.invalidateQueries({ queryKey: queryKeys.balance(vars.productId, vars.warehouseId) });
+        qc.invalidateQueries({ queryKey: queryKeys.availability(vars.productId, vars.warehouseId) });
+      }
+    },
   });
 }
 

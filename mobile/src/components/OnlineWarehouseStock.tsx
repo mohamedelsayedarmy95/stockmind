@@ -84,21 +84,23 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
         <GlassCard style={{ gap: 8 }}>
           <Text style={{ color: t.textSecondary, fontWeight: '700' }}>{tr('online.recentTitle')}</Text>
           {recent.map((m) => (
-            <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ color: t.textPrimary, fontSize: 13, flex: 1 }} numberOfLines={1}>
-                {tr(`online.movementType.${m.movementType}`, { defaultValue: m.movementType })} ·{' '}
-                {names.get(m.productId) ?? m.productId.slice(0, 8)}
-              </Text>
-              <Text
-                style={{
-                  color: Number(m.quantityChange) < 0 ? STATUS.warning : STATUS.success,
-                  fontWeight: '700',
-                  fontSize: 13,
-                }}
-              >
-                {Number(m.quantityChange) > 0 ? '+' : ''}
-                {qty(m.quantityChange)}
-              </Text>
+            <View key={m.id} style={{ gap: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ color: t.textPrimary, fontSize: 13, flex: 1 }} numberOfLines={1}>
+                  {tr(`online.movementType.${m.movementType}`, { defaultValue: m.movementType })} ·{' '}
+                  {names.get(m.productId) ?? m.productId.slice(0, 8)}
+                </Text>
+                <Text
+                  style={{
+                    color: Number(m.quantityChange) < 0 ? STATUS.warning : STATUS.success,
+                    fontWeight: '700',
+                    fontSize: 13,
+                  }}
+                >
+                  {Number(m.quantityChange) > 0 ? '+' : ''}
+                  {qty(m.quantityChange)}
+                </Text>
+              </View>
               <Text style={{ color: t.textMuted, fontSize: 12 }}>
                 {m.userId === userId ? tr('online.byYou') : tr('online.byTeammate')} ·{' '}
                 {new Date(m.createdAt).toLocaleTimeString()}
