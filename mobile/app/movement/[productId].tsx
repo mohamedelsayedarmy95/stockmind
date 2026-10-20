@@ -22,6 +22,10 @@ import { Store, StorageUnit, Batch, PickStrategy, PICK_STRATEGIES } from '@/data
 import { quantityFromWeight, weightCountDrift, WEIGHT_DRIFT_TOLERANCE } from '@/domain/inventory-math';
 import { MAX_MOVEMENT_QUANTITY, parseQuantityInput } from '@/domain/quantity-input';
 import { useAuthStore } from '@/store/auth.store';
+import { activeSource } from '@/data/repository-provider';
+import { httpStatusOf } from '@/domain/auth-flow';
+import { writeRejectionOf } from '@/domain/idempotent-write';
+import { useActionKey } from '@/lib/action-key';
 import { haptics } from '@/lib/haptics';
 
 export default function MovementScreen() {
@@ -29,10 +33,14 @@ export default function MovementScreen() {
   const { t: tr } = useTranslation();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const params = useLocalSearchParams<{ productId: string; mode?: string }>();
+  const params = useLocalSearchParams<{ productId: string; mode?: string; warehouseId?: string }>();
   const kind: MovementKind = params.mode === 'inbound' ? 'inbound' : 'outbound';
+  // Online, lots, serials and sections are not on the server yet, so those inputs are hidden rather than dropped.
+  const online = activeSource() === 'online';
+  const actionKey = useActionKey();
 
-  const warehouseId = useAuthStore((s) => s.defaultWarehouseId);
+  const defaultWarehouseId = useAuthStore((s) => s.defaultWarehouseId);
+  const warehouseId = params.warehouseId ?? defaultWarehouseId;
   const { data: products } = useProducts();
   const product = products?.find((p: Product) => p.id === params.productId);
   const { data: balance } = useBalance(params.productId, warehouseId ?? undefined);
@@ -126,12 +134,12 @@ export default function MovementScreen() {
     // Expiry is optional; accept YYYY-MM-DD and ignore anything unparseable.
     const parsedExpiry = expiryText.trim() ? Date.parse(expiryText.trim()) : NaN;
 
+    const request = { kind, productId: product.id, warehouseId, quantity: String(typedQty) };
     movement.mutate(
       {
-        kind,
-        productId: product.id,
-        warehouseId,
-        quantity: String(typedQty),
+        ...request,
+        // The same key while the user resubmits this exact request; a new one once anything changes.
+        idempotencyKey: online ? actionKey.keyFor(request) : undefined,
         storeId,
         storageUnitId,
         batchCode: kind === 'inbound' && batchCode.trim() ? batchCode.trim() : undefined,
@@ -141,6 +149,7 @@ export default function MovementScreen() {
       },
       {
         onSuccess: () => {
+          actionKey.spend();
           void haptics.heavy();
           void haptics.success();
           setConfetti((c) => c + 1);
@@ -149,8 +158,15 @@ export default function MovementScreen() {
         onError: (err) => {
           void haptics.error();
           const message = err instanceof Error ? err.message : '';
-          if (message === 'INSUFFICIENT_STOCK') setErrorMsg(tr('movement.insufficient'));
+          const status = httpStatusOf(err);
+          const rejection = online ? writeRejectionOf(status) : null;
+          // A refused request is final; anything else keeps the key so a retry cannot apply the movement twice.
+          if (rejection) actionKey.spend();
+          if (message === 'INSUFFICIENT_STOCK' || rejection === 'insufficient-stock') {
+            setErrorMsg(tr('movement.insufficient'));
+          } else if (rejection === 'key-reused') setErrorMsg(tr('online.sync.rejectedKeyReused'));
           else if (message === 'RESERVED_STOCK') setErrorMsg(tr('movement.reservedBlocked'));
+          else if (online && status === undefined) setErrorMsg(tr('online.network'));
           else setErrorMsg(tr('common.error'));
         },
       },
@@ -252,7 +268,7 @@ export default function MovementScreen() {
             </View>
           ) : null}
 
-          {kind === 'inbound' ? (
+          {online ? null : kind === 'inbound' ? (
             <GlassCard>
               <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 4 }}>
                 {tr('batch.title')}
@@ -378,23 +394,25 @@ export default function MovementScreen() {
             ) : null}
           </View>
 
-          <GlassCard>
-            <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 4 }}>
-              {tr('serial.title')}
-            </Text>
-            <Text style={{ color: t.textMuted, fontSize: 12, marginBottom: 12 }}>
-              {tr('serial.hint')}
-            </Text>
-            <TextInput
-              value={serialText}
-              onChangeText={setSerialText}
-              placeholder={tr('serial.placeholder')}
-              placeholderTextColor={t.textMuted}
-              multiline
-              autoCapitalize="characters"
-              style={[field, { minHeight: 72, textAlignVertical: 'top' }]}
-            />
-          </GlassCard>
+          {!online ? (
+            <GlassCard>
+              <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 4 }}>
+                {tr('serial.title')}
+              </Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginBottom: 12 }}>
+                {tr('serial.hint')}
+              </Text>
+              <TextInput
+                value={serialText}
+                onChangeText={setSerialText}
+                placeholder={tr('serial.placeholder')}
+                placeholderTextColor={t.textMuted}
+                multiline
+                autoCapitalize="characters"
+                style={[field, { minHeight: 72, textAlignVertical: 'top' }]}
+              />
+            </GlassCard>
+          ) : null}
 
           {errorMsg ? (
             <Text style={{ color: STATUS.error, textAlign: 'center', fontWeight: '600' }}>

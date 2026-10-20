@@ -16,6 +16,8 @@ import { useBalance, useStockTransfer, useStoreBreakdown } from '@/query/useStoc
 import { useStores } from '@/query/useStores';
 import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
+import { useActionKey } from '@/lib/action-key';
+import { activeSource } from '@/data/repository-provider';
 import { Product } from '@/api/types';
 import { Warehouse, Store, StoreBalance } from '@/data/repositories';
 import { useNotes, useCreateNote } from '@/query/useNotes';
@@ -70,6 +72,7 @@ export default function ProductDetailScreen() {
   const { data: breakdown } = useStoreBreakdown(productId, defaultWarehouseId ?? undefined);
   const { data: sourceStores } = useStores(defaultWarehouseId ?? undefined);
   const transfer = useStockTransfer();
+  const transferKey = useActionKey();
 
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
@@ -190,17 +193,23 @@ export default function ProductDetailScreen() {
 
   const submitTransfer = () => {
     if (!product || !defaultWarehouseId || !targetWarehouseId) return;
+    const request = {
+      productId: product.id,
+      fromWarehouseId: defaultWarehouseId,
+      toWarehouseId: targetWarehouseId,
+      quantity: String(transferQty),
+    };
     transfer.mutate(
       {
-        productId: product.id,
-        fromWarehouseId: defaultWarehouseId,
-        toWarehouseId: targetWarehouseId,
-        quantity: String(transferQty),
+        ...request,
+        // Online: one key per transfer, reused if this exact transfer is submitted again after a failure.
+        idempotencyKey: activeSource() === 'online' ? transferKey.keyFor(request) : undefined,
         fromStoreId,
         toStoreId,
       },
       {
         onSuccess: () => {
+          transferKey.spend();
           void haptics.success();
           setTransferQty(1);
           setFromStoreId(undefined);

@@ -1,5 +1,8 @@
+import { randomUUID } from 'expo-crypto';
 import { api } from '@/api/client';
 import { Product, BalanceResponse, StockMovement, ActivityEntry } from '@/api/types';
+import { httpStatusOf } from '@/domain/auth-flow';
+import { sendIdempotent } from '@/domain/idempotent-write';
 import {
   ProductRepository,
   WarehouseRepository,
@@ -70,10 +73,25 @@ class ApiWarehouseRepository implements WarehouseRepository {
     return data;
   }
   async ensureDefault(): Promise<Warehouse> {
+    // The server creates a company's first warehouse at registration, and a Staff member only sees the warehouses
+    // granted to them: an empty list means "no access", never "create one".
     const list = await this.list();
     if (list.length > 0) return list.find((w) => w.isActive !== false) ?? list[0];
-    return this.create({ name: 'Main Warehouse' });
+    throw new Error('NO_WAREHOUSE_ACCESS');
   }
+}
+
+/**
+ * Every online stock write carries an Idempotency-Key: the caller's key for this user action when it has one (so a
+ * manual retry reuses it), otherwise a fresh one. Transient failures are retried with the same key; the server
+ * replays the first result instead of moving the stock twice.
+ */
+function postStockWrite<T>(path: string, body: object, key: string | undefined): Promise<T> {
+  return sendIdempotent(
+    key ?? randomUUID(),
+    async (k) => (await api.post<T>(path, body, { headers: { 'Idempotency-Key': k } })).data,
+    { statusOf: httpStatusOf },
+  );
 }
 
 class ApiStoreRepository implements StoreRepository {
@@ -110,10 +128,10 @@ class ApiStockRepository implements StockRepository {
       expiryDate: _expiryDate,
       pickStrategy: _pickStrategy,
       serialNumbers: _serialNumbers,
+      idempotencyKey,
       ...body
     } = input;
-    const { data } = await api.post<StockMovement>(`/stock/${kind}`, body);
-    return data;
+    return postStockWrite<StockMovement>(`/stock/${kind}`, body, idempotencyKey);
   }
   async movements(productId: string): Promise<StockMovement[]> {
     const { data } = await api.get<StockMovement[]>(`/stock/movements/${productId}`);
@@ -128,8 +146,8 @@ class ApiStockRepository implements StockRepository {
 
   async transfer(input: TransferInput): Promise<void> {
     // Same whitelist-DTO constraint as move() above.
-    const { fromStoreId: _fromStoreId, toStoreId: _toStoreId, ...body } = input;
-    await api.post('/stock/transfer', body);
+    const { fromStoreId: _fromStoreId, toStoreId: _toStoreId, idempotencyKey, ...body } = input;
+    await postStockWrite('/stock/transfer', body, idempotencyKey);
   }
 
   // No backend endpoint for section-level breakdown yet.
