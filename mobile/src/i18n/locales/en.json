@@ -415,7 +415,7 @@
       "discard": "Discard",
       "discardTitle": "Discard this action?",
       "discardBody": "It will not be sent. Stock does not change.",
-      "pendingLine": "Pending {{qty}} · not sent yet",
+      "pendingLine": "Pending {{qty}} · not confirmed yet",
       "awaitingLine": "Sent {{qty}} · waiting for sync",
       "queued": "Saved on this device. It is sent when the connection is back, and is not in stock until confirmed.",
       "needsReview": "This action needs your review in Pending actions.",
