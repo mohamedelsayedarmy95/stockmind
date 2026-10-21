@@ -46,7 +46,9 @@ const password = () => `Aa1!${randomBytes(8).toString('hex')}`;
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
-    await app.init();
+    // Listen once: supertest would otherwise listen(0) and close() the shared server around every request, and under
+    // concurrency one request's close() resets another's socket (ECONNRESET, seen in Series 04 run 3).
+    await app.listen(0, '127.0.0.1');
     db = app.get(DataSource);
   });
 
