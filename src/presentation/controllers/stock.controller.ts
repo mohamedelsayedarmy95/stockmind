@@ -1,4 +1,6 @@
-import { BadRequestException, Controller, Get, Post, Param, Body, Req, UseGuards, Headers, Query } from '@nestjs/common';
+import {
+  BadRequestException, Controller, Get, Post, Param, Body, Req, UseGuards, Headers, Query, HttpCode, HttpStatus,
+} from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import type { Request } from 'express';
 import { InboundDto } from '../../application/dtos/stock/inbound.dto';
@@ -16,6 +18,9 @@ import { RequirePermissions } from '../decorators/require-permissions.decorator'
 import { PermissionsGuard } from '../guards/permissions.guard';
 import { WarehouseScoped } from '../guards/warehouse-access.guard';
 import { StockService } from '../../infrastructure/repositories/stock.service';
+import { OperationLookupService } from '../../infrastructure/repositories/operation-lookup.service';
+import { LookupOperationsDto } from '../../application/dtos/stock/operation-lookup.dto';
+import { SkipAudit } from '../decorators/skip-audit.decorator';
 
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{8,128}$/;
 
@@ -36,6 +41,7 @@ export class StockController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     private readonly stock: StockService,
+    private readonly operations: OperationLookupService,
   ) {}
 
   private corr(req: Request): string | undefined {
@@ -124,5 +130,18 @@ export class StockController {
   @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
   getMovements(@CurrentUser() user: JwtPayload, @Param('productId') productId: string) {
     return this.queryBus.execute(new GetMovementHistoryQuery(user.companyId, productId, user.sub));
+  }
+
+  /**
+   * Re-checks the caller's own earlier stock operations against the CURRENT history (after a sync reset, a client
+   * asks whether what it once saw confirmed is still in the ledger). Read-only; scoped to the caller and to the
+   * warehouses the caller may use now. See OperationLookupService for the meaning of each status.
+   */
+  @Post('operations/lookup')
+  @HttpCode(HttpStatus.OK)
+  @SkipAudit()
+  @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
+  async lookupOperations(@CurrentUser() user: JwtPayload, @Body() dto: LookupOperationsDto) {
+    return { operations: await this.operations.lookup(user.sub, user.companyId, dto.operations) };
   }
 }

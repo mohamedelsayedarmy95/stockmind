@@ -12,6 +12,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { StockController } from '../../src/presentation/controllers/stock.controller';
 import { GetMovementHistoryHandler } from '../../src/application/queries/get-movement-history.handler';
 import { StockService } from '../../src/infrastructure/repositories/stock.service';
+import { OperationLookupService } from '../../src/infrastructure/repositories/operation-lookup.service';
 import { PermissionService } from '../../src/infrastructure/repositories/permission.service';
 import { RedisService } from '../../src/infrastructure/cache/redis.service';
 import { ProductWarehouse } from '../../src/domain/entities/product-warehouse.entity';
@@ -134,6 +135,7 @@ let currentUser: JwtPayload;
     { provide: RedisService, useValue: redisService },
     // Full warehouse scope (null): this suite is about credential columns, not warehouse grants.
     { provide: WarehouseAccessService, useValue: { scope: async () => null, assertCanUse: async () => undefined } },
+    { provide: OperationLookupService, useValue: { lookup: async () => [] } },
   ],
 })
 class MovementHistoryTestModule {}

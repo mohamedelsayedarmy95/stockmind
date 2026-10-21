@@ -4,9 +4,12 @@ import {
   Injectable,
   Logger,
   NestInterceptor,
+  Optional,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Observable, tap, catchError, throwError } from 'rxjs';
 import { AuditLogService } from '../../infrastructure/audit/audit-log.service';
+import { SKIP_AUDIT_KEY } from '../decorators/skip-audit.decorator';
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -56,11 +59,14 @@ function actionFromMethod(method: string): string {
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditLogInterceptor.name);
-  constructor(private readonly audit: AuditLogService) {}
+  constructor(
+    private readonly audit: AuditLogService,
+    @Optional() private readonly reflector?: Reflector,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest();
-    if (!WRITE_METHODS.has(req.method)) {
+    if (!WRITE_METHODS.has(req.method) || this.reflector?.get<boolean>(SKIP_AUDIT_KEY, context.getHandler())) {
       return next.handle();
     }
 

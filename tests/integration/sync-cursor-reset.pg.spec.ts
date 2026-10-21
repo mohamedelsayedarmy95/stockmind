@@ -119,4 +119,33 @@ interface Changes {
   it('refuses a malformed anchor', async () => {
     await http().get(`/api/v1/stock/changes/${w1}?since=1&anchor=not-a-uuid`).set(auth()).expect(400);
   });
+
+  it('a reader following since+anchor during concurrent writes gets no false reset and misses no movement', async () => {
+    const start = await changes();
+    let since = start.revision;
+    let anchor = start.anchor;
+    const seen = new Set<string>();
+    let resets = 0;
+    const readOnce = async () => {
+      const r = await changes(`?since=${since}${anchor ? `&anchor=${anchor}` : ''}&limit=3`);
+      if (r.reset) resets++;
+      for (const m of r.movements) seen.add(m.revision);
+      since = r.revision;
+      anchor = r.anchor;
+      return r;
+    };
+
+    let writing = true;
+    const writes = Promise.all(Array.from({ length: 15 }, () => inbound('1'))).finally(() => {
+      writing = false;
+    });
+    while (writing) await readOnce();
+    await writes;
+    while ((await readOnce()).hasMore) {
+      // drain the remaining pages
+    }
+    expect(resets).toBe(0);
+    expect(seen.size).toBe(15);
+    expect(BigInt(since) - BigInt(start.revision)).toBe(15n);
+  });
 });
