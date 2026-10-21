@@ -1,0 +1,7 @@
+2026-10-21T09:36:48.420Z listening 3001 -> 3000
+2026-10-21T09:40:32.914Z passed POST /api/v1/stock/outbound key=35584913-a298-461b-bda0-aa9d3b4db627 upstream=201
+2026-10-21T09:40:59.682Z DELAYING 45s POST /api/v1/stock/outbound key=d1b20f34-d0eb-4b29-8273-390e8279c2f1
+2026-10-21T09:41:44.753Z passed POST /api/v1/stock/outbound key=d1b20f34-d0eb-4b29-8273-390e8279c2f1 upstream=201
+2026-10-21T09:42:27.532Z lookup upstream=200 ops=2
+2026-10-21T09:43:58.474Z lookup upstream=200 ops=1
+2026-10-21T09:45:27.016Z passed POST /api/v1/stock/outbound key=caee3952-a8e3-430e-aca6-4c5c8905c5a0 upstream=201

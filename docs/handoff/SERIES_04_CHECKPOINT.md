@@ -151,7 +151,7 @@ Setup: Huawei JSN-L22, Android 10, debug APK + Metro from the integration worktr
 | iOS build | UNVERIFIED | no macOS/Xcode |
 | Real Redis | UNVERIFIED | not needed by any changed path |
 
-Evidence: `docs/handoff/series04-evidence/` holds 12 screenshots, `server-ledger-W1.txt` and `http-trace-proxy.log`. All data is dummy.
+Evidence: `docs/handoff/series04-evidence/` holds 12 screenshots, `server-ledger-W1.txt` and `http-trace-proxy.txt`. All data is dummy.
 
 **Read-only "Weapon" investigation.** The phone's own offline activity log shows three items created in the app UI on 2026-10-20:
 - "Weapon" at 22:00:41;
