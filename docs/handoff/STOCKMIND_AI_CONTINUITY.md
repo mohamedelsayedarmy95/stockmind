@@ -268,3 +268,6 @@ Ancestry notes:
 
 ## I. Change log
 - **2026-10-21:** created after Series 04. `integration/series04` @ `322e8a0` (this file is committed on top of it). Next step: RC preflight after Director review.
+- **2026-10-21 (maintenance):** C: disk cleanup reclaimed 6.85 GB (npm/pip caches, the idle Gradle 9.1.0 cache, Gradle daemon logs). No tool, config or project data was touched.
+  - Report: Desktop `StockMind_Handoff\C_DRIVE_CLEANUP_REPORT.md`.
+  - Inventories and quarantine: `D:\StockMind_Backups\Maintenance\2026-10-21_C_cleanup\`.
