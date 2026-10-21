@@ -147,7 +147,7 @@ class ApiStockRepository implements StockRepository {
     const intent = await submitIntent({ id: idempotencyKey ?? randomUUID(), kind, payload: body });
     const result = (id: string, balanceAfter: string, queued: boolean): MovementResult => ({
       id, type: kind, quantity: body.quantity, balanceAfter, createdAt: new Date(intent.createdAt).toISOString(),
-      ...(queued ? { queued } : {}),
+      ...(queued ? { queued, sending: intent.state === 'SENDING' } : {}),
     });
     if (intent.state === 'CONFIRMED') {
       return result(intent.result?.movementId || intent.id, intent.result?.runningBalance ?? '', false);

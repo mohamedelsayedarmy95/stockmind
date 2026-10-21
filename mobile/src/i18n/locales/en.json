@@ -405,7 +405,9 @@
         "invalid": "The server refused this request.",
         "key-reused": "Conflicts with an earlier request.",
         "plan-limit": "Not allowed on your plan.",
-        "too-old": "Saved more than 7 days ago. Check it before sending."
+        "too-old": "Saved more than 7 days ago. Check it before sending.",
+        "history-changed": "The server's current history no longer contains this confirmed action (database restored?).",
+        "history-mismatch": "The server's record for this action does not match what was sent."
       },
       "maybeRecorded": "May already be recorded. It is resolved with the same request, never doubled.",
       "unknownOutcome": "Access was removed before the result was known. Ask your manager to check the stock history.",
@@ -423,7 +425,26 @@
       "resetNotice": "The server rebuilt its stock history. Figures were reloaded from scratch.",
       "banner_one": "1 action waiting to send",
       "bannerReview_one": "1 action needs your review",
-      "signOutBody_one": "1 action is saved on this device. It stays here and is sent the next time {{email}} signs in."
+      "signOutBody_one": "1 action is saved on this device. It stays here and is sent the next time {{email}} signs in.",
+      "receipt": {
+        "rechecking": "Confirmed earlier · re-checking against the server",
+        "unverifiable": "Confirmed earlier · could not be re-checked ({{reason}})",
+        "verified": "Confirmed · re-checked at {{time}}",
+        "lastKnown": "Last receipt: confirmed {{time}} as movement {{movement}}, revision {{revision}}."
+      },
+      "unverifiable": {
+        "no-access": "no access to this warehouse",
+        "receipt-without-movement": "the server has a record but no movement",
+        "in-progress": "still being processed",
+        "unsupported-operation": "not supported for this action",
+        "not-supported": "the server cannot check this",
+        "unknown": "unknown"
+      },
+      "notResent": "It was not re-sent automatically.",
+      "reenter": "Re-enter as new action",
+      "acknowledge": "Acknowledge",
+      "reentryInfo": "Re-entering an action missing from the server history. This creates a NEW movement, noted as a re-entry.",
+      "sending": "Sending… the server is slow to answer. It stays saved on this device and is never applied twice."
     }
   }
 }

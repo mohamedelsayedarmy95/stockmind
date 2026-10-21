@@ -5,14 +5,22 @@ import { IntentKind, IntentPayload, markSending, nextToSend, SendOutcome, settle
 import { useAuthStore } from '@/store/auth.store';
 import { currentScopeKey } from './account-scope';
 import { enqueueIntent, getIntent, replaceIntents, updateIntent, useOutboxStore } from './outbox-store';
-import { onOwnWriteRejected, onOwnWriteSucceeded, onPollSucceeded, resetWarehouseSync } from './warehouse-sync';
+import {
+  onHistoryReset, onOwnWriteRejected, onOwnWriteSucceeded, onPollSucceeded, resetWarehouseSync,
+} from './warehouse-sync';
+import { onWarehouseReset, reconcileOnActivity } from './outbox-reconcile';
 
 /**
  * Sends the signed-in account's queued intents to the server: one at a time, oldest first, each with its own id as
  * the Idempotency-Key and its stored payload unchanged. Single-flight; a request made while a pass runs gets one more
  * pass. A transient failure stops the pass and arms ONE timer for the backoff; nothing loops on its own.
+ *
+ * Timeout: longer than a free-tier cold start (~42 s measured), so a sleeping server answers the first attempt
+ * instead of every send timing out once and being retried. A retry would still be safe (same key), only slower.
  */
-const SEND_TIMEOUT_MS = 20_000;
+const SEND_TIMEOUT_MS = 60_000;
+/** How long a screen waits for the first answer before saying "sending" and letting the send finish in background. */
+const SCREEN_WAIT_MS = 8_000;
 
 interface Engine {
   running: Promise<void> | null;
@@ -117,28 +125,36 @@ export async function submitIntent(args: { id: string; kind: IntentKind; payload
   const scope = currentScopeKey();
   if (!scope) throw new Error('NO_ONLINE_SESSION');
   enqueueIntent({ ...args, scope });
-  await wakeOutbox();
+  // The screen waits for the first answer at most SCREEN_WAIT_MS: a sleeping free-tier server can take ~40 s, and the
+  // send keeps going in the background (same key), so the user is told "sending" instead of watching a spinner.
+  await Promise.race([wakeOutbox(), new Promise((resolve) => setTimeout(resolve, SCREEN_WAIT_MS))]);
   return getIntent(args.id) as StockIntent;
 }
 
 /**
  * Once at startup (after the stores rehydrate): drain on foreground, after any successful poll (the network works),
  * and whenever the signed-in account changes. Switching accounts also drops the in-memory figures of the previous one.
+ * The same signals drive receipt reconciliation; a sync reset marks that warehouse's receipts for re-checking.
  */
 export function startOutboxRuntime() {
   if (engine.started) return;
   engine.started = true;
   let scope = currentScopeKey();
+  const onActivity = () => {
+    void wakeOutbox();
+    reconcileOnActivity();
+  };
   AppState.addEventListener('change', (state) => {
-    if (state === 'active') void wakeOutbox();
+    if (state === 'active') onActivity();
   });
-  onPollSucceeded(() => void wakeOutbox());
+  onPollSucceeded(onActivity);
+  onHistoryReset(onWarehouseReset);
   useAuthStore.subscribe(() => {
     const next = currentScopeKey();
     if (next === scope) return;
     scope = next;
     resetWarehouseSync();
-    if (next) void wakeOutbox();
+    if (next) onActivity();
   });
-  if (scope) void wakeOutbox();
+  if (scope) onActivity();
 }

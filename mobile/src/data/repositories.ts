@@ -231,6 +231,8 @@ export interface MovementResult extends StockMovement {
   picks?: PickLine[];
   /** Online: saved on this device, waiting for the network. NOT in stock until the server confirms it. */
   queued?: boolean;
+  /** Online, queued: the request is out but the server has not answered yet (e.g. a sleeping free-tier instance). */
+  sending?: boolean;
 }
 
 export interface ProductRepository {

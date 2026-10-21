@@ -29,7 +29,7 @@ import { useActionKey } from '@/lib/action-key';
 import { IntentRefusedError } from '@/data/api/api-repositories';
 import { pendingEffects } from '@/domain/outbox';
 import { useCurrentScopeKey } from '@/sync/account-scope';
-import { useOutboxStore } from '@/sync/outbox-store';
+import { removeIntent, useOutboxStore } from '@/sync/outbox-store';
 import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
 import { haptics } from '@/lib/haptics';
 
@@ -38,7 +38,13 @@ export default function MovementScreen() {
   const { t: tr } = useTranslation();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const params = useLocalSearchParams<{ productId: string; mode?: string; warehouseId?: string }>();
+  const params = useLocalSearchParams<{
+    productId: string; mode?: string; warehouseId?: string; qty?: string; reentryOf?: string;
+  }>();
+  const reentryNote = params.reentryOf
+    ? `Re-entry of action ${params.reentryOf.slice(0, 8)} (missing from server history after a reset)`
+    : null;
+  const initialQty = Math.max(1, Math.floor(Number(params.qty) || 1));
   const kind: MovementKind = params.mode === 'inbound' ? 'inbound' : 'outbound';
   // Online, lots, serials and sections are not on the server yet, so those inputs are hidden rather than dropped.
   const online = activeSource() === 'online';
@@ -53,9 +59,9 @@ export default function MovementScreen() {
   const { data: stores } = useStores(warehouseId ?? undefined);
   const movement = useStockMovement();
 
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(initialQty);
   // The typed field and the slider edit the same quantity; the text is what the user sees and is validated.
-  const [qtyText, setQtyText] = useState('1');
+  const [qtyText, setQtyText] = useState(String(initialQty));
   const [confetti, setConfetti] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
@@ -160,7 +166,10 @@ export default function MovementScreen() {
     // Expiry is optional; accept YYYY-MM-DD and ignore anything unparseable.
     const parsedExpiry = expiryText.trim() ? Date.parse(expiryText.trim()) : NaN;
 
-    const request = { kind, productId: product.id, warehouseId, quantity: String(typedQty) };
+    // A re-entry carries a note naming the lost action, so the ledger shows a deliberate re-entry, never a replay.
+    const request = {
+      kind, productId: product.id, warehouseId, quantity: String(typedQty), ...(reentryNote ? { notes: reentryNote } : {}),
+    };
     movement.mutate(
       {
         ...request,
@@ -177,10 +186,12 @@ export default function MovementScreen() {
         onSuccess: (result) => {
           // The action now lives in the outbox (confirmed or queued) under this key; a new tap is a new action.
           actionKey.spend();
+          // The reviewed lost action is resolved by this new one (it is still pending/confirmed in its own right).
+          if (params.reentryOf) removeIntent(params.reentryOf);
           if (result.queued) {
-            // Saved on the device only: no celebration, and nothing changed in stock yet.
+            // Saved on the device only (or still on its way to a slow server): no celebration, no stock change yet.
             void haptics.warning();
-            setInfoMsg(tr('online.outbox.queued'));
+            setInfoMsg(tr(result.sending ? 'online.outbox.sending' : 'online.outbox.queued'));
             setTimeout(() => router.back(), 2500);
             return;
           }
@@ -468,6 +479,11 @@ export default function MovementScreen() {
           {errorMsg ? (
             <Text style={{ color: STATUS.error, textAlign: 'center', fontWeight: '600' }}>
               {errorMsg}
+            </Text>
+          ) : null}
+          {reentryNote && !infoMsg ? (
+            <Text testID="reentry-info" style={{ color: STATUS.warning, textAlign: 'center', fontWeight: '600' }}>
+              {tr('online.outbox.reentryInfo')}
             </Text>
           ) : null}
           {infoMsg ? (

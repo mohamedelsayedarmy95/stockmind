@@ -12,7 +12,7 @@ import { useProducts } from '@/query/useProducts';
 import { useWarehouses } from '@/query/useWarehouses';
 import { Product } from '@/api/types';
 import { Warehouse } from '@/data/repositories';
-import { canDiscard, IntentState, retryNow, StockIntent } from '@/domain/outbox';
+import { canDiscard, IntentState, receiptDisplay, reentryDraft, retryNow, StockIntent } from '@/domain/outbox';
 import { useCurrentScopeKey } from '@/sync/account-scope';
 import { removeIntent, updateIntent, useOutboxStore } from '@/sync/outbox-store';
 import { wakeOutbox } from '@/sync/outbox-drain';
@@ -69,11 +69,44 @@ export default function OutboxScreen() {
       },
     ]);
 
+  /** Opens the dispatch/receive screen prefilled; the user confirms a NEW action (new key, noted as a re-entry). */
+  const reenter = (intent: StockIntent) => {
+    const draft = reentryDraft(intent);
+    if (!draft) return;
+    void haptics.select();
+    router.push({
+      pathname: '/movement/[productId]',
+      params: {
+        productId: draft.payload.productId,
+        mode: draft.kind,
+        warehouseId: draft.payload.warehouseId,
+        qty: draft.payload.quantity,
+        reentryOf: intent.id,
+      },
+    });
+  };
+
   const Row = ({ intent }: { intent: StockIntent }) => {
-    const color = STATE_COLOR[intent.state];
+    const receipt = intent.state === 'CONFIRMED' ? receiptDisplay(intent) : null;
+    const color = receipt && receipt !== 'confirmed' ? STATUS.warning : STATE_COLOR[intent.state];
     const sign = intent.kind === 'outbound' ? '−' : '+';
     const reason = intent.lastError?.reason;
     const unknownOutcome = intent.state === 'NEEDS_REVIEW' && reason === 'no-access';
+    const historyChanged = intent.state === 'NEEDS_REVIEW' && reason === 'history-changed';
+    const stateText =
+      receipt === 'rechecking'
+        ? tr('online.outbox.receipt.rechecking')
+        : receipt === 'unverifiable'
+          ? tr('online.outbox.receipt.unverifiable', {
+              reason: tr(`online.outbox.unverifiable.${intent.verification?.reason ?? 'unknown'}`, {
+                defaultValue: intent.verification?.reason ?? '',
+              }),
+            })
+          : receipt === 'confirmed' && intent.verification?.state === 'verified'
+            ? tr('online.outbox.receipt.verified', { time: new Date(intent.verification.at).toLocaleTimeString() })
+            : `${tr(`online.outbox.state.${intent.state}`)}${
+                reason && intent.state !== 'CONFIRMED' ? ` · ${tr(`online.outbox.reason.${reason}`)}` : ''
+              }`;
     return (
       <GlassCard style={{ gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -91,15 +124,29 @@ export default function OutboxScreen() {
           {new Date(intent.createdAt).toLocaleString()}
         </Text>
         <Text testID={`intent-state-${intent.state}`} style={{ color, fontWeight: '700', fontSize: 13 }}>
-          {tr(`online.outbox.state.${intent.state}`)}
-          {reason && intent.state !== 'CONFIRMED' ? ` · ${tr(`online.outbox.reason.${reason}`)}` : ''}
+          {stateText}
         </Text>
         {intent.maybeCommitted && intent.state === 'PENDING' ? (
           <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.maybeRecorded')}</Text>
         ) : null}
         {unknownOutcome ? <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.unknownOutcome')}</Text> : null}
+        {historyChanged && intent.result ? (
+          <Text testID="history-changed-provenance" style={{ color: t.textMuted, fontSize: 12 }}>
+            {tr('online.outbox.receipt.lastKnown', {
+              time: new Date(intent.result.at).toLocaleString(),
+              movement: intent.result.movementId.slice(0, 8),
+              revision: intent.result.revision ?? '—',
+            })}{' '}
+            {tr('online.outbox.notResent')}
+          </Text>
+        ) : null}
         {intent.state !== 'CONFIRMED' ? (
-          <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
+          <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {historyChanged ? (
+              <Pressable onPress={() => reenter(intent)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: BRAND_GRADIENT[1] }}>
+                <Text style={{ color: BRAND_GRADIENT[1], fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.reenter')}</Text>
+              </Pressable>
+            ) : null}
             {retryNow(intent, Date.now()) ? (
               <Pressable onPress={() => retry(intent)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: BRAND_GRADIENT[1] }}>
                 <Text style={{ color: BRAND_GRADIENT[1], fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.retry')}</Text>
@@ -107,7 +154,9 @@ export default function OutboxScreen() {
             ) : null}
             {canDiscard(intent) ? (
               <Pressable onPress={() => discard(intent)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: STATUS.error }}>
-                <Text style={{ color: STATUS.error, fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.discard')}</Text>
+                <Text style={{ color: STATUS.error, fontWeight: '700', fontSize: 13 }}>
+                  {tr(historyChanged ? 'online.outbox.acknowledge' : 'online.outbox.discard')}
+                </Text>
               </Pressable>
             ) : null}
           </View>

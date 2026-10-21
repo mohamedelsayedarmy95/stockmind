@@ -85,11 +85,19 @@ function entryOf(warehouseId: string): WarehouseSyncEntry {
 }
 
 const pollListeners = new Set<() => void>();
+const resetListeners = new Set<(warehouseId: string) => void>();
+const POLL_TIMEOUT_MS = 60_000;
 
 /** Called after every poll that reached the server: proof the network works (the outbox drains on it). */
 export function onPollSucceeded(listener: () => void): () => void {
   pollListeners.add(listener);
   return () => pollListeners.delete(listener);
+}
+
+/** Called when the server answers a warehouse's cursor with a reset (its history was restored or rebuilt). */
+export function onHistoryReset(listener: (warehouseId: string) => void): () => void {
+  resetListeners.add(listener);
+  return () => resetListeners.delete(listener);
 }
 
 function patch(warehouseId: string, change: Partial<WarehouseSyncEntry>) {
@@ -105,10 +113,15 @@ let generation = 0;
 async function runOnce(warehouseId: string, gen: number) {
   const scope = currentScopeKey();
   patch(warehouseId, { inFlight: true });
+  const before = entryOf(warehouseId).sync;
   const result = await pollWarehouse(
-    entryOf(warehouseId).sync,
+    before,
     async (query) => {
-      const { data } = await api.get<ChangesResponse>(`/stock/changes/${warehouseId}`, { params: query });
+      // A free-tier backend can take ~40 s to wake; a poll that waits is cheaper than one that fails and repeats.
+      const { data } = await api.get<ChangesResponse>(`/stock/changes/${warehouseId}`, {
+        params: query,
+        timeout: POLL_TIMEOUT_MS,
+      });
       return data;
     },
     { statusOf: httpStatusOf },
@@ -129,6 +142,8 @@ async function runOnce(warehouseId: string, gen: number) {
   });
   if (!result.error && scope) {
     writeCache(scope, warehouseId, { sync: result.state, lastSuccessAt: now });
+    // The server rejected our cursor: what we once saw confirmed in this warehouse must be re-checked.
+    if (result.state.resets > before.resets) for (const listener of resetListeners) listener(warehouseId);
     for (const listener of pollListeners) listener();
   }
 }
