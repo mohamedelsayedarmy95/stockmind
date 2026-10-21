@@ -5,7 +5,7 @@ import { useSettingsStore } from '@/store/settings.store';
 import { sessionLock } from '@/lib/session-lock';
 import { pinnedAxiosAdapter, shouldPin } from '@/lib/pinned-http';
 
-const BASE_URL =
+export const BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL ??
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
   'http://10.0.2.2:3000/api/v1';

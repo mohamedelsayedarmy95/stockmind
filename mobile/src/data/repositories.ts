@@ -48,6 +48,8 @@ export interface TransferInput {
   /** Optional section-level detail — ignored by the (not-yet-built) backend. */
   fromStoreId?: string;
   toStoreId?: string;
+  /** Online: one key per user action, reused when the same action is retried. Generated if absent. */
+  idempotencyKey?: string;
 }
 
 /** Per-section breakdown of on-hand quantity for a product within a warehouse. */
@@ -220,11 +222,15 @@ export interface MovementInput {
   pickStrategy?: PickStrategy;
   /** Serial numbers being received or issued alongside this movement. */
   serialNumbers?: string[];
+  /** Online: one key per user action, reused when the same action is retried. Generated if absent. */
+  idempotencyKey?: string;
 }
 
 /** Result of a movement, including which lots a dispatch actually drew from. */
 export interface MovementResult extends StockMovement {
   picks?: PickLine[];
+  /** Online: saved on this device, waiting for the network. NOT in stock until the server confirms it. */
+  queued?: boolean;
 }
 
 export interface ProductRepository {

@@ -14,6 +14,8 @@ import { BRAND_GRADIENT } from '@/theme/colors';
 import { useWarehouses } from '@/query/useWarehouses';
 import { useStores, useCreateStore, useUpdateStorePosition } from '@/query/useStores';
 import { Store, Warehouse } from '@/data/repositories';
+import { activeSource } from '@/data/repository-provider';
+import { OnlineWarehouseStock } from '@/components/OnlineWarehouseStock';
 import { haptics } from '@/lib/haptics';
 
 const MAP_GAP = 16;
@@ -45,6 +47,8 @@ export default function WarehouseDetailScreen() {
   const router = useRouter();
   const { warehouseId } = useLocalSearchParams<{ warehouseId: string }>();
   const { width: screenWidth } = useWindowDimensions();
+  // Online, sections are not on the server yet: the screen shows the live, synced stock instead.
+  const online = activeSource() === 'online';
 
   const { data: warehouses } = useWarehouses();
   const warehouse = warehouses?.find((w: Warehouse) => w.id === warehouseId);
@@ -101,139 +105,147 @@ export default function WarehouseDetailScreen() {
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
                 {warehouse?.name ?? '—'}
               </Text>
-              <Text style={{ color: t.textMuted, fontSize: 12 }}>
-                {tr('warehouse.sectionCount', { count: stores?.length ?? 0 })}
-              </Text>
+              {!online ? (
+                <Text style={{ color: t.textMuted, fontSize: 12 }}>
+                  {tr('warehouse.sectionCount', { count: stores?.length ?? 0 })}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
 
-        <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-          <GlassCard>
-            <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 12 }}>
-              {tr('warehouse.addSection')}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TextInput
-                value={storeName}
-                onChangeText={setStoreName}
-                placeholder={tr('warehouse.storeNamePlaceholder')}
-                placeholderTextColor={t.textMuted}
+        {online && warehouseId ? (
+          <OnlineWarehouseStock warehouseId={warehouseId} />
+        ) : (
+          <>
+            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+              <GlassCard>
+                <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 12 }}>
+                  {tr('warehouse.addSection')}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TextInput
+                    value={storeName}
+                    onChangeText={setStoreName}
+                    placeholder={tr('warehouse.storeNamePlaceholder')}
+                    placeholderTextColor={t.textMuted}
+                    style={{
+                      flex: 1,
+                      color: t.textPrimary,
+                      backgroundColor: t.background,
+                      borderWidth: 1,
+                      borderColor: t.cardBorder,
+                      borderRadius: 16,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      fontSize: 15,
+                    }}
+                  />
+                  <PremiumButton
+                    label={tr('common.save')}
+                    onPress={addStore}
+                    loading={createStore.isPending}
+                    disabled={storeName.trim().length === 0}
+                    style={{ paddingHorizontal: 20 }}
+                  />
+                </View>
+              </GlassCard>
+            </View>
+
+            <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 14, gap: 8 }}>
+              {(['map', 'list'] as ViewMode[]).map((mode) => {
+                const selected = mode === viewMode;
+                return (
+                  <Pressable
+                    key={mode}
+                    onPress={() => {
+                      void haptics.select();
+                      setViewMode(mode);
+                    }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      borderRadius: 14,
+                      alignItems: 'center',
+                      backgroundColor: selected ? BRAND_GRADIENT[1] : t.card,
+                      borderWidth: 1,
+                      borderColor: selected ? BRAND_GRADIENT[1] : t.cardBorder,
+                    }}
+                  >
+                    <Text style={{ color: selected ? '#FFFFFF' : t.textSecondary, fontWeight: '700' }}>
+                      {tr(mode === 'map' ? 'warehouse.mapView' : 'warehouse.listView')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {!stores || stores.length === 0 ? (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                {!isLoading ? (
+                  <>
+                    <GradientIconCircle icon="layers-outline" size={64} iconSize={28} />
+                    <Text style={{ color: t.textMuted, textAlign: 'center', paddingHorizontal: 20 }}>
+                      {tr('warehouse.storesEmpty')}
+                    </Text>
+                  </>
+                ) : null}
+              </View>
+            ) : viewMode === 'map' ? (
+              <View
                 style={{
-                  flex: 1,
-                  color: t.textPrimary,
-                  backgroundColor: t.background,
+                  marginHorizontal: 20,
+                  height: MAP_HEIGHT,
+                  borderRadius: 24,
+                  backgroundColor: t.card,
                   borderWidth: 1,
                   borderColor: t.cardBorder,
-                  borderRadius: 16,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  fontSize: 15,
-                }}
-              />
-              <PremiumButton
-                label={tr('common.save')}
-                onPress={addStore}
-                loading={createStore.isPending}
-                disabled={storeName.trim().length === 0}
-                style={{ paddingHorizontal: 20 }}
-              />
-            </View>
-          </GlassCard>
-        </View>
-
-        <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 14, gap: 8 }}>
-          {(['map', 'list'] as ViewMode[]).map((mode) => {
-            const selected = mode === viewMode;
-            return (
-              <Pressable
-                key={mode}
-                onPress={() => {
-                  void haptics.select();
-                  setViewMode(mode);
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  backgroundColor: selected ? BRAND_GRADIENT[1] : t.card,
-                  borderWidth: 1,
-                  borderColor: selected ? BRAND_GRADIENT[1] : t.cardBorder,
+                  overflow: 'hidden',
                 }}
               >
-                <Text style={{ color: selected ? '#FFFFFF' : t.textSecondary, fontWeight: '700' }}>
-                  {tr(mode === 'map' ? 'warehouse.mapView' : 'warehouse.listView')}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {!stores || stores.length === 0 ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-            {!isLoading ? (
-              <>
-                <GradientIconCircle icon="layers-outline" size={64} iconSize={28} />
-                <Text style={{ color: t.textMuted, textAlign: 'center', paddingHorizontal: 20 }}>
-                  {tr('warehouse.storesEmpty')}
-                </Text>
-              </>
-            ) : null}
-          </View>
-        ) : viewMode === 'map' ? (
-          <View
-            style={{
-              marginHorizontal: 20,
-              height: MAP_HEIGHT,
-              borderRadius: 24,
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.cardBorder,
-              overflow: 'hidden',
-            }}
-          >
-            {stores.map((store: Store, index: number) => {
-              const fallback = defaultPos(index);
-              return (
-                <WarehouseMapTile
-                  key={store.id}
-                  name={store.name}
-                  totalQuantity={store.totalQuantity}
-                  x={store.posX ?? fallback.x}
-                  y={store.posY ?? fallback.y}
-                  bounds={{ width: canvasWidth, height: MAP_HEIGHT }}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/store/[storeId]',
-                      params: { storeId: store.id, warehouseId: warehouseId ?? '' },
-                    })
-                  }
-                  onMoved={(x, y) => {
-                    void haptics.select();
-                    updatePosition.mutate({ storeId: store.id, x, y });
-                  }}
-                />
-              );
-            })}
-          </View>
-        ) : (
-          <FlatList
-            data={stores}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <StoreRow
-                item={item}
-                onPress={() =>
-                  router.push({
-                    pathname: '/store/[storeId]',
-                    params: { storeId: item.id, warehouseId: warehouseId ?? '' },
-                  })
-                }
+                {stores.map((store: Store, index: number) => {
+                  const fallback = defaultPos(index);
+                  return (
+                    <WarehouseMapTile
+                      key={store.id}
+                      name={store.name}
+                      totalQuantity={store.totalQuantity}
+                      x={store.posX ?? fallback.x}
+                      y={store.posY ?? fallback.y}
+                      bounds={{ width: canvasWidth, height: MAP_HEIGHT }}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/store/[storeId]',
+                          params: { storeId: store.id, warehouseId: warehouseId ?? '' },
+                        })
+                      }
+                      onMoved={(x, y) => {
+                        void haptics.select();
+                        updatePosition.mutate({ storeId: store.id, x, y });
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            ) : (
+              <FlatList
+                data={stores}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <StoreRow
+                    item={item}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/store/[storeId]',
+                        params: { storeId: item.id, warehouseId: warehouseId ?? '' },
+                      })
+                    }
+                  />
+                )}
+                contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 10 }}
               />
             )}
-            contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 10 }}
-          />
+          </>
         )}
       </SafeAreaView>
     </ScreenBackground>

@@ -36,7 +36,9 @@ export function useEnsureDefaultWarehouse() {
       if (!cancelled && w) {
         useAuthStore.setState({ defaultWarehouseId: w.id });
       }
-    })();
+    })().catch(() => {
+      // Online: no reachable or granted warehouse yet. Screens show their empty state; the next mount retries.
+    });
     return () => {
       cancelled = true;
     };

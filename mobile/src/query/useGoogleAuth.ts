@@ -4,8 +4,8 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 import { api } from '@/api/client';
-import { LoginResponse } from '@/api/types';
-import { useAuthStore } from '@/store/auth.store';
+import { classifyLoginResponse, LoginOutcome } from '@/domain/auth-flow';
+import { startOnlineSession } from './useAuth';
 
 const WEB_CLIENT_ID =
   '763924631139-nc9o8g9g2pjj9gbt3bin2o56itm8nf05.apps.googleusercontent.com';
@@ -17,18 +17,17 @@ GoogleSignin.configure({
   offlineAccess: false,
 });
 
+/** Like useLogin: a user with 2FA gets a challenge, not a session (the server gates Google sign-ins the same way). */
 export function useGoogleSignIn() {
-  const setSession = useAuthStore((s) => s.setSession);
-
   return useMutation({
-    mutationFn: async (): Promise<LoginResponse | null> => {
+    mutationFn: async (): Promise<LoginOutcome | null> => {
       try {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         const signInResult = await GoogleSignin.signIn();
         const idToken = signInResult.data?.idToken;
         if (!idToken) return null;
-        const { data } = await api.post<LoginResponse>('/auth/google', { idToken });
-        return data;
+        const { data } = await api.post<unknown>('/auth/google', { idToken });
+        return classifyLoginResponse(data);
       } catch (err) {
         const code = (err as { code?: string })?.code;
         if (
@@ -40,13 +39,9 @@ export function useGoogleSignIn() {
         throw err;
       }
     },
-    onSuccess: (data) => {
-      if (!data) return; // user cancelled
-      setSession({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: data.user,
-      });
+    onSuccess: (outcome) => {
+      // null: the user cancelled. A 2FA challenge is handled by the screen.
+      if (outcome?.kind === 'session') startOnlineSession(outcome.session);
     },
   });
 }

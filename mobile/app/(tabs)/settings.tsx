@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Switch, Alert, I18nManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,10 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useTerminateAllSessions } from '@/query/useAuth';
 import { haptics } from '@/lib/haptics';
 import { wipeAllUserData } from '@/lib/data-wipe';
+import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
+import { BASE_URL } from '@/api/client';
+import { currentScopeKey } from '@/sync/account-scope';
+import { openIntents, useOutboxStore } from '@/sync/outbox-store';
 
 function SegmentedRow<T extends string>({
   options,
@@ -74,13 +78,49 @@ export default function SettingsScreen() {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled);
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled);
   const user = useAuthStore((s) => s.user);
+  const operationMode = useSettingsStore((s) => s.operationMode);
+  const setOperationMode = useSettingsStore((s) => s.setOperationMode);
   const logout = useLogout();
   const terminateAll = useTerminateAllSessions();
+
+  /**
+   * Dev preview only: leaving a mode signs out of it; the local encrypted DB is kept as it is. The mode is set first:
+   * a callback passed to mutate() would be dropped once this screen unmounts, and sign-out unmounts it.
+   */
+  const switchMode = () =>
+    confirmUnsent(() => {
+      setOperationMode(operationMode === 'online' ? 'offline' : 'online');
+      logout.mutate();
+    });
+
+  /** Signing out keeps this account's unsent stock actions on the device (dormant); say so before it happens. */
+  const confirmUnsent = (proceed: () => void) => {
+    const open = openIntents(useOutboxStore.getState().intents, currentScopeKey());
+    if (open.length === 0) return proceed();
+    Alert.alert(
+      tr('online.outbox.signOutTitle'),
+      tr('online.outbox.signOutBody', { count: open.length, email: user?.email ?? '' }),
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        { text: tr('online.outbox.signOutContinue'), style: 'destructive', onPress: proceed },
+      ],
+    );
+  };
 
   /**
    * Two deliberate confirmations, the second naming what is destroyed. The
    * spec requires erasure to be a conscious admin act, never a side effect.
    */
+  // Text switches at once; React Native mirrors the layout (RTL/LTR) only on the next app start.
+  const onLanguage = (lang: AppLanguage) => {
+    const directionChanges = I18nManager.isRTL !== (lang === 'ar');
+    changeLanguage(lang);
+    // In the language just chosen, not the one being left.
+    if (directionChanges) {
+      Alert.alert(tr('settings.restartForLayoutTitle', { lng: lang }), tr('settings.restartForLayout', { lng: lang }));
+    }
+  };
+
   const confirmWipe = () => {
     Alert.alert(tr('settings.wipeTitle'), tr('settings.wipeWarning'), [
       { text: tr('common.cancel'), style: 'cancel' },
@@ -134,9 +174,36 @@ export default function SettingsScreen() {
                   {user?.name ?? '—'}
                 </Text>
                 <Text style={{ color: t.textMuted }}>{user?.email ?? ''}</Text>
+                {operationMode === 'online' && user?.role ? (
+                  <Text testID="session-role" style={{ color: t.textMuted, fontSize: 12 }}>{user.role}</Text>
+                ) : null}
               </View>
             </View>
           </GlassCard>
+
+          {ONLINE_MODE_DEV_PREVIEW ? (
+            <GlassCard>
+              <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 6 }}>
+                {tr('online.modeTitle')}
+              </Text>
+              <Text style={{ color: t.textPrimary, fontWeight: '700' }}>
+                {tr('online.current', {
+                  mode: tr(operationMode === 'online' ? 'online.modeOnline' : 'online.modeOffline'),
+                })}
+              </Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 4 }}>
+                {tr('online.apiHost', { host: apiHostLabel(BASE_URL) })}
+              </Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 4, marginBottom: 12 }}>
+                {tr('online.modeHint')}
+              </Text>
+              <PremiumButton
+                label={tr(operationMode === 'online' ? 'online.switchToOffline' : 'online.switchToOnline')}
+                onPress={switchMode}
+                loading={logout.isPending}
+              />
+            </GlassCard>
+          ) : null}
 
           <GlassCard>
             <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 14 }}>
@@ -148,7 +215,7 @@ export default function SettingsScreen() {
                 { key: 'ar', label: 'العربية' },
               ]}
               value={language}
-              onSelect={changeLanguage}
+              onSelect={onLanguage}
             />
           </GlassCard>
 
@@ -269,7 +336,7 @@ export default function SettingsScreen() {
           <PremiumButton
             label={tr('settings.signOut')}
             variant="ghost"
-            onPress={() => logout.mutate()}
+            onPress={() => confirmUnsent(() => logout.mutate())}
           />
         </ScrollView>
       </SafeAreaView>

@@ -1,5 +1,21 @@
+import { randomUUID } from 'expo-crypto';
 import { api } from '@/api/client';
 import { Product, BalanceResponse, StockMovement, ActivityEntry } from '@/api/types';
+import { httpStatusOf } from '@/domain/auth-flow';
+import { sendIdempotent } from '@/domain/idempotent-write';
+import { StockIntent } from '@/domain/outbox';
+import { submitIntent } from '@/sync/outbox-drain';
+import { withReferenceFallback } from '@/sync/reference-cache';
+
+/** A queued intent the server refused (or whose outcome needs review); shaped like an HTTP error for the screens. */
+export class IntentRefusedError extends Error {
+  readonly response: { status: number | undefined };
+  constructor(readonly intent: StockIntent) {
+    super(`INTENT_${intent.state}`);
+    this.name = 'IntentRefusedError';
+    this.response = { status: intent.lastError?.status ?? undefined };
+  }
+}
 import {
   ProductRepository,
   WarehouseRepository,
@@ -38,8 +54,7 @@ import {
 
 class ApiProductRepository implements ProductRepository {
   async list(): Promise<Product[]> {
-    const { data } = await api.get<Product[]>('/products');
-    return data;
+    return withReferenceFallback('products', async () => (await api.get<Product[]>('/products')).data);
   }
   async create(input: NewProduct): Promise<Product> {
     const { data } = await api.post<Product>('/products', input);
@@ -62,18 +77,32 @@ class ApiProductRepository implements ProductRepository {
 
 class ApiWarehouseRepository implements WarehouseRepository {
   async list(): Promise<Warehouse[]> {
-    const { data } = await api.get<Warehouse[]>('/warehouses');
-    return data;
+    return withReferenceFallback('warehouses', async () => (await api.get<Warehouse[]>('/warehouses')).data);
   }
   async create(input: { name: string }): Promise<Warehouse> {
     const { data } = await api.post<Warehouse>('/warehouses', input);
     return data;
   }
   async ensureDefault(): Promise<Warehouse> {
+    // The server creates a company's first warehouse at registration, and a Staff member only sees the warehouses
+    // granted to them: an empty list means "no access", never "create one".
     const list = await this.list();
     if (list.length > 0) return list.find((w) => w.isActive !== false) ?? list[0];
-    return this.create({ name: 'Main Warehouse' });
+    throw new Error('NO_WAREHOUSE_ACCESS');
   }
+}
+
+/**
+ * Every online stock write carries an Idempotency-Key: the caller's key for this user action when it has one (so a
+ * manual retry reuses it), otherwise a fresh one. Transient failures are retried with the same key; the server
+ * replays the first result instead of moving the stock twice.
+ */
+function postStockWrite<T>(path: string, body: object, key: string | undefined): Promise<T> {
+  return sendIdempotent(
+    key ?? randomUUID(),
+    async (k) => (await api.post<T>(path, body, { headers: { 'Idempotency-Key': k } })).data,
+    { statusOf: httpStatusOf },
+  );
 }
 
 class ApiStoreRepository implements StoreRepository {
@@ -110,10 +139,21 @@ class ApiStockRepository implements StockRepository {
       expiryDate: _expiryDate,
       pickStrategy: _pickStrategy,
       serialNumbers: _serialNumbers,
+      idempotencyKey,
       ...body
     } = input;
-    const { data } = await api.post<StockMovement>(`/stock/${kind}`, body);
-    return data;
+    // Receipts and dispatches go through the durable outbox: confirmed now when the server answers, otherwise kept
+    // on the device (same key, same payload) until it does. The intent id is the action's Idempotency-Key.
+    const intent = await submitIntent({ id: idempotencyKey ?? randomUUID(), kind, payload: body });
+    const result = (id: string, balanceAfter: string, queued: boolean): MovementResult => ({
+      id, type: kind, quantity: body.quantity, balanceAfter, createdAt: new Date(intent.createdAt).toISOString(),
+      ...(queued ? { queued } : {}),
+    });
+    if (intent.state === 'CONFIRMED') {
+      return result(intent.result?.movementId || intent.id, intent.result?.runningBalance ?? '', false);
+    }
+    if (intent.state === 'PENDING' || intent.state === 'SENDING') return result(intent.id, '', true);
+    throw new IntentRefusedError(intent);
   }
   async movements(productId: string): Promise<StockMovement[]> {
     const { data } = await api.get<StockMovement[]>(`/stock/movements/${productId}`);
@@ -128,8 +168,8 @@ class ApiStockRepository implements StockRepository {
 
   async transfer(input: TransferInput): Promise<void> {
     // Same whitelist-DTO constraint as move() above.
-    const { fromStoreId: _fromStoreId, toStoreId: _toStoreId, ...body } = input;
-    await api.post('/stock/transfer', body);
+    const { fromStoreId: _fromStoreId, toStoreId: _toStoreId, idempotencyKey, ...body } = input;
+    await postStockWrite('/stock/transfer', body, idempotencyKey);
   }
 
   // No backend endpoint for section-level breakdown yet.
