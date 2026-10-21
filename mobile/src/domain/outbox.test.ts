@@ -159,10 +159,11 @@ describe('offline intents: display and housekeeping', () => {
     expect(expireStale([ambiguous], now)[0].state).toBe('PENDING');
   });
 
-  it('prunes confirmed history after a day, never unresolved intents', () => {
+  it('prunes confirmed history after 7 days (kept for reconciliation), never unresolved intents', () => {
     const done = { ...intent(), state: 'CONFIRMED' as const, result: { movementId: 'm', revision: '1', runningBalance: '0', replayed: false, at: 0 } };
     const waiting = intent();
-    expect(prune([done, waiting], 25 * 60 * 60 * 1000)).toEqual([waiting]);
+    expect(prune([done, waiting], 25 * 60 * 60 * 1000)).toEqual([done, waiting]);
+    expect(prune([done, waiting], 8 * 24 * 60 * 60 * 1000)).toEqual([waiting]);
   });
 });
 

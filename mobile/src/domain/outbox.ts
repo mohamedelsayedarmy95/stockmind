@@ -32,7 +32,9 @@ export type IntentReason =
   | 'invalid' // 400 and other 4xx
   | 'key-reused' // 422: should never happen with immutable payloads
   | 'plan-limit' // 402: entitlement
-  | 'too-old'; // never sent and older than MAX_UNSENT_AGE_MS
+  | 'too-old' // never sent and older than MAX_UNSENT_AGE_MS
+  | 'history-changed' // once confirmed, but the server's current history no longer holds it (restore)
+  | 'history-mismatch'; // the server's record under this key is not what was sent
 
 export interface IntentPayload {
   productId: string;
@@ -68,15 +70,28 @@ export interface StockIntent {
   maybeCommitted: boolean;
   nextAttemptAt: number;
   lastError: { status: number | null; reason: IntentReason; at: number } | null;
+  /** The server's receipt. For a NEEDS_REVIEW 'history-changed' intent it is the LAST KNOWN receipt, kept as evidence. */
   result: IntentResult | null;
+  /**
+   * What the client currently knows about a CONFIRMED receipt, separate from stock truth. Absent: never questioned.
+   * 'pending': the server's history was reset and the receipt has not been re-checked yet; 'verified': the current
+   * ledger holds it; 'unverifiable': the server could not say (no access, partial record, old server).
+   */
+  verification?: IntentVerification | null;
+}
+
+export interface IntentVerification {
+  state: 'pending' | 'verified' | 'unverifiable';
+  at: number;
+  reason?: string;
 }
 
 /** A never-sent intent older than this is held for review instead of being posted days later. */
 export const MAX_UNSENT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BACKOFF_BASE_MS = 2_000;
 const BACKOFF_CAP_MS = 5 * 60_000;
-/** Confirmed intents are kept this long for the review list, then pruned. */
-const CONFIRMED_RETENTION_MS = 24 * 60 * 60 * 1000;
+/** Confirmed receipts are kept this long, so a later history reset can still be reconciled against them. */
+const CONFIRMED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_KEPT = 500;
 
 export class IntentError extends Error {
@@ -242,6 +257,8 @@ export function pendingEffects(
     if (i.state === 'PENDING' || i.state === 'SENDING') add(i.payload.productId, 'pending', signed(i));
     else if (
       i.state === 'CONFIRMED' &&
+      // After a history reset the receipt's revision may name another movement: only a re-checked one counts.
+      (!i.verification || i.verification.state === 'verified') &&
       i.result?.revision &&
       (syncedRevision === null || BigInt(i.result.revision) > BigInt(syncedRevision))
     ) {
@@ -284,17 +301,141 @@ export function recoverInterrupted(intents: readonly StockIntent[]): StockIntent
   return intents.map((i) => (i.state === 'SENDING' ? { ...i, state: 'PENDING' as const, maybeCommitted: true } : i));
 }
 
-/** Drops confirmed intents after a day (and the oldest confirmed ones past MAX_KEPT). Nothing unresolved is dropped. */
+/**
+ * Drops confirmed intents after the retention period (and the oldest confirmed ones past MAX_KEPT). Nothing
+ * unresolved is dropped, nor a receipt waiting to be re-checked.
+ */
 export function prune(intents: readonly StockIntent[], now: number): StockIntent[] {
-  const kept = intents.filter((i) => !(i.state === 'CONFIRMED' && i.result && now - i.result.at > CONFIRMED_RETENTION_MS));
+  const settled = (i: StockIntent) => i.state === 'CONFIRMED' && i.verification?.state !== 'pending';
+  const kept = intents.filter((i) => !(settled(i) && i.result && now - i.result.at > CONFIRMED_RETENTION_MS));
   const excess = kept.length - MAX_KEPT;
   if (excess <= 0) return kept;
   const dropIds = new Set(
     kept
-      .filter((i) => i.state === 'CONFIRMED')
+      .filter(settled)
       .sort((a, b) => a.seq - b.seq)
       .slice(0, excess)
       .map((i) => i.id),
   );
   return kept.filter((i) => !dropIds.has(i.id));
+}
+
+// ── Reconciliation after a history reset ─────────────────────────────────────────────────────────────────────────
+//
+// A receipt says "the server committed this". A database restore can erase that commit (and its key record) and
+// reuse its revision number, so after a reset a receipt is evidence of the PAST, not of the current ledger. Receipts
+// are re-checked with POST /stock/operations/lookup:
+// - present and matching → verified (its current revision replaces the old one);
+// - absent → NEEDS_REVIEW 'history-changed'. Never PENDING: re-sending would apply it again as a NEW movement while
+//   nobody can tell whether the loss was intended (e.g. a deliberate rollback). A person decides (re-enter or not);
+// - present but different, or a server-side mismatch → NEEDS_REVIEW 'history-mismatch';
+// - indeterminate / unavailable → 'unverifiable', shown as such, never as plainly confirmed.
+
+/** The server's answer for one operation (see OperationLookupService on the backend). */
+export interface OperationLookup {
+  key: string;
+  status: 'present' | 'absent' | 'indeterminate' | 'unavailable';
+  reason?: string;
+  movement?: {
+    id: string;
+    warehouseId: string;
+    productId: string;
+    movementType: string;
+    quantityChange: string;
+    revision: string | null;
+  };
+}
+
+/** A reset in one warehouse (or everywhere, warehouseId null) puts that account's receipts back to "re-checking". */
+export function markForRecheck(
+  intents: readonly StockIntent[],
+  scope: string,
+  warehouseId: string | null,
+  now: number,
+): StockIntent[] {
+  return intents.map((i) =>
+    i.scope === scope && i.state === 'CONFIRMED' && i.result && (warehouseId === null || i.payload.warehouseId === warehouseId)
+      ? { ...i, verification: { state: 'pending' as const, at: now } }
+      : i,
+  );
+}
+
+/** Receipts to re-check: those marked pending, or (all=true, at session start) every receipt still kept. */
+export function recheckCandidates(
+  intents: readonly StockIntent[],
+  scope: string,
+  opts: { all?: boolean; limit?: number } = {},
+): StockIntent[] {
+  return intents
+    .filter(
+      (i) =>
+        i.scope === scope &&
+        i.state === 'CONFIRMED' &&
+        i.result !== null &&
+        (opts.all || i.verification?.state === 'pending'),
+    )
+    .sort((a, b) => b.seq - a.seq)
+    .slice(0, opts.limit ?? 100);
+}
+
+const MOVEMENT_TYPE: Record<IntentKind, string> = { inbound: 'INBOUND', outbound: 'OUTBOUND' };
+
+function sameOperation(intent: StockIntent, m: NonNullable<OperationLookup['movement']>): boolean {
+  if (intent.result?.movementId && intent.result.movementId !== m.id) return false;
+  return (
+    m.warehouseId === intent.payload.warehouseId &&
+    m.productId === intent.payload.productId &&
+    m.movementType === MOVEMENT_TYPE[intent.kind] &&
+    Math.abs(Number(m.quantityChange)) === Number(intent.payload.quantity)
+  );
+}
+
+/** Applies the server's answer to a CONFIRMED receipt. Anything else is returned unchanged. */
+export function applyLookup(intent: StockIntent, lookup: OperationLookup, now: number): StockIntent {
+  if (intent.state !== 'CONFIRMED' || lookup.key !== intent.id) return intent;
+  const review = (reason: 'history-changed' | 'history-mismatch'): StockIntent => ({
+    ...intent,
+    state: 'NEEDS_REVIEW',
+    lastError: { status: null, reason, at: now },
+    verification: null,
+  });
+  switch (lookup.status) {
+    case 'present':
+      if (!lookup.movement || !sameOperation(intent, lookup.movement)) return review('history-mismatch');
+      return {
+        ...intent,
+        verification: { state: 'verified', at: now },
+        result: intent.result ? { ...intent.result, revision: lookup.movement.revision } : intent.result,
+      };
+    case 'absent':
+      return review('history-changed');
+    default:
+      return { ...intent, verification: { state: 'unverifiable', at: now, reason: lookup.reason ?? lookup.status } };
+  }
+}
+
+export type ReceiptDisplay = 'confirmed' | 'rechecking' | 'unverifiable';
+
+/** How a CONFIRMED receipt may be described: never plainly "confirmed" while the server's history is in question. */
+export function receiptDisplay(intent: StockIntent): ReceiptDisplay {
+  if (intent.verification?.state === 'pending') return 'rechecking';
+  if (intent.verification?.state === 'unverifiable') return 'unverifiable';
+  return 'confirmed';
+}
+
+/**
+ * The only way back for a receipt the server's history lost: a person re-enters it as a NEW action (new key), with
+ * a note naming the original, so the ledger shows a deliberate re-entry and never a silent replay.
+ */
+export function reentryDraft(intent: StockIntent): { kind: IntentKind; payload: IntentPayload } | null {
+  if (intent.state !== 'NEEDS_REVIEW' || intent.lastError?.reason !== 'history-changed') return null;
+  return {
+    kind: intent.kind,
+    payload: {
+      productId: intent.payload.productId,
+      warehouseId: intent.payload.warehouseId,
+      quantity: intent.payload.quantity,
+      notes: `Re-entry of action ${intent.id.slice(0, 8)} (missing from server history after a reset)`,
+    },
+  };
 }
