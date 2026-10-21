@@ -197,8 +197,10 @@ These are before any Series 03 automation, which started at ~22:38. Only the war
 
 - Started and stopped by this series: backend :3000, lossy proxy :3001, Metro :8081.
 - `adb reverse` entries were added and then removed; the list was empty before and after.
-- PostgreSQL :55433 (`_local-tools\pgdata-s04`) is left running for follow-up gates. Stop it with:
-  `_local-tools\pg15\pgsql\bin\pg_ctl.exe -D _local-tools\pgdata-s04 stop`
+- PostgreSQL :55433 (`_local-tools\pgdata-s04`) was stopped at the end; its data is kept on disk and holds throwaway data only.
+  Restart it with:
+  `_local-tools\pg15\pgsql\bin\pg_ctl.exe -D _local-tools\pgdata-s04 -o "-p 55433 -c listen_addresses=127.0.0.1" start`
+- At the end, ports 3000, 3001, 8081 and 55433 were free and the `adb reverse` list was empty.
 - Scripts in `_local-tools\scripts\`: `backend-gate.ps1`, `start-backend.ps1`, `start-metro.ps1`, `lossy-proxy.mjs`, `online-slice.mjs`, `ui.js`, `add-i18n-s04.js`.
 
 ## 10. Open items / next actions
