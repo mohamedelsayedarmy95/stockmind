@@ -1,6 +1,6 @@
 # STOCKMIND — DATABASE RECOVERY RUNBOOK
 
-> **الحالة:** مسودة تشغيلية v0.1 — 2026-10-24 — اتكتبت أثناء Series 05 (RC admission preflight).
+> **الحالة:** مسودة تشغيلية v0.2 — 2026-10-24 — اتكتبت في Series 05 (RC admission preflight) واتحدّثت في Series 06 (أقسام 3 و5 و8 و11 و13)؛ التحديثات مبنية على migrations جديدة وأدلة اختبار PostgreSQL.
 > **مش** سياسة Production معتمدة. الـ re-entry البشري هو **سلوك التطوير الحالي** المقبول للـ preflight، والـ Director هو اللي يعتمد السياسة النهائية.
 > مبني على الكود الفعلي (`integration/series04`، آخر commit كود `d69f6e8`)، وأي SQL هنا **معلّم** بحالته: `VERIFIED` (اتجرّب على PostgreSQL مؤقتة) أو `NOT RUN` (اتراجع على الكود بس).
 > أي restore أو repair على Production يحتاج **موافقة صريحة من الـ Director**. الملف ده مش تصريح بتنفيذ حاجة.
@@ -15,6 +15,8 @@
 4. **افحص الـ invariants** (القسم 3): counters، تكرار الـ revision، NULL revisions.
 5. **قرّر لكل حركة ضايعة** (القسم 5) — والقرار لإنسان، مش للتطبيق.
 6. **شغّل الـ API** وبلّغ المستخدمين إن شاشة "Needs review · history changed" متوقعة (القسم 6).
+
+> قبل **أول** deploy للـ candidate على أي قاعدة بيانات حقيقية: نفّذ قايمة الفحص المسبق (القسم 13). الـ migrations بتتشغّل أوتوماتيك وقت الـ boot (`migrationsRun: true`).
 
 ---
 
@@ -60,7 +62,8 @@ GROUP BY w.id HAVING w.stock_revision <> COALESCE(max(sm.revision), 0);
 SELECT warehouse_id, revision, count(*) FROM stock_movements
 WHERE revision IS NOT NULL GROUP BY 1, 2 HAVING count(*) > 1;
 
--- (ج) حركات بلا revision (كتبها إصدار قديم بعد rollback للتطبيق) — القسم 8
+-- (ج) حركات بلا revision. بعد تطبيق migration 1792580000000 مفروض ما تحصلش أبداً (trigger)؛
+--     أي نتيجة = البيئة لسه ما طبّقتهاش، أو في مشكلة تستحق تصعيد — القسم 8
 SELECT warehouse_id, count(*) FROM stock_movements WHERE revision IS NULL GROUP BY 1;
 
 -- (د) الأرصدة مقابل الـ ledger — قارنها بنتيجة نفس الاستعلام قبل الـ restore.
@@ -120,11 +123,11 @@ FROM pre_ledger p JOIN stock_movements s ON s.warehouse_id = p.warehouse_id AND 
 | آمن | ممنوع / لازم مراجعة |
 |---|---|
 | قراءة ومقارنة الـ ledger، تصدير الأدلة | **إعادة إرسال أوتوماتيك** لأي إيصال confirmed |
-| `lookup` للتأكد من وجود الحركة قبل أي قرار | `migration:revert` على Production (القسم 8) |
+| `lookup` للتأكد من وجود الحركة قبل أي قرار | `migration:revert` على Production — حتى لو بيرفض لما في بيانات، ممنوع تعتمد عليه (القسم 8) |
 | Acknowledge لحركة اتأكد إنها ضايعة عن قصد | حذف/تعديل `stock_idempotency_keys` أو إعادة استخدام Idempotency-Key لطلب مختلف (السيرفر بيرد 422) |
 | Re-entry بشري بعد استيفاء قايمة الفحص تحت | `UPDATE/DELETE` يدوي على `stock_movements` أو `product_warehouse` لـ"تظبيط الأرقام" بدون تسوية مسجّلة |
 | إيقاف الـ API أثناء الاستعادة والمقارنة | restore فوق Production من غير تجميد الكتابة |
-| | تشغيل repair SQL (القسم 8) على Production من غير بروفة على نسخة + موافقة الـ Director |
+| | تشغيل أي repair أو migration على Production من غير بروفة على نسخة + موافقة الـ Director (القسم 8 و13) |
 | | تغيير `ENTITLEMENTS_ENFORCED` أثناء الاسترداد |
 
 ### ب) امتى **ماتعملش** re-entry
@@ -180,29 +183,31 @@ WHERE sm.user_id = :'user' AND sm.product_id = :'product' AND sm.warehouse_id = 
 
 ## 8. After an application rollback (بعد rollback للتطبيق) أو `migration:revert`
 
-> الـ migrations الجديدة (`1792560000000`, `1792570000000`) بتقول في تعليقاتها إن "rollback التطبيق مش محتاج تغيير schema". الاختبار (`rc-admission.migration.pg.spec.ts`) أثبت إن ده **ناقص**:
+> **تحديث Series 06.** الاختبار الجديد `tests/integration/release-safety.migration.pg.spec.ts` (17 اختبار على PostgreSQL مؤقتة، كل حماية فيه بتتحوّل لأحمر لو اتشالت) غيّر الصورة.
 
-- **rollback التطبيق لإصدار قديم** بيكتب حركات **بلا `revision`** ومش بيزوّد `warehouses.stock_revision`. بعد الرجوع للإصدار الجديد، `GET /stock/changes` بيستخدم `revision > since` فالحركات دي **ماتظهرش في أي delta** (`VERIFIED`).
-- **`migration:revert`** (الـ `down()`) **بيمسح** `warehouse_access` و`team_invitations` و`stock_idempotency_keys` وأعمدة `plan/subscription_status`، وإعادة `up()` بتمنح **كل Staff كل مخازن شركته** من جديد (توسيع صلاحيات!) (`VERIFIED`). **ممنوع على Production.**
+### أ) `migration:revert` (الـ `down()`) — fail-closed
 
-لو حصل rollback تطبيق وفي حركات بلا revision — الـ repair ده (`VERIFIED` على PostgreSQL مؤقتة؛ **ممنوع على Production** إلا بعد بروفة على نسخة وموافقة الـ Director):
+- `1792570000000` (entitlements) و`1792560000000` (shared warehouse) بيرفضوا **قبل أي تعديل** لو هيمسحوا: دعوات، أو idempotency records (الإيصالات اللي المصالحة بتعتمد عليها)، أو بيانات plan، أو صلاحيات مخازن مختلفة عن الافتراضي (Staff اتضيّقت صلاحيته، أو مخزن اتفتح بعد الـ rollout ومتمنحش). الرسالة بتقول **إيه** اللي هيضيع وبتنتهي بـ "Nothing was changed". (VERIFIED: snapshot كامل قبل/بعد الرفض مطابق، وسجل الـ migration لسه موجود، والصلاحيات ما اتوسّعتش.)
+- **مفيش override.** الرجوع الفعلي = restore من backup قبل الـ migration، أو fix-forward.
+- `1792580000000` (revision guard): `down()` بتشيل الـ trigger والـ index والـ function فقط، **بدون حذف أي صفوف**، والأرقام المُصلَّحة بتفضل.
+- بعد `down()`+`up()` لـ `1792560000000` على قاعدة نضيفة، أرقام الـ revisions بتتعاد حسابها بترتيب `(created_at, id)` وممكن تختلف عن اللي اتصدرت (الترتيب الأصلي = ترتيب الـ commit). الأجهزة بتكتشف ده بالـ anchor وبتعمل reset، ولذلك ده مش سبب لمنع الـ down.
+- "الـ down نجح من غير SQL error" **مش** معناها "آمن للإنتاج". استخدمه فقط على قاعدة ما فيهاش بيانات الميزات.
 
-```sql
-BEGIN;
-SELECT id FROM warehouses WHERE id IN (SELECT DISTINCT warehouse_id FROM stock_movements WHERE revision IS NULL)
-ORDER BY id FOR UPDATE;
-WITH todo AS (
-  SELECT id, warehouse_id, row_number() OVER (PARTITION BY warehouse_id ORDER BY created_at, id) AS rn
-  FROM stock_movements WHERE revision IS NULL)
-UPDATE stock_movements m SET revision = w.stock_revision + t.rn
-FROM todo t JOIN warehouses w ON w.id = t.warehouse_id WHERE m.id = t.id;
-UPDATE warehouses w SET stock_revision =
-  COALESCE((SELECT max(m.revision) FROM stock_movements m WHERE m.warehouse_id = w.id), 0);
-COMMIT;
-```
+### ب) rollback التطبيق لإصدار أقدم من `1792560000000`
 
-بعده: أي جهاز عنده cursor قديم هياخد الحركات دي في الـ delta الجاي (اتأكد في الاختبار). شغّل فحوصات القسم 3 قبل وبعد.
+- **بعد `1792580000000`:** الإصدار القديم اللي بيدخّل حركات بلا revision بياخد revision من القاعدة (trigger) بنفس بروتوكول التطبيق: زيادة العداد تحت قفل صف المخزن. الحركات دي **بتظهر في الـ delta** (VERIFIED، بما فيها 12 كاتب بأسلوب التطبيق + 12 بأسلوب قديم في نفس الوقت: أرقام فريدة ومتتالية بلا فجوات).
+- **لسه غير مدعوم كاستراتيجية رجوع:** الإصدار القديم مايعرفش الـ idempotency (إعادة المحاولة ممكن تكرر الكتابة)، ولا صلاحيات المخازن (Staff ممكن يوصل لأي مخزن)، ولا الدعوات. يعني rollback التطبيق = **وضع متدهور مؤقت** لحد fix-forward، مش طريق رجوع آمن. لو حصل: وقّف الكتابة من الأجهزة (القسم 9) وصلّح للأمام.
+- **احتمال (HYPOTHESIS، ما اتجرّبش):** لو الإصدار القديم عمل transfers متعاكسة متزامنة، قفل صفوف المخازن في ترتيب الإدخال ممكن يعمل deadlock؛ PostgreSQL بيقتل واحدة والـ client يعيد. التطبيق الحالي بيقفل بترتيب الـ id فمش متأثر.
 
+### ج) حركات بلا revision موجودة بالفعل
+
+- تطبيق `1792580000000` بيصلّحها **أوتوماتيك** داخل الـ migration: بيقفل مخازنها، ويرقّمها **فوق كل رقم اتصدر** بترتيب `(created_at, id)`، ويرفع العداد. الأرقام اللي اتصدرت قبل كده **ما بتتغيّرش أبداً** (VERIFIED). ترتيب `created_at` ده قاعدة حتمية وموثقة مش ترتيب الـ commit الحقيقي (ده مجهول)؛ بروتوكول الـ cursor محتاج بس إنها تتحط فوق أي رقم ممكن يكون جهاز قراه.
+- ماتستخدمش SQL يدوي بدل الـ migration: الـ migration فيها فحص التكرار المسبق وبتتشغّل في transaction واحدة.
+
+### د) تكرار `(warehouse, revision)`
+
+- `1792580000000` بترفض التطبيق **قبل أي تعديل** لو لقيت تكرار وبتسمّي الأزواج (VERIFIED). الاستعلام (ب) في القسم 3 هو الفحص المسبق. بعد التطبيق التكرار مستحيل بـ unique partial index (VERIFIED بإدخال مباشر مرفوض).
+- **مفاضلة:** تكرار موجود = الـ boot بيفشل لحد ما حد يحله، بدل ما يكمّل بتكامل مكسور. ده المقصود، وعشان كده الفحص المسبق (القسم 13) مطلوب قبل أول deploy.
 ---
 
 ## 9. امتى توقف الكتابة أو الـ deployment
@@ -240,14 +245,14 @@ COMMIT;
 
 ## 11. حالات فشل محتاجة safeguards برمجية (مش بيحلها runbook وحده)
 
-> مفيش واحدة منها بتمنع **قبول الـ RC** (الـ online mode dev preview فقط، وبيتأكد في الكود من `__DEV__` + متغيرين). لكنها **شروط قبل تفعيل الـ shared warehouses / الـ online mode على Production**. دي مقترحات؛ مفيش أي منها اتنفّذ في Series 05.
+> مفيش واحدة منها بتمنع **قبول الـ RC** (الـ online mode dev preview فقط، وبيتأكد في الكود من `__DEV__` + متغيرين). لكنها **شروط قبل تفعيل الـ shared warehouses / الـ online mode على Production**. **S3 وS4 اتنفّذوا في Series 06** (migration `1792580000000` وحمايات الـ `down()`)؛ S1 وS2 وS5 وS6 لسه مقترحات.
 
 | # | الحالة | ليه الـ runbook مش كفاية | acceptance criteria مقترحة |
 |---|---|---|---|
 | S1 | عنصر `history-changed` ما بيتعاد فحصه، فلو الـ restore اتعكس والمستخدم عمل re-entry يحصل duplicate | المستخدم مش هيعرف | قبل ما شاشة الـ re-entry تبعت، التطبيق يعمل `lookup` للـ key الأصلي؛ لو `present` يمنع ويشرح. اختبار domain + اختبار PG + تجربة جهاز |
 | S2 | مفيش "restore marker" من السيرفر (history epoch)؛ الكشف بيعتمد على poll الجهاز أو بدء التطبيق، وجهاز cursor بتاعه أقدم من نقطة الـ restore مش بيتعلّم | نافذة زمنية يعرض فيها الجهاز إيصال confirmed قديم | السيرفر يعرض `historyEpoch` بيتغيّر بإجراء مشغّل، ويتبعت مع `/stock/changes`؛ تغيّره يخلّي الجهاز يعيد فحص كل الإيصالات فوراً. اختبار PG بيحاكي restore بدون رجوع cursor |
-| S3 | تفرّد `(warehouse_id, revision)` بيعتمد على بروتوكول القفل مش على constraint (الفهرس `idx_stock_movements_warehouse_revision` مش unique) | أي bug أو كتابة خارج المسار يكسر الترتيب بصمت | unique partial index (`WHERE revision IS NOT NULL`) عبر migration إضافية مراجَعة؛ فحص التكرار قبل التطبيق؛ اختبارات التزامن ×3 |
-| S4 | `down()` مدمّر + rollback التطبيق بيسيب NULL revisions | الإجراء اليدوي بيتنسى | `down()` يرفض لو في بيانات (إلا بمتغير صريح)؛ وفحص readiness/boot يفشل أو يصلّح تلقائياً لو في NULL revisions. اختبارات |
+| S3 ✔ **تم (Series 06)** | تفرّد `(warehouse_id, revision)` كان بيعتمد على بروتوكول القفل فقط | — | unique partial index + فحص تكرار مسبق في `1792580000000`؛ اختبارات: بيئة production-reconstruction وتزامن 24 كاتب ومحاولة إدخال مكرر مرفوضة |
+| S4 ✔ **تم (Series 06)** | `down()` مدمّر + rollback التطبيق بيسيب NULL revisions | — | `down()` fail-closed (بدون override)، وtrigger يرقّم الحركات بلا revision، وإصلاح أوتوماتيك داخل الـ migration. القسم 8 |
 | S5 | `stock_idempotency_keys` بلا retention/cleanup | بتكبر، وأي cleanup لازم يتوافق مع فترة الإيصالات (7 أيام) ونافذة الـ restore | سياسة retention موثقة ≥ فترة الجهاز + نافذة الـ restore؛ job بيسيب الـ lookup يشتغل بالـ movement id (متحقق منه في الـ spec) |
 | S6 | مفيش تقرير للمدير بالعمليات `history-changed` | المشغّل شغال بـ SQL فقط | endpoint/تقرير للـ Admin يلخّص الضايع per company من أدلة السيرفر |
 
@@ -256,6 +261,37 @@ COMMIT;
 ## 12. المراجع
 
 - الكود: `src/infrastructure/repositories/operation-lookup.service.ts`، `stock.service.ts` (`getChanges`)، `mobile/src/domain/outbox.ts` (`applyLookup`, `recheckCandidates`, `reentryDraft`, `prune`).
-- الاختبارات: `tests/integration/operation-lookup.pg.spec.ts`، `sync-cursor-reset.pg.spec.ts`، `rc-admission.migration.pg.spec.ts`.
-- التقارير: `docs/handoff/SERIES_04_CHECKPOINT.md` §2، `docs/handoff/SERIES_05_RC_PREFLIGHT_REPORT.md`.
+- الاختبارات: `tests/integration/operation-lookup.pg.spec.ts`، `sync-cursor-reset.pg.spec.ts`، `release-safety.migration.pg.spec.ts`، و`tests/equivalence/production-bb071ed/`.
+- التقارير: `docs/handoff/SERIES_04_CHECKPOINT.md` §2، `SERIES_05_RC_PREFLIGHT_REPORT.md`، `SERIES_06_RELEASE_SAFETY_REPORT.md`، `SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md`.
 - سياسة الموافقات: `docs/handoff/STOCKMIND_AI_CONTINUITY.md` قسم E.
+
+---
+
+## 13. قايمة الفحص المسبق قبل أول deploy للـ candidate (قراءة فقط — لمشغّل مصرّح)
+
+> **الحالة: NOT RUN على أي قاعدة حقيقية.** ما اتصلناش بـ Production ولا Neon في أي مرحلة. الاستعلامات دي بتتشغّل بموافقة الـ Director، والنتايج بتتسجّل في سجل الأدلة (القسم 10). الـ migrations بتتشغّل أوتوماتيك وقت الـ boot (`migrationsRun: true`)، فـ **الـ deploy = الـ migrate**.
+
+```sql
+-- 1) إيه اللي اتطبّق فعلاً؟ (المتوقع على production المبلّغ عنه: 4 migrations، آخرها SamlSso1722000000000)
+SELECT id, "timestamp", name FROM migrations ORDER BY id;
+
+-- 2) هل جدول FCM موجود بالفعل؟ لو موجود، CREATE TABLE في 1722345600000 هيفشل والـ batch كله يتراجع. المتوقع: NULL
+SELECT to_regclass('public.user_fcm_tokens');
+
+-- 3) إصدار PostgreSQL (المشروع محتاج 13+ أصلاً: gen_random_uuid() في Phase1Foundation وغيره) وصلاحية الإنشاء. المتوقع: 13+ و true
+SHOW server_version;
+SELECT has_schema_privilege(current_user, 'public', 'CREATE');
+
+-- 4) أحجام الجداول (تقدير زمن backfill الـ revisions وبناء الـ index)
+SELECT (SELECT count(*) FROM stock_movements) AS movements,
+       (SELECT count(*) FROM users) AS users, (SELECT count(*) FROM warehouses) AS warehouses;
+
+-- 5) لو الأعمدة الجديدة موجودة (بيئة بعد 1792560000000): تكرار revisions لازم يبقى صفر صفوف
+SELECT warehouse_id, revision, count(*) FROM stock_movements WHERE revision IS NOT NULL GROUP BY 1, 2 HAVING count(*) > 1;
+```
+
+**قبل الـ boot الأول:**
+1. خد backup/branch/restore point من مزوّد الـ DB وسجّله (القسم 10). ده طريق الرجوع الحقيقي؛ `down()` مش طريق رجوع.
+2. شغّل **instance واحدة** بس في أول boot (مفيش advisory lock حوالين الـ migrations، قسم الفرضيات في تقرير Series 06).
+3. `uuid-ossp` **لم يعد شرطاً**: مفيش migration بيستخدمه.
+4. بعد الـ boot: فحوصات القسم 3 (أ) و(ب) و(ج) لازم تطلع صفر صفوف، والـ trigger `trg_stock_movements_assign_revision` والـ index `uq_stock_movements_warehouse_revision` موجودين.
