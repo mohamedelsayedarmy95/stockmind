@@ -1,0 +1,75 @@
+Adaptation proof for tests/equivalence/production-bb071ed/*.spec.ts (generated 2026-10-24 22:24 +03:00)
+A = the original spec at production commit bb071ed (tests/unit/<name>.spec.ts).  B = the adapted copy, with ONLY the mechanical path-depth change normalised back
+(imports '../../../src' -> '../../src', '../../factories' -> '../factories', the __dirname entity glob). Every other difference is listed below as a diff hunk.
+
+=== movement-history.security : lines removed from the original = 1; lines added = 15; removed lines that contain an assertion/test title = 0
+@@ -14,0 +15,3 @@ import { PermissionService } from '../../src/infrastructure/repositories/permiss
++import { RedisService } from '../../src/infrastructure/cache/redis.service'; // ADAPTED (DI only)
++import { WarehouseAccessService } from '../../src/infrastructure/security/warehouse-access.service'; // ADAPTED (DI only)
++import { OperationLookupService } from '../../src/infrastructure/repositories/operation-lookup.service'; // ADAPTED (DI only)
+@@ -105,0 +109,11 @@ let currentUser: JwtPayload;
++    // ADAPTED (DI only): providers the candidate's stock path now depends on. The cache is an always-miss, so every
++    // request still takes the database path whose output these tests inspect; scope null = every warehouse.
++    {
++      provide: RedisService,
++      useValue: {
++        get: async () => null, set: async () => undefined, generateKey: (p: string, ...a: string[]) => [p, ...a].join(':'),
++        getGeneration: async () => 'gen-0', bumpGeneration: async () => undefined,
++      },
++    },
++    { provide: WarehouseAccessService, useValue: { scope: async () => null, assertCanUse: async () => undefined } },
++    { provide: OperationLookupService, useValue: { lookup: async () => [] } },
+@@ -196 +210 @@ describe('F4: movement history must not disclose user credentials', () => {
+-    const entitiesGlob = path.join(__dirname, '../../src/domain/entities/*.entity.ts').replace(/\\/g, '/');
++    const entitiesGlob = path.join(__dirname, '../../src/domain/entities/*.entity.ts') /* ADAPTED (path only): the file lives one directory deeper */.replace(/\\/g, '/');
+
+=== audit-log.redaction : lines removed from the original = 0; lines added = 0; removed lines that contain an assertion/test title = 0
+
+=== http-logger.redaction : lines removed from the original = 0; lines added = 0; removed lines that contain an assertion/test title = 0
+
+=== google-login.security : lines removed from the original = 24; lines added = 7; removed lines that contain an assertion/test title = 0
+@@ -6 +5,0 @@
+-import { generateKeyPairSync } from 'crypto';
+@@ -8 +6,0 @@ import { UnauthorizedException } from '@nestjs/common';
+-import * as admin from 'firebase-admin';
+@@ -12,11 +9,0 @@ import { AuthService } from '../../src/infrastructure/repositories/auth.service'
+-const { privateKey } = generateKeyPairSync('rsa', {
+-  modulusLength: 2048,
+-  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+-  publicKeyEncoding: { type: 'spki', format: 'pem' },
+-});
+-const env: Record<string, string> = {
+-  FIREBASE_PROJECT_ID: 'synthetic-local-project',
+-  FIREBASE_CLIENT_EMAIL: 'svc@synthetic-local-project.iam.gserviceaccount.com',
+-  FIREBASE_PRIVATE_KEY: privateKey.replace(/\n/g, '\\n'),
+-};
+@@ -24,13 +11,5 @@ describe('Google login trusts only verified e-mail addresses', () => {
+-  let firebase: FirebaseService;
+-  let verifyIdToken: jest.SpyInstance;
+-  beforeAll(() => {
+-    firebase = new FirebaseService({ get: (k: string) => env[k] } as never);
+-    firebase.onModuleInit();
+-    verifyIdToken = jest.spyOn(admin.auth(admin.app()), 'verifyIdToken');
+-  });
+-  afterAll(async () => {
+-    verifyIdToken.mockRestore();
+-    await Promise.all(admin.apps.map((a) => a?.delete()));
+-  });
++  // ADAPTED (setup only): the candidate verifies Google ID tokens with google-auth-library (OAuth2Client.verifyIdToken)
++  // instead of the Firebase Admin SDK, so the stub target changes. What each test sends and asserts is unchanged.
++  const firebase = new FirebaseService({ get: () => undefined } as never);
++  const verifyIdToken = jest.spyOn(
++    (firebase as unknown as { googleClient: { verifyIdToken: () => unknown } }).googleClient, 'verifyIdToken');
+@@ -39 +18 @@ describe('Google login trusts only verified e-mail addresses', () => {
+-    ({ uid: 'u1', email: 'victim@example.test', email_verified, name: 'V' }) as never;
++    ({ getPayload: () => ({ sub: 'u1', email: 'victim@example.test', email_verified, name: 'V' }) }) as never;
+@@ -56,0 +36 @@ describe('Google login trusts only verified e-mail addresses', () => {
++        { assertSeatAvailable: async () => undefined } as never, // ADAPTED (DI only): AuthService gained an EntitlementsService constructor parameter
+
+=== refresh-token.rotation : lines removed from the original = 0; lines added = 1; removed lines that contain an assertion/test title = 0
+@@ -28,0 +29 @@ function setup() {
++    { assertSeatAvailable: async () => undefined } as never, // ADAPTED (DI only): AuthService gained an EntitlementsService constructor parameter
+
+=== auth.second-factor : lines removed from the original = 0; lines added = 1; removed lines that contain an assertion/test title = 0
+@@ -46,0 +47 @@ async function setup(twoFactorEnabled: boolean) {
++    { assertSeatAvailable: async () => undefined } as never, // ADAPTED (DI only): AuthService gained an EntitlementsService constructor parameter
