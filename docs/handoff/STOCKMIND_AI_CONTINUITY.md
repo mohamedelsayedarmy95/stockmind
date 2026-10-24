@@ -2,7 +2,7 @@
 
 > **Canonical location:** `docs/handoff/STOCKMIND_AI_CONTINUITY.md` on branch `integration/series04`.
 > **Portable copy:** `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md`.
-> **Last updated:** 2026-10-21, after Series 04.
+> **Last updated:** 2026-10-24 (onboarding; engineering state unchanged since Series 04, 2026-10-21).
 >
 > This file is a map, not proof. **Git history and the code win over this file.** Labels: VERIFIED, PARTIAL, UNVERIFIED,
 > NOT DONE.
@@ -12,7 +12,7 @@
 ## MANDATORY AI SESSION START / END PROTOCOL
 
 **At session start**
-1. Read this file first.
+1. Read this file first, then `docs/handoff/STOCKMIND_AI_BRIDGE.md` (the ChatGPT↔Claude bridge: current task, approvals, risks, next step).
 2. Read **only** the linked checkpoint or source needed for the task (section H). Do not re-audit the repo.
 3. Check reality before acting:
    ```powershell
@@ -32,8 +32,9 @@
 1. Update section C (status, commits, tests, blockers) and section G (next action).
 2. Append a dated entry to the Change log (section I).
 3. Link to evidence instead of pasting large reports.
-4. Save this file, commit it on the working branch if allowed, and copy it to the Desktop path above.
-5. Verify both files are readable, and report whether the change is committed and pushed.
+4. Update `docs/handoff/STOCKMIND_AI_BRIDGE.md` (all current-state sections plus its changelog); mirror it to `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_BRIDGE.md`.
+5. Save this file, commit both on the working branch if allowed, and copy this file to the Desktop path above.
+6. Verify each canonical/Desktop pair has an identical SHA-256, and report whether the change is committed and pushed.
 
 Update only on meaningful state changes. Do not rewrite the whole file for small edits.
 
@@ -106,7 +107,7 @@ Update only on meaningful state changes. Do not rewrite the whole file for small
 
 | Ref | HEAD | Worktree | Notes |
 |---|---|---|---|
-| `integration/series04` | `322e8a0` | `D:\Projects\StockMind-wt\series04-integration` | **Current working line.** Series 03 backend + mobile, plus Series 04 P0 |
+| `integration/series04` | `eb19ab0` (last code commit `d69f6e8`; everything after it is docs only, checked 2026-10-24) | `D:\Projects\StockMind-wt\series04-integration` | **Current working line.** Series 03 backend + mobile, plus Series 04 P0 |
 | `feature/series03-sync` | `55348a6` | `D:\Projects\StockMind-wt\series03-backend` | parent `02c53f5` |
 | `mobile/offline-outbox` | `ac9ba6b` | `D:\Projects\StockMind\.claude\worktrees\clever-poincare-ebc43f` (disposable) | contains `0510bc9`, `905f535`, `dbf43a6` |
 | `feature/shared-warehouse` | `02c53f5` | `D:\Projects\StockMind-wt\shared-warehouse` | Series 02 backend; base `cf5a881` |
@@ -265,9 +266,11 @@ Ancestry notes:
 | Series 02 APIs, migrations, cost model | `D:\Projects\StockMind\.ai-handoff\SERIES_02_CHECKPOINT.md` (read only) |
 | User-facing behaviour | Desktop `StockMind_USER_MANUAL.md` |
 | Short resume | Desktop `StockMind_RESUME_CHECKPOINT.md` |
+| Current task, approvals, risks, next step, briefing for ChatGPT | `docs/handoff/STOCKMIND_AI_BRIDGE.md` (Desktop mirror: `StockMind_Handoff\STOCKMIND_AI_BRIDGE.md`) |
 
 ## I. Change log
 - **2026-10-21:** created after Series 04. `integration/series04` @ `322e8a0` (this file is committed on top of it). Next step: RC preflight after Director review.
 - **2026-10-21 (maintenance):** C: disk cleanup reclaimed 6.85 GB (npm/pip caches, the idle Gradle 9.1.0 cache, Gradle daemon logs). No tool, config or project data was touched.
   - Report: Desktop `StockMind_Handoff\C_DRIVE_CLEANUP_REPORT.md`.
   - Inventories and quarantine: `D:\StockMind_Backups\Maintenance\2026-10-21_C_cleanup\`.
+- **2026-10-24:** onboarding on a new Claude account. Added `docs/handoff/STOCKMIND_AI_BRIDGE.md` (ChatGPT↔Claude bridge, Egyptian Arabic) with a Desktop mirror. Corrected the `integration/series04` HEAD in section C (`322e8a0` → `eb19ab0`; docs-only since `d69f6e8`). No code, tests, branches or tools changed.
