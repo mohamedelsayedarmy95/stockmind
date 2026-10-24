@@ -393,7 +393,8 @@
         "SENDING": "Sending…",
         "CONFIRMED": "Confirmed",
         "REJECTED": "Refused",
-        "NEEDS_REVIEW": "Needs review"
+        "NEEDS_REVIEW": "Needs review",
+        "REPLACED": "Replaced"
       },
       "reason": {
         "network": "No connection. Retries automatically.",
@@ -441,10 +442,102 @@
         "unknown": "unknown"
       },
       "notResent": "It was not re-sent automatically.",
-      "reenter": "Re-enter as new action",
+      "reviewReplace": "Review and replace",
+      "openReview": "Open review",
       "acknowledge": "Acknowledge",
-      "reentryInfo": "Re-entering an action missing from the server history. This creates a NEW movement, noted as a re-entry.",
-      "sending": "Sending… the server is slow to answer. It stays saved on this device and is never applied twice."
+      "sending": "Sending… the server is slow to answer. It stays saved on this device and is never applied twice.",
+      "replacement": {
+        "state": {
+          "READY": "Replacement saved on this device · not sent yet",
+          "SENDING": "Sending the replacement…",
+          "UNKNOWN": "Replacement sent · the answer was lost. Open the review to check it.",
+          "CONFIRMED": "Replacement recorded"
+        }
+      },
+      "replaced": {
+        "done": "Replaced · the server recorded a new movement for it",
+        "provenance": "Original action {{original}} was missing from the server history. Replaced by movement {{replacement}}.",
+        "risk": {
+          "duplicate-risk": "Duplicate risk · the server now holds BOTH the original and its replacement. Tell your manager; do not change stock yourself.",
+          "replacement-missing": "History changed again · the replacement is no longer in the server history. Open the review."
+        }
+      },
+      "review": {
+        "title": "Review a lost action",
+        "whatHappened": "The server's history changed (for example, the database was restored). This action was confirmed earlier, but the server's current history no longer contains it. That does not prove it never happened, and it was NOT sent again.",
+        "receiptTitle": "Original receipt (kept on this device)",
+        "receiptNote": "This is what the server told this device earlier. It is not current stock.",
+        "kind": { "inbound": "Receive", "outbound": "Dispatch" },
+        "product": "Product",
+        "warehouse": "Warehouse",
+        "quantity": "Quantity",
+        "confirmedAt": "Confirmed",
+        "movement": "Movement",
+        "revision": "Revision",
+        "generation": "History",
+        "stockTitle": "Confirmed stock on the server",
+        "stockNote": "From the last sync. The receipt above is never added to this figure.",
+        "stockNone": "No synced figure for this product yet.",
+        "serverCheck": "Server check",
+        "checking": "Asking the server…",
+        "checkAgain": "Check again",
+        "checkedAt": "Checked at {{time}} · history {{generation}}",
+        "status": {
+          "absent": "Not in the server's current history.",
+          "present": "The original is in the server's current history.",
+          "indeterminate": "The server cannot say for sure.",
+          "unavailable": "It belongs to a warehouse you no longer have access to.",
+          "superseded": "It was already replaced."
+        },
+        "failure": {
+          "offline": "No answer from the server. Replacing needs a connection and a fresh check. Nothing was changed.",
+          "denied": "The server refused the check (sign in again, or you lost access).",
+          "server": "The server failed to answer. Try again in a moment.",
+          "unsupported": "This server cannot check history generations, so replacement is not offered."
+        },
+        "why": {
+          "not-lost": "This action is not waiting for a replacement decision.",
+          "no-receipt": "There is no receipt to identify the original, so it cannot be replaced from here.",
+          "attempt-in-progress": "A replacement for this action is already on its way.",
+          "needs-check": "Check with the server first.",
+          "check-stale": "The check is too old. Check again before deciding.",
+          "original-present": "The original is back in the server history. No replacement is needed; stock already includes it.",
+          "indeterminate": "The server holds a partial record. Do NOT replace it. Ask your manager or the operator to look at the history.",
+          "unavailable": "You no longer have access to that warehouse. Ask your manager.",
+          "superseded": "It was already replaced."
+        },
+        "decideTitle": "Replace it?",
+        "replaceWarning": "Replacing creates a NEW movement ({{sign}}{{qty}}) with its own request, recorded with a note that names the original. If the loss was intended (for example a deliberate rollback), do NOT replace. If you are unsure, ask your manager first.",
+        "replaceButton": "Replace as a new action",
+        "confirmTitle": "Replace this action?",
+        "confirmBody": "{{kind}} {{sign}}{{qty}} · {{product}} · {{warehouse}}\n\nThe server will check again and record a new movement only if the original is still missing. This cannot be undone from the app.",
+        "confirmYes": "Yes, replace",
+        "retrySame": "Retry the same request",
+        "retryNote": "It uses the same request as before, so the server applies it at most once.",
+        "sendingNote": "Sending… the server may be slow. It stays saved on this device and is never applied twice.",
+        "unknownNote": "The answer was lost, so the server may or may not have recorded it. Tap Retry: it is the same request and cannot be applied twice.",
+        "readyNote": "Saved on this device and not sent yet.",
+        "doneTitle": "Replaced",
+        "doneBody": "The server recorded a new movement for this action. Stock follows the server figures.",
+        "blocked": {
+          "stale-generation": "The server's history changed while you were reviewing. Nothing was recorded. Check again.",
+          "original-present": "The original is in the server history. Nothing was recorded and none is needed.",
+          "original-indeterminate": "The server holds a partial record of the original. Nothing was recorded. Ask your manager or the operator.",
+          "original-unavailable": "The original is in a warehouse you no longer have access to. Nothing was recorded.",
+          "already-replaced": "This action was already replaced.",
+          "insufficient-stock": "Not enough stock to dispatch this now. Nothing was recorded.",
+          "in-progress": "The server has not finished an earlier request. Nothing was recorded. Try again later.",
+          "no-access": "You no longer have access to this warehouse. Nothing was recorded.",
+          "invalid": "The server refused the request. Nothing was recorded.",
+          "key-reused": "The request conflicts with an earlier one. Nothing was recorded."
+        },
+        "risk": {
+          "duplicate-risk": "Duplicate risk: the server holds both the original and the replacement. Tell your manager. Do not change stock yourself.",
+          "replacement-missing": "The replacement is no longer in the server history. Check again; you may need to decide again."
+        },
+        "acknowledge": "Do not replace · dismiss",
+        "acknowledgeNote": "Dismissing only removes this reminder on this device. Stock does not change."
+      }
     }
   }
 }

@@ -9,6 +9,7 @@ import {
   recoverInterrupted,
   StockIntent,
 } from '@/domain/outbox';
+import { recoverReplacementAttempts } from '@/domain/replacement';
 
 /**
  * Durable queue of offline stock intents, in the app's encrypted MMKV store. Every change is written through
@@ -54,7 +55,7 @@ export function loadOutbox(now = Date.now()) {
       getStorage().set(`${KEY}-unreadable-${now}`, raw);
     }
   }
-  const intents = prune(expireStale(recoverInterrupted(doc.intents), now), now);
+  const intents = prune(expireStale(recoverReplacementAttempts(recoverInterrupted(doc.intents)), now), now);
   write(doc.seq, intents);
   useOutboxStore.setState({ loaded: true });
 }
@@ -101,5 +102,8 @@ export function getIntent(id: string): StockIntent | undefined {
 /** Intents of one account that still need a person's attention or are not confirmed yet. */
 export function openIntents(intents: readonly StockIntent[], scope: string | null): StockIntent[] {
   if (!scope) return [];
-  return intents.filter((i) => i.scope === scope && i.state !== 'CONFIRMED');
+  // A replaced operation is settled unless the server's evidence says it is not (a flagged risk needs a person).
+  return intents.filter(
+    (i) => i.scope === scope && i.state !== 'CONFIRMED' && !(i.state === 'REPLACED' && !i.replacedRisk),
+  );
 }

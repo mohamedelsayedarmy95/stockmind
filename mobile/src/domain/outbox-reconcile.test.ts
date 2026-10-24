@@ -10,11 +10,11 @@ import {
   prune,
   receiptDisplay,
   recheckCandidates,
-  reentryDraft,
   retryNow,
   settle,
   StockIntent,
 } from './outbox';
+import { replacementAvailability } from './replacement';
 
 const A = 'localhost:3000|company-1|user-a';
 const B = 'localhost:3000|company-1|user-b';
@@ -86,12 +86,9 @@ describe('receipts after a server history reset', () => {
     // Not sendable, not retryable: the drain never picks it up again.
     expect(nextToSend([r], A, 99_999)).toBeNull();
     expect(retryNow(r, 7_000)).toBeNull();
-    // A person may acknowledge it, or re-enter it as a NEW action whose note names the original.
+    // A person may acknowledge it, or replace it through the server-checked flow (replacement.test.ts). The old
+    // client-side re-entry draft (an unfenced new action) was removed in Series 07.
     expect(canDiscard(r)).toBe(true);
-    expect(reentryDraft(r)).toEqual({
-      kind: 'outbound',
-      payload: { productId: 'p1', warehouseId: W1, quantity: '5', notes: expect.stringContaining(c.id.slice(0, 8)) },
-    });
   });
 
   it('a different movement under its key or receipt: needs review as a mismatch', () => {
@@ -137,10 +134,10 @@ describe('receipts after a server history reset', () => {
     expect(prune([c], 2 * 24 * 60 * 60 * 1000)).toEqual([c]); // kept for 7 days to allow reconciliation
   });
 
-  it('only a history-changed review can be re-entered', () => {
+  it('only a history-changed review can be replaced', () => {
     const c = confirmed('9');
-    expect(reentryDraft(c)).toBeNull();
+    expect(replacementAvailability(c, null, 1).available).toBe(false);
     const mismatch = applyLookup(c, present(c, '9', { id: 'other' }), 1);
-    expect(reentryDraft(mismatch)).toBeNull();
+    expect(replacementAvailability(mismatch, null, 1)).toEqual({ available: false, reason: 'not-lost' });
   });
 });

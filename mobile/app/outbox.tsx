@@ -12,7 +12,7 @@ import { useProducts } from '@/query/useProducts';
 import { useWarehouses } from '@/query/useWarehouses';
 import { Product } from '@/api/types';
 import { Warehouse } from '@/data/repositories';
-import { canDiscard, IntentState, receiptDisplay, reentryDraft, retryNow, StockIntent } from '@/domain/outbox';
+import { canDiscard, IntentState, receiptDisplay, retryNow, StockIntent } from '@/domain/outbox';
 import { useCurrentScopeKey } from '@/sync/account-scope';
 import { removeIntent, updateIntent, useOutboxStore } from '@/sync/outbox-store';
 import { wakeOutbox } from '@/sync/outbox-drain';
@@ -24,6 +24,7 @@ const STATE_COLOR: Record<IntentState, string> = {
   CONFIRMED: STATUS.success,
   REJECTED: STATUS.error,
   NEEDS_REVIEW: STATUS.error,
+  REPLACED: STATUS.success,
 };
 
 /**
@@ -48,8 +49,10 @@ export default function OutboxScreen() {
     [products, warehouses],
   );
   const mine = intents.filter((i) => i.scope === scope).sort((a, b) => b.seq - a.seq);
-  const open = mine.filter((i) => i.state !== 'CONFIRMED');
-  const recent = mine.filter((i) => i.state === 'CONFIRMED').slice(0, 10);
+  // A replaced operation is settled unless the server's evidence flagged a risk.
+  const settledState = (i: StockIntent) => i.state === 'CONFIRMED' || (i.state === 'REPLACED' && !i.replacedRisk);
+  const open = mine.filter((i) => !settledState(i));
+  const recent = mine.filter(settledState).slice(0, 10);
 
   const retry = (intent: StockIntent) => {
     void haptics.select();
@@ -69,32 +72,30 @@ export default function OutboxScreen() {
       },
     ]);
 
-  /** Opens the dispatch/receive screen prefilled; the user confirms a NEW action (new key, noted as a re-entry). */
-  const reenter = (intent: StockIntent) => {
-    const draft = reentryDraft(intent);
-    if (!draft) return;
+  /** Opens the review of a lost or replaced operation: the server is asked first, and the person decides there. */
+  const review = (intent: StockIntent) => {
     void haptics.select();
-    router.push({
-      pathname: '/movement/[productId]',
-      params: {
-        productId: draft.payload.productId,
-        mode: draft.kind,
-        warehouseId: draft.payload.warehouseId,
-        qty: draft.payload.quantity,
-        reentryOf: intent.id,
-      },
-    });
+    router.push({ pathname: '/outbox-review', params: { id: intent.id } });
   };
 
   const Row = ({ intent }: { intent: StockIntent }) => {
     const receipt = intent.state === 'CONFIRMED' ? receiptDisplay(intent) : null;
-    const color = receipt && receipt !== 'confirmed' ? STATUS.warning : STATE_COLOR[intent.state];
+    const color =
+      intent.state === 'REPLACED' && intent.replacedRisk
+        ? STATUS.error
+        : receipt && receipt !== 'confirmed' ? STATUS.warning : STATE_COLOR[intent.state];
     const sign = intent.kind === 'outbound' ? '−' : '+';
     const reason = intent.lastError?.reason;
     const unknownOutcome = intent.state === 'NEEDS_REVIEW' && reason === 'no-access';
     const historyChanged = intent.state === 'NEEDS_REVIEW' && reason === 'history-changed';
+    const replacing = intent.replacement && intent.state !== 'REPLACED' ? intent.replacement : null;
+    const needsReview = historyChanged || Boolean(replacing) || (intent.state === 'REPLACED' && Boolean(intent.replacedRisk));
     const stateText =
-      receipt === 'rechecking'
+      intent.state === 'REPLACED'
+        ? tr(intent.replacedRisk ? `online.outbox.replaced.risk.${intent.replacedRisk}` : 'online.outbox.replaced.done')
+        : replacing
+          ? tr(`online.outbox.replacement.state.${replacing.state}`)
+          : receipt === 'rechecking'
         ? tr('online.outbox.receipt.rechecking')
         : receipt === 'unverifiable'
           ? tr('online.outbox.receipt.unverifiable', {
@@ -140,11 +141,21 @@ export default function OutboxScreen() {
             {tr('online.outbox.notResent')}
           </Text>
         ) : null}
-        {intent.state !== 'CONFIRMED' ? (
+        {intent.state === 'REPLACED' && intent.replacement?.result ? (
+          <Text testID="replaced-provenance" style={{ color: t.textMuted, fontSize: 12 }}>
+            {tr('online.outbox.replaced.provenance', {
+              original: intent.id.slice(0, 8),
+              replacement: intent.replacement.result.movementId.slice(0, 8) || '—',
+            })}
+          </Text>
+        ) : null}
+        {intent.state !== 'CONFIRMED' && (intent.state !== 'REPLACED' || needsReview) ? (
           <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            {historyChanged ? (
-              <Pressable onPress={() => reenter(intent)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: BRAND_GRADIENT[1] }}>
-                <Text style={{ color: BRAND_GRADIENT[1], fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.reenter')}</Text>
+            {needsReview ? (
+              <Pressable testID={`review-${intent.id}`} onPress={() => review(intent)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: BRAND_GRADIENT[1] }}>
+                <Text style={{ color: BRAND_GRADIENT[1], fontWeight: '700', fontSize: 13 }}>
+                  {tr(historyChanged && !replacing ? 'online.outbox.reviewReplace' : 'online.outbox.openReview')}
+                </Text>
               </Pressable>
             ) : null}
             {retryNow(intent, Date.now()) ? (

@@ -20,7 +20,11 @@ export type IntentKind = 'inbound' | 'outbound';
 /** Writes that may wait for the network. Anything else must be done online. */
 export const QUEUEABLE_KINDS: readonly IntentKind[] = ['inbound', 'outbound'];
 
-export type IntentState = 'PENDING' | 'SENDING' | 'CONFIRMED' | 'REJECTED' | 'NEEDS_REVIEW';
+/**
+ * REPLACED (Series 07): the server's history lost this operation and a person replaced it through the server-checked
+ * replacement flow (see replacement.ts). The original receipt stays as provenance; the replacement is its own movement.
+ */
+export type IntentState = 'PENDING' | 'SENDING' | 'CONFIRMED' | 'REJECTED' | 'NEEDS_REVIEW' | 'REPLACED';
 
 export type IntentReason =
   | 'network' // no answer: offline, timeout, connection dropped
@@ -51,7 +55,47 @@ export interface IntentResult {
   runningBalance: string | null;
   replayed: boolean;
   at: number;
+  /** The history generation the server issued this receipt in (absent from servers older than Series 07). */
+  generation?: string | null;
 }
+
+/**
+ * A person's decision to replace a lost operation, kept on the lost intent. The key is created once, written to disk
+ * BEFORE the request leaves, and reused for every retry of this same decision (after a timeout, a dropped response,
+ * an app kill): a new key would be a second replacement. It is discarded only when the server's answer proves that
+ * nothing was recorded under it.
+ * - READY: on disk, not sent (or refused before running: sign-in needed, rate limit);
+ * - SENDING: the request is in flight;
+ * - UNKNOWN: it ended without a definite answer; the server may have recorded it;
+ * - CONFIRMED: the server recorded it (`result` is the replacement movement's receipt).
+ */
+export type ReplacementState = 'READY' | 'SENDING' | 'UNKNOWN' | 'CONFIRMED';
+
+export interface ReplacementAttempt {
+  /** The replacement's own Idempotency-Key. */
+  key: string;
+  /** The history generation the person reviewed; the server refuses the request if it is no longer current. */
+  expectedGeneration: string;
+  createdAt: number;
+  attempts: number;
+  state: ReplacementState;
+  lastError: { status: number | null; code: string | null; at: number } | null;
+  result: IntentResult | null;
+}
+
+export type ReplacementBlockCode =
+  | 'stale-generation' | 'original-present' | 'original-indeterminate' | 'original-unavailable'
+  | 'already-replaced' | 'insufficient-stock' | 'in-progress' | 'no-access' | 'invalid' | 'key-reused';
+
+/** The last refusal of a replacement: proof that nothing was recorded, shown to the person on the review screen. */
+export interface ReplacementBlock {
+  code: ReplacementBlockCode;
+  at: number;
+  details?: Record<string, unknown>;
+}
+
+/** Evidence, from the server, that a replaced operation is no longer in a clean state (see applyReplacedLookups). */
+export type ReplacedRisk = 'duplicate-risk' | 'replacement-missing';
 
 export interface StockIntent {
   v: 1;
@@ -78,6 +122,12 @@ export interface StockIntent {
    * ledger holds it; 'unverifiable': the server could not say (no access, partial record, old server).
    */
   verification?: IntentVerification | null;
+  /** Series 07: the person's replacement of this lost operation (NEEDS_REVIEW history-changed → REPLACED). */
+  replacement?: ReplacementAttempt | null;
+  /** Why the last replacement attempt was refused (nothing recorded). Cleared when a new attempt starts. */
+  replacementBlock?: ReplacementBlock | null;
+  /** Set on REPLACED intents when the server's evidence shows the original and replacement are not consistent. */
+  replacedRisk?: ReplacedRisk | null;
 }
 
 export interface IntentVerification {
@@ -149,7 +199,7 @@ export function markSending(intent: StockIntent): StockIntent {
 
 export type SendOutcome = { ok: true; body: unknown } | { ok: false; status: number | undefined };
 
-function resultOf(body: unknown, now: number): IntentResult {
+export function resultOf(body: unknown, now: number): IntentResult {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? String(v) : null);
   return {
@@ -158,6 +208,7 @@ function resultOf(body: unknown, now: number): IntentResult {
     runningBalance: str(b.runningBalance),
     replayed: b.replayed === true,
     at: now,
+    ...(str(b.historyGeneration) ? { generation: str(b.historyGeneration) } : {}),
   };
 }
 
@@ -263,6 +314,14 @@ export function pendingEffects(
       (syncedRevision === null || BigInt(i.result.revision) > BigInt(syncedRevision))
     ) {
       add(i.payload.productId, 'awaitingSync', signed(i));
+    } else if (
+      i.state === 'REPLACED' &&
+      (!i.verification || i.verification.state === 'verified') &&
+      i.replacement?.result?.revision &&
+      (syncedRevision === null || BigInt(i.replacement.result.revision) > BigInt(syncedRevision))
+    ) {
+      // The replacement is a confirmed movement of its own, counted like any receipt until the synced cursor has it.
+      add(i.payload.productId, 'awaitingSync', signed(i));
     }
   }
   return out;
@@ -270,6 +329,10 @@ export function pendingEffects(
 
 /** Discarding is safe only when the intent cannot have been recorded, or its outcome is already known. */
 export function canDiscard(intent: StockIntent): boolean {
+  // A replacement decision that is READY/SENDING/UNKNOWN holds the only copy of its key: dropping it could make the
+  // next attempt a second replacement. A replaced operation with a flagged risk stays until a person has dealt with it.
+  if (intent.replacement && intent.replacement.state !== 'CONFIRMED') return false;
+  if (intent.state === 'REPLACED') return !intent.replacedRisk;
   if (intent.state === 'REJECTED' || intent.state === 'NEEDS_REVIEW' || intent.state === 'CONFIRMED') return true;
   return intent.state === 'PENDING' && intent.attempts === 0 && !intent.maybeCommitted;
 }
@@ -306,8 +369,14 @@ export function recoverInterrupted(intents: readonly StockIntent[]): StockIntent
  * unresolved is dropped, nor a receipt waiting to be re-checked.
  */
 export function prune(intents: readonly StockIntent[], now: number): StockIntent[] {
-  const settled = (i: StockIntent) => i.state === 'CONFIRMED' && i.verification?.state !== 'pending';
-  const kept = intents.filter((i) => !(settled(i) && i.result && now - i.result.at > CONFIRMED_RETENTION_MS));
+  const settled = (i: StockIntent) =>
+    (i.state === 'CONFIRMED' || (i.state === 'REPLACED' && !i.replacedRisk)) && i.verification?.state !== 'pending';
+  // A replaced operation ages from its replacement's receipt; the lost original's receipt is only provenance.
+  const settledAt = (i: StockIntent) => (i.state === 'REPLACED' ? i.replacement?.result?.at ?? i.result?.at : i.result?.at);
+  const kept = intents.filter((i) => {
+    const at = settledAt(i);
+    return !(settled(i) && at !== undefined && now - at > CONFIRMED_RETENTION_MS);
+  });
   const excess = kept.length - MAX_KEPT;
   if (excess <= 0) return kept;
   const dropIds = new Set(
@@ -327,9 +396,12 @@ export function prune(intents: readonly StockIntent[], now: number): StockIntent
 // are re-checked with POST /stock/operations/lookup:
 // - present and matching → verified (its current revision replaces the old one);
 // - absent → NEEDS_REVIEW 'history-changed'. Never PENDING: re-sending would apply it again as a NEW movement while
-//   nobody can tell whether the loss was intended (e.g. a deliberate rollback). A person decides (re-enter or not);
+//   nobody can tell whether the loss was intended (e.g. a deliberate rollback). A person decides, through the
+//   server-checked replacement flow (replacement.ts), which refuses if the original is back;
 // - present but different, or a server-side mismatch → NEEDS_REVIEW 'history-mismatch';
-// - indeterminate / unavailable → 'unverifiable', shown as such, never as plainly confirmed.
+// - indeterminate / unavailable → 'unverifiable', shown as such, never as plainly confirmed;
+// - superseded (the server holds a person's replacement of it) → REPLACED.
+// "absent" means absent from the CURRENT history. It is not proof that the operation never happened.
 
 /** The server's answer for one operation (see OperationLookupService on the backend). */
 export interface OperationLookup {
@@ -344,7 +416,13 @@ export interface OperationLookup {
     quantityChange: string;
     revision: string | null;
   };
+  /** This operation was replaced: the replacement's key and movement, and whether that movement is in the ledger now. */
+  replacement?: { key: string; movementId: string; present: boolean };
+  /** This operation IS a replacement of an earlier one. */
+  replacementOf?: { key: string; movementId: string; originalPresent: boolean };
 }
+
+const RECHECKABLE: readonly IntentState[] = ['CONFIRMED', 'REPLACED'];
 
 /** A reset in one warehouse (or everywhere, warehouseId null) puts that account's receipts back to "re-checking". */
 export function markForRecheck(
@@ -354,13 +432,18 @@ export function markForRecheck(
   now: number,
 ): StockIntent[] {
   return intents.map((i) =>
-    i.scope === scope && i.state === 'CONFIRMED' && i.result && (warehouseId === null || i.payload.warehouseId === warehouseId)
+    i.scope === scope && RECHECKABLE.includes(i.state) && i.result && (warehouseId === null || i.payload.warehouseId === warehouseId)
       ? { ...i, verification: { state: 'pending' as const, at: now } }
       : i,
   );
 }
 
-/** Receipts to re-check: those marked pending, or (all=true, at session start) every receipt still kept. */
+const isLostOperation = (i: StockIntent) => i.state === 'NEEDS_REVIEW' && i.lastError?.reason === 'history-changed';
+
+/**
+ * Receipts to re-check: those marked pending, or (all=true, at session start) every receipt still kept, including
+ * replaced operations and operations waiting for review (a second restore may have brought the original back).
+ */
 export function recheckCandidates(
   intents: readonly StockIntent[],
   scope: string,
@@ -370,12 +453,22 @@ export function recheckCandidates(
     .filter(
       (i) =>
         i.scope === scope &&
-        i.state === 'CONFIRMED' &&
         i.result !== null &&
-        (opts.all || i.verification?.state === 'pending'),
+        ((RECHECKABLE.includes(i.state) && (opts.all || i.verification?.state === 'pending')) ||
+          (opts.all && isLostOperation(i))),
     )
     .sort((a, b) => b.seq - a.seq)
     .slice(0, opts.limit ?? 100);
+}
+
+/** What to ask the server about one intent: its own key and receipt, and its replacement's key if it has one. */
+export function lookupRefs(intent: StockIntent): Array<{ key: string; movementId?: string }> {
+  const refs: Array<{ key: string; movementId?: string }> = [
+    intent.result?.movementId ? { key: intent.id, movementId: intent.result.movementId } : { key: intent.id },
+  ];
+  const r = intent.replacement;
+  if (r) refs.push(r.result?.movementId ? { key: r.key, movementId: r.result.movementId } : { key: r.key });
+  return refs;
 }
 
 const MOVEMENT_TYPE: Record<IntentKind, string> = { inbound: 'INBOUND', outbound: 'OUTBOUND' };
@@ -390,28 +483,83 @@ function sameOperation(intent: StockIntent, m: NonNullable<OperationLookup['move
   );
 }
 
-/** Applies the server's answer to a CONFIRMED receipt. Anything else is returned unchanged. */
+/** The server says another attempt (this device earlier, or another device of the same user) already replaced it. */
+function replacedElsewhere(
+  intent: StockIntent,
+  replacement: NonNullable<OperationLookup['replacement']>,
+  risk: ReplacedRisk | null,
+  now: number,
+): StockIntent {
+  return {
+    ...intent,
+    state: 'REPLACED',
+    verification: null,
+    replacedRisk: risk,
+    replacementBlock: null,
+    replacement: {
+      key: replacement.key,
+      expectedGeneration: intent.replacement?.expectedGeneration ?? '',
+      createdAt: intent.replacement?.createdAt ?? now,
+      attempts: intent.replacement?.attempts ?? 0,
+      state: 'CONFIRMED',
+      lastError: null,
+      result: { movementId: replacement.movementId, revision: null, runningBalance: null, replayed: false, at: now },
+    },
+  };
+}
+
+/** Applies the server's answer about the intent's OWN key. Anything it does not concern is returned unchanged. */
 export function applyLookup(intent: StockIntent, lookup: OperationLookup, now: number): StockIntent {
-  if (intent.state !== 'CONFIRMED' || lookup.key !== intent.id) return intent;
+  if (lookup.key !== intent.id) return intent;
   const review = (reason: 'history-changed' | 'history-mismatch'): StockIntent => ({
     ...intent,
     state: 'NEEDS_REVIEW',
     lastError: { status: null, reason, at: now },
     verification: null,
   });
-  switch (lookup.status) {
-    case 'present':
-      if (!lookup.movement || !sameOperation(intent, lookup.movement)) return review('history-mismatch');
-      return {
-        ...intent,
-        verification: { state: 'verified', at: now },
-        result: intent.result ? { ...intent.result, revision: lookup.movement.revision } : intent.result,
-      };
-    case 'absent':
-      return review('history-changed');
-    default:
-      return { ...intent, verification: { state: 'unverifiable', at: now, reason: lookup.reason ?? lookup.status } };
+  const verified = (): StockIntent => ({
+    ...intent,
+    state: 'CONFIRMED',
+    lastError: null,
+    replacement: null,
+    replacementBlock: null,
+    verification: { state: 'verified', at: now },
+    result: intent.result && lookup.movement ? { ...intent.result, revision: lookup.movement.revision } : intent.result,
+  });
+
+  if (intent.state === 'CONFIRMED') {
+    switch (lookup.status) {
+      case 'present':
+        if (!lookup.movement || !sameOperation(intent, lookup.movement)) return review('history-mismatch');
+        // Replaced elsewhere and brought back: both are in the ledger, the stock was applied twice.
+        if (lookup.reason === 'coexisting-replacement' && lookup.replacement) {
+          return replacedElsewhere(intent, lookup.replacement, 'duplicate-risk', now);
+        }
+        return verified();
+      case 'absent':
+        return review('history-changed');
+      default:
+        if (lookup.reason === 'superseded' && lookup.replacement) {
+          return replacedElsewhere(intent, lookup.replacement, lookup.replacement.present ? null : 'replacement-missing', now);
+        }
+        return { ...intent, verification: { state: 'unverifiable', at: now, reason: lookup.reason ?? lookup.status } };
+    }
   }
+
+  if (isLostOperation(intent)) {
+    // A decision that may already have been recorded is resolved only through ITS key (resolveAttempt in replacement.ts).
+    if (intent.replacement && intent.replacement.state !== 'READY') return intent;
+    if (lookup.status === 'present' && lookup.movement && sameOperation(intent, lookup.movement)) {
+      if (lookup.reason === 'coexisting-replacement' && lookup.replacement) {
+        return replacedElsewhere(intent, lookup.replacement, 'duplicate-risk', now);
+      }
+      return verified(); // the original is back: nothing to replace (a READY, never-sent decision is dropped)
+    }
+    if (lookup.reason === 'superseded' && lookup.replacement) {
+      return replacedElsewhere(intent, lookup.replacement, lookup.replacement.present ? null : 'replacement-missing', now);
+    }
+  }
+  return intent;
 }
 
 export type ReceiptDisplay = 'confirmed' | 'rechecking' | 'unverifiable';
@@ -421,21 +569,4 @@ export function receiptDisplay(intent: StockIntent): ReceiptDisplay {
   if (intent.verification?.state === 'pending') return 'rechecking';
   if (intent.verification?.state === 'unverifiable') return 'unverifiable';
   return 'confirmed';
-}
-
-/**
- * The only way back for a receipt the server's history lost: a person re-enters it as a NEW action (new key), with
- * a note naming the original, so the ledger shows a deliberate re-entry and never a silent replay.
- */
-export function reentryDraft(intent: StockIntent): { kind: IntentKind; payload: IntentPayload } | null {
-  if (intent.state !== 'NEEDS_REVIEW' || intent.lastError?.reason !== 'history-changed') return null;
-  return {
-    kind: intent.kind,
-    payload: {
-      productId: intent.payload.productId,
-      warehouseId: intent.payload.warehouseId,
-      quantity: intent.payload.quantity,
-      notes: `Re-entry of action ${intent.id.slice(0, 8)} (missing from server history after a reset)`,
-    },
-  };
 }

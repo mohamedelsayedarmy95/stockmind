@@ -17,6 +17,7 @@ interface PremiumButtonProps {
   disabled?: boolean;
   variant?: 'gradient' | 'ghost';
   style?: ViewStyle;
+  testID?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -31,6 +32,7 @@ export function PremiumButton({
   disabled = false,
   variant = 'gradient',
   style,
+  testID,
 }: PremiumButtonProps) {
   const t = useTheme();
   const scale = useSharedValue(1);
@@ -68,6 +70,7 @@ export function PremiumButton({
 
   return (
     <AnimatedPressable
+      testID={testID}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={handlePress}

@@ -16,7 +16,8 @@ export function OutboxBanner() {
   const open = openIntents(intents, scope);
   if (open.length === 0) return null;
 
-  const review = open.filter((i) => i.state === 'REJECTED' || i.state === 'NEEDS_REVIEW').length;
+  // (A REPLACED operation is only "open" when the server's evidence flagged a risk.)
+  const review = open.filter((i) => i.state === 'REJECTED' || i.state === 'NEEDS_REVIEW' || i.state === 'REPLACED').length;
   const color = review > 0 ? STATUS.error : STATUS.warning;
   return (
     <Pressable

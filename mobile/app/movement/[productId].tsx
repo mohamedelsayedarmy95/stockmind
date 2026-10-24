@@ -29,7 +29,7 @@ import { useActionKey } from '@/lib/action-key';
 import { IntentRefusedError } from '@/data/api/api-repositories';
 import { pendingEffects } from '@/domain/outbox';
 import { useCurrentScopeKey } from '@/sync/account-scope';
-import { removeIntent, useOutboxStore } from '@/sync/outbox-store';
+import { useOutboxStore } from '@/sync/outbox-store';
 import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
 import { haptics } from '@/lib/haptics';
 
@@ -38,12 +38,7 @@ export default function MovementScreen() {
   const { t: tr } = useTranslation();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const params = useLocalSearchParams<{
-    productId: string; mode?: string; warehouseId?: string; qty?: string; reentryOf?: string;
-  }>();
-  const reentryNote = params.reentryOf
-    ? `Re-entry of action ${params.reentryOf.slice(0, 8)} (missing from server history after a reset)`
-    : null;
+  const params = useLocalSearchParams<{ productId: string; mode?: string; warehouseId?: string; qty?: string }>();
   const initialQty = Math.max(1, Math.floor(Number(params.qty) || 1));
   const kind: MovementKind = params.mode === 'inbound' ? 'inbound' : 'outbound';
   // Online, lots, serials and sections are not on the server yet, so those inputs are hidden rather than dropped.
@@ -166,10 +161,7 @@ export default function MovementScreen() {
     // Expiry is optional; accept YYYY-MM-DD and ignore anything unparseable.
     const parsedExpiry = expiryText.trim() ? Date.parse(expiryText.trim()) : NaN;
 
-    // A re-entry carries a note naming the lost action, so the ledger shows a deliberate re-entry, never a replay.
-    const request = {
-      kind, productId: product.id, warehouseId, quantity: String(typedQty), ...(reentryNote ? { notes: reentryNote } : {}),
-    };
+    const request = { kind, productId: product.id, warehouseId, quantity: String(typedQty) };
     movement.mutate(
       {
         ...request,
@@ -186,8 +178,6 @@ export default function MovementScreen() {
         onSuccess: (result) => {
           // The action now lives in the outbox (confirmed or queued) under this key; a new tap is a new action.
           actionKey.spend();
-          // The reviewed lost action is resolved by this new one (it is still pending/confirmed in its own right).
-          if (params.reentryOf) removeIntent(params.reentryOf);
           if (result.queued) {
             // Saved on the device only (or still on its way to a slow server): no celebration, no stock change yet.
             void haptics.warning();
@@ -479,11 +469,6 @@ export default function MovementScreen() {
           {errorMsg ? (
             <Text style={{ color: STATUS.error, textAlign: 'center', fontWeight: '600' }}>
               {errorMsg}
-            </Text>
-          ) : null}
-          {reentryNote && !infoMsg ? (
-            <Text testID="reentry-info" style={{ color: STATUS.warning, textAlign: 'center', fontWeight: '600' }}>
-              {tr('online.outbox.reentryInfo')}
             </Text>
           ) : null}
           {infoMsg ? (
