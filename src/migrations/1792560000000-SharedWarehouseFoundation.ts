@@ -1,12 +1,19 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
+import { refuseIfDataWouldBeLost } from '../shared/db/migration-guards';
 
 /**
  * Shared-warehouse foundations: per-warehouse access for team members, single-use team invitations, idempotent stock
  * writes and a per-warehouse stock revision that clients use as a sync cursor.
  *
  * Additive only. Existing Staff users get access to every warehouse of their company, so nobody loses access on
- * rollout (Admin and Manager see all warehouses without rows). Code that predates this migration ignores the new
- * tables and columns, so an application rollback needs no schema change; down() removes everything it added.
+ * rollout (Admin and Manager see all warehouses without rows).
+ *
+ * down() is NOT a general rollback. It drops the grants, invitations and idempotency records, which hold data that
+ * cannot be rebuilt (who was invited, which receipts exist, which warehouses each Staff member was narrowed to), and
+ * a later up() would give every Staff member every warehouse of their company again. So down() refuses, before it
+ * changes anything, unless none of that data exists: no invitations, no idempotency records, and the grants are still
+ * exactly the default up() writes. Going back means restoring a backup taken before this migration, or a forward fix.
+ * An application rollback is a separate matter: see 1792580000000-StockRevisionGuard.
  */
 export class SharedWarehouseFoundation1792560000000 implements MigrationInterface {
   name = 'SharedWarehouseFoundation1792560000000';
@@ -93,6 +100,26 @@ export class SharedWarehouseFoundation1792560000000 implements MigrationInterfac
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    // Read-only checks first: if anything below would destroy data, nothing has been touched when this throws.
+    await refuseIfDataWouldBeLost(queryRunner, this.name, [
+      { label: 'team invitation(s)', sql: `SELECT count(*)::int AS n FROM "team_invitations"` },
+      { label: 'idempotency record(s)', sql: `SELECT count(*)::int AS n FROM "stock_idempotency_keys"` },
+      {
+        // Grants that differ from what up() writes (every Staff member on every warehouse of their company): a narrowed
+        // grant, a grant for another role, or a warehouse created since that a Staff member was never given.
+        label: 'warehouse grant(s) that differ from the default (every Staff member on every warehouse of the company)',
+        sql: `SELECT (
+          (SELECT count(*) FROM "warehouse_access" a WHERE NOT EXISTS (
+             SELECT 1 FROM "users" u JOIN "warehouses" w ON w."company_id" = u."company_id"
+             WHERE u."id" = a."user_id" AND w."id" = a."warehouse_id" AND u."role" = 'Staff'))
+          +
+          (SELECT count(*) FROM "users" u JOIN "warehouses" w ON w."company_id" = u."company_id"
+           WHERE u."role" = 'Staff' AND NOT EXISTS (
+             SELECT 1 FROM "warehouse_access" a WHERE a."user_id" = u."id" AND a."warehouse_id" = w."id"))
+        )::int AS n`,
+      },
+    ]);
+
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_stock_movements_warehouse_revision"`);
     await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "revision"`);
     await queryRunner.query(`ALTER TABLE "warehouses" DROP COLUMN IF EXISTS "stock_revision"`);

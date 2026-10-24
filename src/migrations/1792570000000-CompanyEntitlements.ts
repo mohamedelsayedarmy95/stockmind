@@ -1,4 +1,5 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
+import { refuseIfDataWouldBeLost } from '../shared/db/migration-guards';
 
 /**
  * Subscription-ready entitlements on the company: plan, subscription status, expiry and where the entitlement came
@@ -6,7 +7,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * stored here: a provider adapter verifies a purchase and then sets these columns.
  *
  * Additive with safe defaults ('free', 'active'). Limits are enforced only with ENTITLEMENTS_ENFORCED=true, and only
- * on new additions (seats, warehouses), never by removing access to existing data. down() drops the columns.
+ * on new additions (seats, warehouses), never by removing access to existing data.
+ *
+ * down() drops the columns, which is lossless only while every company still has the defaults this migration wrote. Once a
+ * plan, status, expiry or source has been set (a trial grant, a purchase), that cannot be rebuilt, so down() refuses,
+ * before it changes anything, if any company differs from the defaults.
  */
 export class CompanyEntitlements1792570000000 implements MigrationInterface {
   name = 'CompanyEntitlements1792570000000';
@@ -25,6 +30,14 @@ export class CompanyEntitlements1792570000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await refuseIfDataWouldBeLost(queryRunner, this.name, [
+      {
+        label: 'company entitlement record(s) with a non-default plan, status, expiry or source',
+        sql: `SELECT count(*)::int AS n FROM "companies"
+               WHERE "plan" <> 'free' OR "subscription_status" <> 'active'
+                  OR "plan_expires_at" IS NOT NULL OR "entitlement_source" <> 'default'`,
+      },
+    ]);
     await queryRunner.query(`
       ALTER TABLE "companies"
         DROP COLUMN IF EXISTS "entitlement_source",
