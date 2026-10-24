@@ -20,6 +20,8 @@ import { RedisModule } from '../infrastructure/cache/redis.module';
 import { InboundStockHandler } from '../application/commands/inbound-stock.handler';
 import { OutboundStockHandler } from '../application/commands/outbound-stock.handler';
 import { AdjustStockHandler } from '../application/commands/adjust-stock.handler';
+import { ReplaceOperationHandler } from '../application/commands/replace-operation.handler';
+import { StockReplacementService } from '../infrastructure/repositories/stock-replacement.service';
 import { TransferStockHandler } from '../application/commands/transfer-stock.handler';
 import { CreateProductHandler } from '../application/commands/create-product.handler';
 
@@ -39,6 +41,7 @@ const CommandHandlers = [
   OutboundStockHandler,
   AdjustStockHandler,
   TransferStockHandler,
+  ReplaceOperationHandler,
   CreateProductHandler,
 ];
 
@@ -67,6 +70,7 @@ const EventListeners = [
   providers: [
     ProductService,
     StockService,
+    StockReplacementService,
     WarehouseService,
     ...CommandHandlers,
     ...QueryHandlers,

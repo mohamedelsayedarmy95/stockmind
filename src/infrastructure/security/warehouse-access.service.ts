@@ -13,6 +13,11 @@ const FULL_ACCESS_ROLES: ReadonlySet<string> = new Set([UserRole.ADMIN, UserRole
 export class WarehouseAccessService {
   constructor(private readonly dataSource: DataSource) {}
 
+  /** Whether a role may use every warehouse of its company (for callers that read the role inside their own transaction). */
+  hasFullAccess(role: string): boolean {
+    return FULL_ACCESS_ROLES.has(role);
+  }
+
   /** null: every warehouse of the company; otherwise the ids of the warehouses this user may use. */
   async scope(userId: string, companyId: string): Promise<string[] | null> {
     const rows: Array<{ role: string; ids: string[] }> = await this.dataSource.query(

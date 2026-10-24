@@ -27,7 +27,7 @@ const ALL_DBS = [DB_PROD, DB_FRESH, DB_OLD];
 const MIGRATIONS = path.join(__dirname, '../../src/migrations');
 const migration = (id: string) => path.join(MIGRATIONS, `${id}-*.ts`);
 const PRODUCTION_IDS = ['1721700000000', '1721800000000', '1721900000000', '1722000000000'];
-const DELTA_IDS = ['1722345600000', '1792473600000', '1792560000000', '1792570000000', '1792580000000'];
+const DELTA_IDS = ['1722345600000', '1792473600000', '1792560000000', '1792570000000', '1792580000000', '1792590000000'];
 const PRODUCTION = PRODUCTION_IDS.map(migration);
 const ALL = [...PRODUCTION_IDS, ...DELTA_IDS].map(migration);
 const DELTA_NAMES = [
@@ -36,6 +36,7 @@ const DELTA_NAMES = [
   'SharedWarehouseFoundation1792560000000',
   'CompanyEntitlements1792570000000',
   'StockRevisionGuard1792580000000',
+  'RecoveryIntegrity1792590000000', // Series 07
 ];
 const LEGACY_TABLES = ['companies', 'users', 'warehouses', 'products', 'stock_movements', 'user_two_factor'];
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -72,6 +73,11 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     (await one(`SELECT count(*)::int AS n FROM pg_trigger WHERE tgname = 'trg_stock_movements_assign_revision' AND NOT tgisinternal`, [], d)).n === 1;
   const hasUniqueIndex = async (d: DataSource = ds) =>
     (await one(`SELECT count(*)::int AS n FROM pg_indexes WHERE indexname = 'uq_stock_movements_warehouse_revision'`, [], d)).n === 1;
+  // Series 07 added a migration on top of the revision guard: reverting the guard first reverts that (pristine) migration.
+  const undoGuard = async () => {
+    await ds.undoLastMigration(); // RecoveryIntegrity (nothing recorded yet: allowed)
+    await ds.undoLastMigration(); // StockRevisionGuard
+  };
   // Everything that defines the schema, so two databases can be compared: columns, indexes, constraints, triggers.
   const fingerprint = async (d: DataSource) => ({
     columns: await d.query(`SELECT table_name, column_name, data_type, is_nullable, column_default
@@ -311,7 +317,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
   // --------------------------------------------------------------------------- repair and duplicate pre-check
 
   it('repairs movements that already have no revision: numbered above everything issued, in (created_at, id) order, nothing lost', async () => {
-    await ds.undoLastMigration(); // StockRevisionGuard: trigger and index removed, no rows deleted
+    await undoGuard(); // StockRevisionGuard: trigger and index removed, no rows deleted
     expect(await hasTrigger()).toBe(false);
     expect(await hasUniqueIndex()).toBe(false);
     const issued = await counter(ids.b1);
@@ -323,7 +329,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     expect(await counter(ids.b1)).toBe(issued);
     const issuedBefore = await ds.query(`SELECT id, revision::text AS revision FROM stock_movements WHERE warehouse_id = $1 AND revision IS NOT NULL ORDER BY revision`, [ids.b1]);
 
-    expect((await ds.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[4]]);
+    expect((await ds.runMigrations()).map((m) => m.name)).toEqual(DELTA_NAMES.slice(4));
     const after = await ds.query(`SELECT id, revision::int AS revision FROM stock_movements WHERE warehouse_id = $1 ORDER BY revision`, [ids.b1]);
     expect(after.map((r: { revision: number }) => r.revision)).toEqual(after.map((_: unknown, i: number) => i + 1));
     expect(after.slice(0, issuedBefore.length).map((r: { id: string }) => r.id)).toEqual(issuedBefore.map((r: { id: string }) => r.id)); // issued ones kept their numbers
@@ -335,7 +341,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
   });
 
   it('refuses to add the guard over duplicate revisions, naming them and changing nothing', async () => {
-    await ds.undoLastMigration();
+    await undoGuard();
     const [{ id: nullRow }] = await insertMovement(ds, ids.a3, ids.productA, ids.adminA, 1, null);
     const [first] = await ds.query(`SELECT id FROM stock_movements WHERE warehouse_id = $1 AND revision = 1`, [ids.a1]);
     const [second] = await ds.query(`SELECT id FROM stock_movements WHERE warehouse_id = $1 AND revision = 2`, [ids.a1]);
@@ -349,22 +355,82 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     expect(await hasUniqueIndex()).toBe(false);
 
     await ds.query(`UPDATE stock_movements SET revision = 2 WHERE id = $1`, [second.id]); // resolved
-    expect((await ds.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[4]]);
+    expect((await ds.runMigrations()).map((m) => m.name)).toEqual(DELTA_NAMES.slice(4));
     expect(first.id).not.toBe(second.id);
   });
 
   // ---------------------------------------------------------------------------------- fail-closed down()
 
+  it('adds the Series 07 recovery objects without touching any existing row: distinct generations, zero floors', async () => {
+    for (const t of LEGACY_TABLES) expect(await count(t)).toBeGreaterThanOrEqual(legacyCounts[t]); // nothing removed
+    const generations = await ds.query(`SELECT id, history_generation::text AS g FROM companies ORDER BY id`);
+    expect(new Set(generations.map((c: { g: string }) => c.g)).size).toBe(generations.length); // each company its own
+    for (const c of generations) expect(c.g).toMatch(UUID_V4);
+    expect(await ds.query(`SELECT DISTINCT history_floor_revision::text AS f FROM warehouses`)).toEqual([{ f: '0' }]);
+    for (const t of ['history_generation_events', 'stock_replacements']) {
+      expect(await exists(t)).toBe(true);
+      expect(await count(t)).toBe(0);
+    }
+    await expect(ds.query(
+      `INSERT INTO stock_replacements (company_id, warehouse_id, actor_user_id, original_key, original_movement_id, original_claim,
+         replacement_key, replacement_movement_id, generation_at_decision, original_status, reason)
+       VALUES ($1, $2, $3, 'orig-key-0001', gen_random_uuid(), '{}', 'repl-key-0001', gen_random_uuid(), $4, 'absent', 'x'),
+              ($1, $2, $3, 'orig-key-0001', gen_random_uuid(), '{}', 'repl-key-0002', gen_random_uuid(), $4, 'absent', 'x')`,
+      [ids.companyA, ids.a1, ids.staffA1, generations[0].g],
+    )).rejects.toThrow(/uq_stock_replacements_original/); // one replacement per source operation, enforced by the database
+  });
+
+  it('refuses to revert recovery integrity once a rotation, a replacement or a floor is recorded, and changes nothing; allows it while pristine', async () => {
+    const digest = async () => JSON.stringify([
+      await ds.query(`SELECT id, history_generation FROM companies ORDER BY id`),
+      await ds.query(`SELECT id, history_floor_revision FROM warehouses ORDER BY id`),
+      await ds.query(`SELECT * FROM history_generation_events ORDER BY id`),
+      await ds.query(`SELECT * FROM stock_replacements ORDER BY id`),
+      await ds.query(`SELECT name FROM migrations ORDER BY id`),
+    ]);
+    const [{ g }] = await ds.query(`SELECT history_generation::text AS g FROM companies WHERE id = $1`, [ids.companyA]);
+    await ds.query(
+      `INSERT INTO history_generation_events (company_id, previous_generation, new_generation, actor_user_id, reason)
+       VALUES ($1, $2, gen_random_uuid(), $3, 'rotation recorded for the down() guard test')`, [ids.companyA, g, ids.adminA]);
+    await expect(ds.query(`UPDATE history_generation_events SET reason = 'rewritten'`)).rejects.toThrow(/append-only/);
+    let before = await digest();
+    await expect(ds.undoLastMigration()).rejects.toThrow(
+      /Refusing to revert RecoveryIntegrity1792590000000.*1 recorded history-generation rotation\(s\).*Nothing was changed/s);
+    expect(await digest()).toBe(before);
+
+    await ds.query(`DELETE FROM history_generation_events`);
+    await ds.query(
+      `INSERT INTO stock_replacements (company_id, warehouse_id, actor_user_id, original_key, original_movement_id, original_claim,
+         replacement_key, replacement_movement_id, generation_at_decision, original_status, reason)
+       VALUES ($1, $2, $3, 'orig-key-0002', gen_random_uuid(), '{}', 'repl-key-0003', gen_random_uuid(), $4, 'absent', 'x')`,
+      [ids.companyA, ids.a1, ids.staffA1, g]);
+    before = await digest();
+    await expect(ds.undoLastMigration()).rejects.toThrow(/1 recorded operation replacement\(s\).*Nothing was changed/s);
+    expect(await digest()).toBe(before);
+
+    await ds.query(`DELETE FROM stock_replacements`);
+    await ds.query(`UPDATE warehouses SET history_floor_revision = 2 WHERE id = $1`, [ids.a1]);
+    before = await digest();
+    await expect(ds.undoLastMigration()).rejects.toThrow(/1 warehouse\(s\) with a history floor.*Nothing was changed/s);
+    expect(await digest()).toBe(before);
+
+    await ds.query(`UPDATE warehouses SET history_floor_revision = 0`);
+    await ds.undoLastMigration(); // pristine: lossless
+    expect(await exists('stock_replacements')).toBe(false);
+    expect(await exists('history_generation_events')).toBe(false);
+    expect((await ds.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[5]]);
+  });
+
   it('reverts the guard without deleting anything, and applies it again to the same result', async () => {
     const revs = await ds.query(`SELECT id, revision::text AS revision FROM stock_movements ORDER BY id`);
-    await ds.undoLastMigration();
+    await undoGuard();
     expect(await ds.query(`SELECT id, revision::text AS revision FROM stock_movements ORDER BY id`)).toEqual(revs);
-    expect((await ds.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[4]]);
+    expect((await ds.runMigrations()).map((m) => m.name)).toEqual(DELTA_NAMES.slice(4));
     expect(await ds.query(`SELECT id, revision::text AS revision FROM stock_movements ORDER BY id`)).toEqual(revs);
   });
 
   it('refuses to revert entitlements once a company has a plan, and changes nothing; allows it while everything is default', async () => {
-    await ds.undoLastMigration(); // guard
+    await undoGuard();
     await ds.query(`UPDATE companies SET plan = 'pro', subscription_status = 'trialing', entitlement_source = 'trial' WHERE id = $1`, [ids.companyA]);
     const before = await snapshot();
     await expect(ds.undoLastMigration()).rejects.toThrow(
@@ -379,7 +445,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
   });
 
   it('refuses to revert the shared-warehouse tables while they hold business data, never widens access, and changes nothing', async () => {
-    await ds.undoLastMigration(); // guard
+    await undoGuard();
     await ds.undoLastMigration(); // entitlements (all default)
     // data that exists only after the rollout
     await ds.query(`DELETE FROM warehouse_access WHERE user_id = $1 AND warehouse_id <> $2`, [ids.staffA1, ids.a1]); // narrowed

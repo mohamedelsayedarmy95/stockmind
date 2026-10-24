@@ -39,7 +39,19 @@ export interface StockWriteOptions {
 /** A write's result as the API returns it; `replayed` marks a response served from an earlier request. */
 export type WriteResult<T> = T & { replayed?: true };
 
-const requestHash = (kind: string, dto: object) =>
+/** What one ledger write needs; see StockService.applyMovementInTransaction. */
+export interface MovementParams {
+  productId: string;
+  warehouseId: string;
+  userId: string;
+  movementType: MovementType;
+  referenceType: ReferenceType;
+  quantityChange: Decimal;
+  notes: string | null;
+  autoCreateSlot: boolean;
+}
+
+export const requestHash = (kind: string, dto: object) =>
   createHash('sha256')
     .update(JSON.stringify([kind, Object.entries(dto).filter(([, v]) => v !== undefined).sort(([a], [b]) => (a < b ? -1 : 1))]))
     .digest('hex');
@@ -339,15 +351,7 @@ export class StockService {
   //  Atomic Ledger Engine — the sacred transaction
   // ──────────────────────────────────────────────────────────────
 
-  private async executeMovement(params: {
-    productId: string;
-    warehouseId: string;
-    userId: string;
-    movementType: MovementType;
-    referenceType: ReferenceType;
-    quantityChange: Decimal;
-    notes: string | null;
-    autoCreateSlot: boolean;
+  private async executeMovement(params: MovementParams & {
     companyId: string;
     idempotency?: { key: string; hash: string };
   }): Promise<WriteResult<StockMovement>> {
@@ -365,71 +369,7 @@ export class StockService {
         }
       }
 
-      // The warehouse's revision is bumped under its row lock, so revisions commit in order (see getChanges).
-      const revision = await this.bumpRevision(qr, params.warehouseId);
-
-      // Step 0: auto-create ProductWarehouse row if needed (atomic upsert)
-      if (params.autoCreateSlot) {
-        await qr.query(
-          `INSERT INTO product_warehouse (id, product_id, warehouse_id, base_quantity, reserved_quantity)
-           VALUES (gen_random_uuid(), $1, $2, 0, 0)
-           ON CONFLICT (product_id, warehouse_id) DO NOTHING`,
-          [params.productId, params.warehouseId],
-        );
-      }
-
-      // Step 1: SELECT FOR UPDATE — pessimistic lock on the inventory row
-      const rows: Array<Record<string, unknown>> = await qr.query(
-        `SELECT * FROM product_warehouse
-         WHERE product_id = $1 AND warehouse_id = $2
-         FOR UPDATE`,
-        [params.productId, params.warehouseId],
-      );
-
-      if (!rows.length) {
-        throw new NotFoundException('Product is not registered in this warehouse');
-      }
-
-      const pw = rows[0];
-      const currentBalance = new Decimal(pw.base_quantity as string);
-
-      // Step 2: calculate new balance
-      const newBalance = currentBalance.plus(params.quantityChange);
-
-      // Step 3: enforce non-negative constraint
-      if (newBalance.lt(0)) {
-        throw new ConflictException('Insufficient stock');
-      }
-
-      // Step 4: insert immutable ledger entry
-      const movementResult = await qr.query(
-        `INSERT INTO stock_movements
-           (id, product_id, warehouse_id, user_id, movement_type, reference_type, quantity_change, running_balance, notes,
-            revision)
-         VALUES
-           (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING *`,
-        [
-          params.productId,
-          params.warehouseId,
-          params.userId,
-          params.movementType,
-          params.referenceType,
-          params.quantityChange.toFixed(6),
-          newBalance.toFixed(6),
-          params.notes,
-          revision,
-        ],
-      );
-
-      // Step 5: update ProductWarehouse balance
-      await qr.query(
-        `UPDATE product_warehouse SET base_quantity = $1
-         WHERE product_id = $2 AND warehouse_id = $3`,
-        [newBalance.toFixed(6), params.productId, params.warehouseId],
-      );
-
-      const movement = this.toMovementEntity(movementResult[0]);
+      const movement = await this.applyMovementInTransaction(qr, params);
       if (params.idempotency) {
         await this.storeIdempotentResponse(qr, params.companyId, params.userId, params.idempotency, movement);
       }
@@ -446,6 +386,91 @@ export class StockService {
     }
   }
 
+  /**
+   * The ledger write itself, inside a transaction the CALLER owns (it claims the idempotency key before and stores the
+   * response after, and commits or rolls back): revision bump under the warehouse lock, stock-row lock, balance check,
+   * immutable ledger row, balance update. The returned movement carries the history generation that was current when it
+   * was written, so a client's receipt says which history it was issued in.
+   */
+  async applyMovementInTransaction(
+    qr: QueryRunner,
+    params: MovementParams & { companyId: string },
+  ): Promise<StockMovement & { historyGeneration: string }> {
+    // The warehouse's revision is bumped under its row lock, so revisions commit in order (see getChanges).
+    const revision = await this.bumpRevision(qr, params.warehouseId);
+
+    // Step 0: auto-create ProductWarehouse row if needed (atomic upsert)
+    if (params.autoCreateSlot) {
+      await qr.query(
+        `INSERT INTO product_warehouse (id, product_id, warehouse_id, base_quantity, reserved_quantity)
+         VALUES (gen_random_uuid(), $1, $2, 0, 0)
+         ON CONFLICT (product_id, warehouse_id) DO NOTHING`,
+        [params.productId, params.warehouseId],
+      );
+    }
+
+    // Step 1: SELECT FOR UPDATE — pessimistic lock on the inventory row
+    const rows: Array<Record<string, unknown>> = await qr.query(
+      `SELECT * FROM product_warehouse
+       WHERE product_id = $1 AND warehouse_id = $2
+       FOR UPDATE`,
+      [params.productId, params.warehouseId],
+    );
+
+    if (!rows.length) {
+      throw new NotFoundException('Product is not registered in this warehouse');
+    }
+
+    const pw = rows[0];
+    const currentBalance = new Decimal(pw.base_quantity as string);
+
+    // Step 2: calculate new balance
+    const newBalance = currentBalance.plus(params.quantityChange);
+
+    // Step 3: enforce non-negative constraint
+    if (newBalance.lt(0)) {
+      throw new ConflictException('Insufficient stock');
+    }
+
+    // Step 4: insert immutable ledger entry
+    const movementResult = await qr.query(
+      `INSERT INTO stock_movements
+         (id, product_id, warehouse_id, user_id, movement_type, reference_type, quantity_change, running_balance, notes,
+          revision)
+       VALUES
+         (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        params.productId,
+        params.warehouseId,
+        params.userId,
+        params.movementType,
+        params.referenceType,
+        params.quantityChange.toFixed(6),
+        newBalance.toFixed(6),
+        params.notes,
+        revision,
+      ],
+    );
+
+    // Step 5: update ProductWarehouse balance
+    await qr.query(
+      `UPDATE product_warehouse SET base_quantity = $1
+       WHERE product_id = $2 AND warehouse_id = $3`,
+      [newBalance.toFixed(6), params.productId, params.warehouseId],
+    );
+
+    const [company] = await qr.query(`SELECT history_generation AS generation FROM companies WHERE id = $1`, [params.companyId]);
+    const movement = this.toMovementEntity(movementResult[0]) as StockMovement & { historyGeneration: string };
+    movement.historyGeneration = company.generation as string;
+    return movement;
+  }
+
+  /** Retires cached reads of a product; call only after the transaction that changed it has committed. */
+  async retireCachedReads(productId: string): Promise<void> {
+    await this.invalidateStockCache(productId);
+  }
+
   private idempotency(options: StockWriteOptions, kind: string, dto: object) {
     return options.idempotencyKey ? { key: options.idempotencyKey, hash: requestHash(kind, dto) } : undefined;
   }
@@ -455,7 +480,7 @@ export class StockService {
    * response of the first request with this key (that request has committed: a concurrent duplicate waits on the
    * key's unique index until it does). The same key with a different request is refused.
    */
-  private async claimIdempotencyKey(
+  async claimIdempotencyKey(
     qr: QueryRunner, companyId: string, userId: string, idem: { key: string; hash: string },
   ): Promise<unknown | undefined> {
     const claimed: unknown[] = await qr.query(
@@ -475,7 +500,7 @@ export class StockService {
     return prior.response;
   }
 
-  private async storeIdempotentResponse(
+  async storeIdempotentResponse(
     qr: QueryRunner, companyId: string, userId: string, idem: { key: string; hash: string }, response: unknown,
   ): Promise<void> {
     await qr.query(
@@ -526,8 +551,18 @@ export class StockService {
    * database was restored or rebuilt, so revision numbers were reused) or `since` is ahead of the warehouse, the answer
    * is a snapshot with `reset: true` and the client must rebuild its state, instead of a delta with a silent gap.
    * Clients that send no anchor keep the old behaviour.
+   *
+   * History generation (Series 07): every answer carries `generation`, the company's current history generation (an
+   * opaque id that changes only when an operator records a restore, see HistoryGenerationService). A client that
+   * sends the generation it last saw gets a snapshot with `reset` and `resetReason: 'generation'` when it differs,
+   * whatever its cursor says: revision numbers may have been reused, a generation never is. A client that sends none
+   * (not upgraded yet) cannot say which history its cursor belongs to, so a cursor below the warehouse's
+   * `history_floor_revision` (its revision at the last rotation) is answered with a snapshot and `reset` as well.
    */
-  async getChanges(companyId: string, warehouseId: string, sinceRaw?: string, limitRaw?: string, anchorRaw?: string) {
+  async getChanges(
+    companyId: string, warehouseId: string, sinceRaw?: string, limitRaw?: string, anchorRaw?: string,
+    generationRaw?: string,
+  ) {
     if (sinceRaw !== undefined && sinceRaw !== '' && !/^\d{1,18}$/.test(sinceRaw)) {
       throw new BadRequestException('since must be a non-negative integer revision');
     }
@@ -535,16 +570,25 @@ export class StockService {
     if (anchor !== null && !UUID_PATTERN.test(anchor)) {
       throw new BadRequestException('anchor must be the movement id returned with the cursor');
     }
+    const knownGeneration = generationRaw === undefined || generationRaw === '' ? null : generationRaw.toLowerCase();
+    if (knownGeneration !== null && !UUID_PATTERN.test(knownGeneration)) {
+      throw new BadRequestException('generation must be the history generation id returned with the cursor');
+    }
     const parsedLimit = Number.parseInt(limitRaw ?? '', 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 500) : 200;
 
     return this.dataSource.transaction('REPEATABLE READ', async (m) => {
       const [wh] = await m.query(
-        `SELECT stock_revision::text AS revision FROM warehouses WHERE id = $1 AND company_id = $2`,
+        `SELECT w.stock_revision::text AS revision, w.history_floor_revision::text AS floor,
+                c.history_generation::text AS generation
+         FROM warehouses w JOIN companies c ON c.id = w.company_id
+         WHERE w.id = $1 AND w.company_id = $2`,
         [warehouseId, companyId],
       );
       if (!wh) throw new NotFoundException('Warehouse not found or access denied');
       const current = BigInt(wh.revision);
+      const floor = BigInt(wh.floor);
+      const generation = wh.generation as string;
       const since = sinceRaw ? BigInt(sinceRaw) : null;
 
       const balances = async (productIds?: string[]) => {
@@ -576,13 +620,19 @@ export class StockService {
         return (row?.id as string | undefined) ?? null;
       };
 
-      const reset =
-        since !== null && (since > current || (anchor !== null && since > 0n && (await movementAt(since)) !== anchor));
+      let resetReason: 'generation' | 'floor' | 'ahead' | 'anchor' | null = null;
+      if (since !== null) {
+        if (knownGeneration !== null && knownGeneration !== generation) resetReason = 'generation';
+        else if (knownGeneration === null && since < floor) resetReason = 'floor';
+        else if (since > current) resetReason = 'ahead';
+        else if (anchor !== null && since > 0n && (await movementAt(since)) !== anchor) resetReason = 'anchor';
+      }
+      const reset = resetReason !== null;
 
       if (since === null || reset) {
         return {
-          warehouseId, mode: 'snapshot' as const, revision: current.toString(), anchor: await movementAt(current),
-          reset, hasMore: false, movements: [], balances: await balances(),
+          warehouseId, mode: 'snapshot' as const, generation, revision: current.toString(), anchor: await movementAt(current),
+          reset, ...(resetReason ? { resetReason } : {}), hasMore: false, movements: [], balances: await balances(),
         };
       }
 
@@ -604,6 +654,7 @@ export class StockService {
       return {
         warehouseId,
         mode: 'delta' as const,
+        generation,
         revision: revision.toString(),
         anchor: await movementAt(revision),
         reset: false,

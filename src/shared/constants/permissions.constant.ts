@@ -25,6 +25,9 @@ export const PERMISSIONS = {
 
   // Audit
   VIEW_AUDIT_LOG: 'VIEW_AUDIT_LOG',
+
+  // Recovery operations (Admin only): record a restore by rotating the history generation. Not in any other default role.
+  MANAGE_RECOVERY: 'MANAGE_RECOVERY',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];

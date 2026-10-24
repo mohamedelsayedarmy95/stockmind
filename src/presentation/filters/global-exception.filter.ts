@@ -76,9 +76,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message = i18nKey && isGeneric ? this.tr(i18nKey, lang) : bodyMessage;
     }
 
+    // A structured refusal (Series 07: a string `code`, with optional `details`) keeps its machine-readable reason.
+    // `details` is passed on ONLY together with a code: other exceptions (the health check's 503 carries driver
+    // messages in `details`) never reach the client beyond their message, exactly as before.
+    const raw = exception.getResponse();
+    const structured = raw && typeof raw === 'object' ? (raw as { code?: unknown; details?: unknown }) : {};
+    const code = typeof structured.code === 'string' ? structured.code : null;
     response.status(statusCode).json({
       statusCode,
       message,
+      ...(code ? { code } : {}),
+      ...(code && structured.details && typeof structured.details === 'object' ? { details: structured.details } : {}),
       timestamp: new Date().toISOString(),
     });
   }

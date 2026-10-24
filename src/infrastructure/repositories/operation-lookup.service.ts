@@ -10,18 +10,25 @@ import { OperationRefDto } from '../../application/dtos/stock/operation-lookup.d
  *   it never happened: a database restore erases the movement and its key record together. A client that holds a
  *   receipt for it must treat it as "history changed", never as unsent;
  * - indeterminate: there is a trace but not enough to tell (a key record without its movement, an unfinished claim,
- *   an operation kind this lookup does not resolve);
+ *   an operation kind this lookup does not resolve) or the operation was REPLACED by a person after a history change
+ *   (reason 'superseded', with the replacement's identity);
  * - unavailable: the movement exists but is in a warehouse the caller may no longer use; nothing more is disclosed.
  *
  * Scope: the caller's company and the caller's own operations only (keys are per user; movements must be the
  * caller's). Another user's key or movement id is reported exactly like an unknown one.
+ *
+ * Replacement evidence (Series 07): when the caller replaced an operation, the provenance row links the two. If BOTH the
+ * original and its replacement are in the ledger (a later restore or an operator re-import brought the original back),
+ * the answer is present with reason 'coexisting-replacement' and both identities: the stock was applied twice.
  */
 export type OperationStatus = 'present' | 'absent' | 'indeterminate' | 'unavailable';
 
 export interface OperationLookupResult {
   key: string;
   status: OperationStatus;
-  reason?: 'receipt-without-movement' | 'in-progress' | 'unsupported-operation' | 'no-access' | 'key-record-missing';
+  reason?:
+    | 'receipt-without-movement' | 'in-progress' | 'unsupported-operation' | 'no-access' | 'key-record-missing'
+    | 'superseded' | 'coexisting-replacement';
   movement?: {
     id: string;
     warehouseId: string;
@@ -31,12 +38,24 @@ export interface OperationLookupResult {
     revision: string | null;
     createdAt: string;
   };
+  /** This operation was replaced: the replacement's key and movement, and whether that movement is in the ledger now. */
+  replacement?: { key: string; movementId: string; present: boolean };
+  /** This operation IS a replacement of an earlier one. */
+  replacementOf?: { key: string; movementId: string; originalPresent: boolean };
+}
+
+export interface OperationLookupResponse {
+  /** The company's current history generation: the answer is about THIS history. */
+  generation: string;
+  operations: OperationLookupResult[];
 }
 
 interface KeyRow {
   key: string;
   movementId: string | null;
   hasResponse: boolean;
+  supersededBy: string | null;
+  replacementMovementId: string | null;
 }
 
 interface MovementRow {
@@ -49,6 +68,13 @@ interface MovementRow {
   createdAt: Date;
 }
 
+interface ProvenanceRow {
+  originalKey: string;
+  originalMovementId: string;
+  replacementKey: string;
+  replacementMovementId: string;
+}
+
 @Injectable()
 export class OperationLookupService {
   constructor(
@@ -56,24 +82,37 @@ export class OperationLookupService {
     private readonly access: WarehouseAccessService,
   ) {}
 
-  async lookup(userId: string, companyId: string, refs: OperationRefDto[]): Promise<OperationLookupResult[]> {
+  async lookup(userId: string, companyId: string, refs: OperationRefDto[]): Promise<OperationLookupResponse> {
     const scope = await this.access.scope(userId, companyId);
     const allowed = scope === null ? null : new Set(scope);
 
     // One snapshot: the key records and the movements are read as of the same moment.
-    const { keys, movements } = await this.dataSource.transaction('REPEATABLE READ', async (m) => {
+    const { generation, keys, movements, provenance } = await this.dataSource.transaction('REPEATABLE READ', async (m) => {
+      const [company] = await m.query(`SELECT history_generation::text AS generation FROM companies WHERE id = $1`, [companyId]);
       const keyRows: KeyRow[] = await m.query(
-        `SELECT idempotency_key AS key, response->>'id' AS "movementId", (response IS NOT NULL) AS "hasResponse"
+        `SELECT idempotency_key AS key, response->>'id' AS "movementId", (response IS NOT NULL) AS "hasResponse",
+                response->>'supersededBy' AS "supersededBy", response->>'replacementMovementId' AS "replacementMovementId"
          FROM stock_idempotency_keys
          WHERE company_id = $1 AND user_id = $2 AND idempotency_key = ANY($3::text[])`,
         [companyId, userId, refs.map((r) => r.key)],
       );
       const byKey = new Map(keyRows.map((k) => [k.key, k]));
+      const provRows: ProvenanceRow[] = await m.query(
+        `SELECT original_key AS "originalKey", original_movement_id AS "originalMovementId",
+                replacement_key AS "replacementKey", replacement_movement_id AS "replacementMovementId"
+         FROM stock_replacements
+         WHERE company_id = $1 AND actor_user_id = $2 AND (original_key = ANY($3::text[]) OR replacement_key = ANY($3::text[]))`,
+        [companyId, userId, refs.map((r) => r.key)],
+      );
       const wanted = new Set<string>();
       for (const r of refs) {
         const k = byKey.get(r.key);
         const id = k ? k.movementId : r.movementId;
         if (id && UUID.test(id)) wanted.add(id);
+      }
+      for (const p of provRows) {
+        wanted.add(p.originalMovementId);
+        wanted.add(p.replacementMovementId);
       }
       const movementRows: MovementRow[] = wanted.size
         ? await m.query(
@@ -86,11 +125,17 @@ export class OperationLookupService {
             [[...wanted], companyId, userId],
           )
         : [];
-      return { keys: byKey, movements: new Map(movementRows.map((mv) => [mv.id, mv])) };
+      return {
+        generation: company.generation as string,
+        keys: byKey,
+        movements: new Map(movementRows.map((mv) => [mv.id, mv])),
+        provenance: provRows,
+      };
     });
 
+    const usable = (mv: MovementRow) => !allowed || allowed.has(mv.warehouseId);
     const describe = (key: string, mv: MovementRow, reason?: OperationLookupResult['reason']): OperationLookupResult => {
-      if (allowed && !allowed.has(mv.warehouseId)) return { key, status: 'unavailable', reason: 'no-access' };
+      if (!usable(mv)) return { key, status: 'unavailable', reason: 'no-access' };
       return {
         key,
         status: 'present',
@@ -106,19 +151,58 @@ export class OperationLookupService {
         },
       };
     };
+    // A movement only counts as present for this caller when the caller may use its warehouse.
+    const livePresent = (id: string) => {
+      const mv = movements.get(id);
+      return Boolean(mv && usable(mv));
+    };
+    const byOriginal = new Map(provenance.map((p) => [p.originalKey, p]));
+    const byReplacement = new Map(provenance.map((p) => [p.replacementKey, p]));
 
-    return refs.map((ref): OperationLookupResult => {
-      const k = keys.get(ref.key);
-      if (k) {
-        if (!k.hasResponse) return { key: ref.key, status: 'indeterminate', reason: 'in-progress' };
-        if (!k.movementId) return { key: ref.key, status: 'indeterminate', reason: 'unsupported-operation' };
-        const mv = movements.get(k.movementId);
-        return mv ? describe(ref.key, mv) : { key: ref.key, status: 'indeterminate', reason: 'receipt-without-movement' };
+    const operations = refs.map((ref): OperationLookupResult => {
+      const asOriginal = byOriginal.get(ref.key);
+      if (asOriginal) {
+        const replacement = {
+          key: asOriginal.replacementKey,
+          movementId: asOriginal.replacementMovementId,
+          present: livePresent(asOriginal.replacementMovementId),
+        };
+        const original = movements.get(asOriginal.originalMovementId);
+        if (original) {
+          // The original is back in the ledger. With its replacement also there, stock was applied twice.
+          const described = describe(ref.key, original, replacement.present ? 'coexisting-replacement' : undefined);
+          return described.status === 'present' ? { ...described, replacement } : described;
+        }
+        return { key: ref.key, status: 'indeterminate', reason: 'superseded', replacement };
       }
-      // No key record (restored away, or cleaned up): the receipt's movement id is the only other evidence.
-      const mv = ref.movementId ? movements.get(ref.movementId) : undefined;
-      return mv ? describe(ref.key, mv, 'key-record-missing') : { key: ref.key, status: 'absent' };
+
+      const k = keys.get(ref.key);
+      let result: OperationLookupResult;
+      if (k) {
+        if (!k.hasResponse) result = { key: ref.key, status: 'indeterminate', reason: 'in-progress' };
+        else if (!k.movementId) result = { key: ref.key, status: 'indeterminate', reason: 'unsupported-operation' };
+        else {
+          const mv = movements.get(k.movementId);
+          result = mv ? describe(ref.key, mv) : { key: ref.key, status: 'indeterminate', reason: 'receipt-without-movement' };
+        }
+      } else {
+        // No key record (restored away, or cleaned up): the receipt's movement id is the only other evidence.
+        const mv = ref.movementId ? movements.get(ref.movementId) : undefined;
+        result = mv ? describe(ref.key, mv, 'key-record-missing') : { key: ref.key, status: 'absent' };
+      }
+
+      const asReplacement = byReplacement.get(ref.key);
+      if (asReplacement && result.status === 'present') {
+        const originalPresent = livePresent(asReplacement.originalMovementId);
+        return {
+          ...result,
+          ...(originalPresent ? { reason: 'coexisting-replacement' as const } : {}),
+          replacementOf: { key: asReplacement.originalKey, movementId: asReplacement.originalMovementId, originalPresent },
+        };
+      }
+      return result;
     });
+    return { generation, operations };
   }
 }
 

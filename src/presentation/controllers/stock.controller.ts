@@ -1,5 +1,5 @@
 import {
-  BadRequestException, Controller, Get, Post, Param, Body, Req, UseGuards, Headers, Query, HttpCode, HttpStatus,
+  BadRequestException, Controller, Get, Post, Param, Body, Req, UseGuards, Headers, Header, Query, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import type { Request } from 'express';
@@ -33,6 +33,14 @@ function idempotencyKey(raw: string | undefined): string | undefined {
   return raw;
 }
 import { PERMISSIONS } from '../../shared/constants/permissions.constant';
+import { ReplaceOperationDto } from '../../application/dtos/stock/replace-operation.dto';
+import { ReplaceOperationCommand } from '../../application/commands/replace-operation.command';
+
+function requiredKey(raw: string | undefined): string {
+  const key = idempotencyKey(raw);
+  if (key === undefined) throw new BadRequestException('Idempotency-Key is required for a replacement');
+  return key;
+}
 
 @Controller('stock')
 @UseGuards(PermissionsGuard)
@@ -113,7 +121,10 @@ export class StockController {
    * never issued) the answer is a full balance snapshot. The returned `revision` and `anchor` are the cursor for the
    * next call; a cursor that no longer matches the server's history is answered with a snapshot and `reset: true`.
    */
+  // no-store: a cached or revalidated (304) answer must never hide a change of history generation. The generation is
+  // also part of every body, so the ETag changes with it.
   @Get('changes/:warehouseId')
+  @Header('Cache-Control', 'no-store')
   @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
   @WarehouseScoped('params.warehouseId')
   getChanges(
@@ -122,8 +133,38 @@ export class StockController {
     @Query('since') since?: string,
     @Query('limit') limit?: string,
     @Query('anchor') anchor?: string,
+    @Query('generation') generation?: string,
   ) {
-    return this.stock.getChanges(user.companyId, warehouseId, since, limit, anchor);
+    return this.stock.getChanges(user.companyId, warehouseId, since, limit, anchor, generation);
+  }
+
+  /**
+   * Replaces an operation that the server's current history no longer holds (see StockReplacementService). The caller's
+   * own earlier operation only; needs the permission of the movement kind and access to the warehouse; the Idempotency-Key
+   * header (required) is the replacement's own key. Structured refusals carry `code` (409).
+   */
+  @Post('replacements/inbound')
+  @RequirePermissions(PERMISSIONS.STOCK_INBOUND)
+  @WarehouseScoped('body.warehouseId')
+  replaceInbound(
+    @CurrentUser() user: JwtPayload, @Body() dto: ReplaceOperationDto, @Req() req: Request,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.commandBus.execute(
+      new ReplaceOperationCommand(user.sub, user.companyId, 'inbound', requiredKey(key), dto, this.corr(req)),
+    );
+  }
+
+  @Post('replacements/outbound')
+  @RequirePermissions(PERMISSIONS.STOCK_OUTBOUND)
+  @WarehouseScoped('body.warehouseId')
+  replaceOutbound(
+    @CurrentUser() user: JwtPayload, @Body() dto: ReplaceOperationDto, @Req() req: Request,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.commandBus.execute(
+      new ReplaceOperationCommand(user.sub, user.companyId, 'outbound', requiredKey(key), dto, this.corr(req)),
+    );
   }
 
   @Get('movements/:productId')
@@ -142,6 +183,6 @@ export class StockController {
   @SkipAudit()
   @RequirePermissions(PERMISSIONS.VIEW_MOVEMENTS)
   async lookupOperations(@CurrentUser() user: JwtPayload, @Body() dto: LookupOperationsDto) {
-    return { operations: await this.operations.lookup(user.sub, user.companyId, dto.operations) };
+    return await this.operations.lookup(user.sub, user.companyId, dto.operations);
   }
 }
