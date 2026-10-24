@@ -300,7 +300,7 @@ describe('copy', () => {
     o && typeof o === 'object' ? Object.entries(o).flatMap(([k, v]) => leaves(v, `${p}${p ? '.' : ''}${k}`)) : [p];
 
   it('Arabic and English cover exactly the same keys for the review and replacement flows', () => {
-    for (const part of ['review', 'replaced', 'replacement']) {
+    for (const part of ['reviewFlow', 'replaced', 'replacement']) {
       expect(leaves(ar[part]).sort()).toEqual(leaves(en[part]).sort());
     }
     for (const k of ['reviewReplace', 'openReview', 'acknowledge', 'sending']) expect(typeof ar[k]).toBe('string');
@@ -312,20 +312,56 @@ describe('copy', () => {
     const blocks = ['stale-generation', 'original-present', 'original-indeterminate', 'original-unavailable', 'already-replaced', 'insufficient-stock', 'in-progress', 'no-access', 'invalid', 'key-reused'];
     const why = ['not-lost', 'no-receipt', 'attempt-in-progress', 'needs-check', 'check-stale', 'original-present', 'indeterminate', 'unavailable', 'superseded'];
     for (const lang of [en, ar]) {
-      for (const k of blocks) expect(lang.review.blocked[k]).toBeTruthy();
-      for (const k of why) expect(lang.review.why[k]).toBeTruthy();
-      for (const k of ['absent', 'present', 'indeterminate', 'unavailable', 'superseded']) expect(lang.review.status[k]).toBeTruthy();
-      for (const k of ['offline', 'denied', 'server', 'unsupported']) expect(lang.review.failure[k]).toBeTruthy();
+      for (const k of blocks) expect(lang.reviewFlow.blocked[k]).toBeTruthy();
+      for (const k of why) expect(lang.reviewFlow.why[k]).toBeTruthy();
+      for (const k of ['absent', 'present', 'indeterminate', 'unavailable', 'superseded']) expect(lang.reviewFlow.status[k]).toBeTruthy();
+      for (const k of ['offline', 'denied', 'server', 'unsupported']) expect(lang.reviewFlow.failure[k]).toBeTruthy();
       for (const k of ['duplicate-risk', 'replacement-missing']) {
-        expect(lang.review.risk[k]).toBeTruthy();
+        expect(lang.reviewFlow.risk[k]).toBeTruthy();
         expect(lang.replaced.risk[k]).toBeTruthy();
       }
       for (const k of ['READY', 'SENDING', 'UNKNOWN', 'CONFIRMED']) expect(lang.replacement.state[k]).toBeTruthy();
     }
   });
 
+  it('no locale file defines a key twice, and the banner still finds its plain-text "Review" (a duplicate key silently wins - seen on the device)', () => {
+    const fs = require('fs');
+    const path = require('path');
+    for (const lang of ['en', 'ar']) {
+      const text: string = fs.readFileSync(path.join(__dirname, '..', 'i18n', 'locales', `${lang}.json`), 'utf8');
+      const frames: Array<Set<string>> = [];
+      const duplicates: string[] = [];
+      let i = 0;
+      let expectKey = false;
+      const stack: boolean[] = []; // true: object
+      while (i < text.length) {
+        const c = text[i];
+        if (c === '"') {
+          let j = i + 1;
+          while (text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+          const s = text.slice(i + 1, j);
+          const top = stack.length - 1;
+          if (top >= 0 && stack[top] && expectKey) {
+            if (frames[top].has(s)) duplicates.push(s);
+            frames[top].add(s);
+            expectKey = false;
+          }
+          i = j + 1;
+          continue;
+        }
+        if (c === '{') { stack.push(true); frames.push(new Set()); expectKey = true; }
+        else if (c === '[') { stack.push(false); frames.push(new Set()); }
+        else if (c === '}' || c === ']') { stack.pop(); frames.pop(); expectKey = false; }
+        else if (c === ',' && stack[stack.length - 1]) expectKey = true;
+        i++;
+      }
+      expect({ lang, duplicates }).toEqual({ lang, duplicates: [] });
+    }
+    expect(typeof en.review).toBe('string');
+    expect(typeof ar.review).toBe('string');
+  });
   it('never calls a lost operation "never happened", and Arabic has no leftover English placeholders', () => {
-    expect(en.review.whatHappened).toMatch(/does not prove it never happened/);
-    expect(leaves(ar.review).map((k) => k.split('.').reduce((o: any, p) => o[p], ar.review) as string).every((s) => /[؀-ۿ]/.test(s))).toBe(true);
+    expect(en.reviewFlow.whatHappened).toMatch(/does not prove it never happened/);
+    expect(leaves(ar.reviewFlow).map((k) => k.split('.').reduce((o: any, p) => o[p], ar.reviewFlow) as string).every((s) => /[؀-ۿ]/.test(s))).toBe(true);
   });
 });

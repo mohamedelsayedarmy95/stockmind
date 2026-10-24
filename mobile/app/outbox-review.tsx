@@ -71,9 +71,9 @@ export default function OutboxReviewScreen() {
     if (!mine || tapped.current) return;
     const sign = mine.kind === 'outbound' ? '−' : '+';
     Alert.alert(
-      tr('online.outbox.review.confirmTitle'),
-      tr('online.outbox.review.confirmBody', {
-        kind: tr(`online.outbox.review.kind.${mine.kind}`),
+      tr('online.outbox.reviewFlow.confirmTitle'),
+      tr('online.outbox.reviewFlow.confirmBody', {
+        kind: tr(`online.outbox.reviewFlow.kind.${mine.kind}`),
         sign,
         qty: String(Number(mine.payload.quantity)),
         product: productName,
@@ -82,7 +82,7 @@ export default function OutboxReviewScreen() {
       [
         { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: tr('online.outbox.review.confirmYes'),
+          text: tr('online.outbox.reviewFlow.confirmYes'),
           style: 'destructive',
           onPress: async () => {
             // One tap, one decision: a second tap while this runs is ignored (and the key is kept on disk anyway).
@@ -130,7 +130,7 @@ export default function OutboxReviewScreen() {
       >
         <Ionicons name="chevron-back" size={22} color={t.textPrimary} />
       </Pressable>
-      <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800', flex: 1 }}>{tr('online.outbox.review.title')}</Text>
+      <Text style={{ color: t.textPrimary, fontSize: 20, fontWeight: '800', flex: 1 }}>{tr('online.outbox.reviewFlow.title')}</Text>
     </View>
   );
 
@@ -164,51 +164,51 @@ export default function OutboxReviewScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         {header}
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 14 }}>
-          <Text style={{ color: t.textSecondary }}>{tr('online.outbox.review.whatHappened')}</Text>
+          <Text style={{ color: t.textSecondary }}>{tr('online.outbox.reviewFlow.whatHappened')}</Text>
 
           <GlassCard style={{ gap: 6 }}>
-            <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.review.receiptTitle')}</Text>
-            <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.review.receiptNote')}</Text>
-            {row(tr('online.outbox.review.kind.' + mine.kind), `${sign}${qty}`, 'receipt-quantity')}
-            {row(tr('online.outbox.review.product'), productName)}
-            {row(tr('online.outbox.review.warehouse'), warehouseName)}
-            {receipt ? row(tr('online.outbox.review.confirmedAt'), new Date(receipt.at).toLocaleString()) : null}
-            {receipt ? row(tr('online.outbox.review.movement'), short(receipt.movementId)) : null}
-            {receipt?.revision ? row(tr('online.outbox.review.revision'), receipt.revision) : null}
-            {receipt?.generation ? row(tr('online.outbox.review.generation'), short(receipt.generation)) : null}
+            <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.reviewFlow.receiptTitle')}</Text>
+            <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.reviewFlow.receiptNote')}</Text>
+            {row(tr('online.outbox.reviewFlow.kind.' + mine.kind), `${sign}${qty}`, 'receipt-quantity')}
+            {row(tr('online.outbox.reviewFlow.product'), productName)}
+            {row(tr('online.outbox.reviewFlow.warehouse'), warehouseName)}
+            {receipt ? row(tr('online.outbox.reviewFlow.confirmedAt'), new Date(receipt.at).toLocaleString()) : null}
+            {receipt ? row(tr('online.outbox.reviewFlow.movement'), short(receipt.movementId)) : null}
+            {receipt?.revision ? row(tr('online.outbox.reviewFlow.revision'), receipt.revision) : null}
+            {receipt?.generation ? row(tr('online.outbox.reviewFlow.generation'), short(receipt.generation)) : null}
           </GlassCard>
 
           <GlassCard style={{ gap: 6 }}>
-            <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.review.stockTitle')}</Text>
+            <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.reviewFlow.stockTitle')}</Text>
             <Text testID="server-stock" style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800' }}>
               {serverStock !== undefined ? String(Number(serverStock)) : '—'}
             </Text>
             <Text style={{ color: t.textMuted, fontSize: 12 }}>
-              {serverStock !== undefined ? tr('online.outbox.review.stockNote') : tr('online.outbox.review.stockNone')}
+              {serverStock !== undefined ? tr('online.outbox.reviewFlow.stockNote') : tr('online.outbox.reviewFlow.stockNone')}
             </Text>
           </GlassCard>
 
           {lost || review ? (
             <GlassCard style={{ gap: 8 }}>
-              <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.review.serverCheck')}</Text>
+              <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.reviewFlow.serverCheck')}</Text>
               {review?.phase === 'checking' ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <ActivityIndicator color={BRAND_GRADIENT[1]} />
-                  <Text testID="review-checking" style={{ color: t.textSecondary }}>{tr('online.outbox.review.checking')}</Text>
+                  <Text testID="review-checking" style={{ color: t.textSecondary }}>{tr('online.outbox.reviewFlow.checking')}</Text>
                 </View>
               ) : null}
               {review?.phase === 'failed' && review.failure ? (
                 <Text testID="review-failure" style={{ color: STATUS.warning, fontWeight: '600' }}>
-                  {tr(`online.outbox.review.failure.${review.failure}`)}
+                  {tr(`online.outbox.reviewFlow.failure.${review.failure}`)}
                 </Text>
               ) : null}
               {snapshot && review?.phase === 'ready' ? (
                 <>
                   <Text testID={`review-status-${snapshot.reason === 'superseded' ? 'superseded' : snapshot.status}`} style={{ color: t.textPrimary, fontWeight: '700' }}>
-                    {tr(`online.outbox.review.status.${snapshot.reason === 'superseded' ? 'superseded' : snapshot.status}`)}
+                    {tr(`online.outbox.reviewFlow.status.${snapshot.reason === 'superseded' ? 'superseded' : snapshot.status}`)}
                   </Text>
                   <Text style={{ color: t.textMuted, fontSize: 12 }}>
-                    {tr('online.outbox.review.checkedAt', {
+                    {tr('online.outbox.reviewFlow.checkedAt', {
                       time: new Date(snapshot.checkedAt).toLocaleTimeString(),
                       generation: short(snapshot.generation),
                     })}
@@ -221,29 +221,29 @@ export default function OutboxReviewScreen() {
                 onPress={() => id && void checkOriginal(id)}
                 style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: BRAND_GRADIENT[1], opacity: review?.phase === 'checking' || busy ? 0.5 : 1 }}
               >
-                <Text style={{ color: BRAND_GRADIENT[1], fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.review.checkAgain')}</Text>
+                <Text style={{ color: BRAND_GRADIENT[1], fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.reviewFlow.checkAgain')}</Text>
               </Pressable>
             </GlassCard>
           ) : null}
 
           {mine.state === 'CONFIRMED' ? (
             <Text testID="review-original-back" style={{ color: STATUS.success, fontWeight: '700' }}>
-              {tr('online.outbox.review.why.original-present')}
+              {tr('online.outbox.reviewFlow.why.original-present')}
             </Text>
           ) : null}
 
           {mine.replacementBlock ? (
             <Text testID="review-blocked" style={{ color: STATUS.warning, fontWeight: '600' }}>
-              {tr(`online.outbox.review.blocked.${mine.replacementBlock.code}`)}
+              {tr(`online.outbox.reviewFlow.blocked.${mine.replacementBlock.code}`)}
             </Text>
           ) : null}
 
           {mine.state === 'REPLACED' ? (
             <GlassCard style={{ gap: 6 }}>
               <Text testID="review-replaced" style={{ color: risk ? STATUS.error : STATUS.success, fontWeight: '800' }}>
-                {tr('online.outbox.review.doneTitle')}
+                {tr('online.outbox.reviewFlow.doneTitle')}
               </Text>
-              <Text style={{ color: t.textSecondary }}>{tr('online.outbox.review.doneBody')}</Text>
+              <Text style={{ color: t.textSecondary }}>{tr('online.outbox.reviewFlow.doneBody')}</Text>
               {mine.replacement?.result ? (
                 <Text testID="replaced-provenance" style={{ color: t.textMuted, fontSize: 12 }}>
                   {tr('online.outbox.replaced.provenance', {
@@ -252,7 +252,7 @@ export default function OutboxReviewScreen() {
                   })}
                 </Text>
               ) : null}
-              {risk ? <Text testID={`review-risk-${risk}`} style={{ color: STATUS.error, fontWeight: '700' }}>{tr(`online.outbox.review.risk.${risk}`)}</Text> : null}
+              {risk ? <Text testID={`review-risk-${risk}`} style={{ color: STATUS.error, fontWeight: '700' }}>{tr(`online.outbox.reviewFlow.risk.${risk}`)}</Text> : null}
             </GlassCard>
           ) : null}
 
@@ -262,12 +262,12 @@ export default function OutboxReviewScreen() {
                 {tr(`online.outbox.replacement.state.${attempt.state}`)}
               </Text>
               <Text style={{ color: t.textSecondary }}>
-                {tr(attempt.state === 'SENDING' ? 'online.outbox.review.sendingNote' : attempt.state === 'UNKNOWN' ? 'online.outbox.review.unknownNote' : 'online.outbox.review.readyNote')}
+                {tr(attempt.state === 'SENDING' ? 'online.outbox.reviewFlow.sendingNote' : attempt.state === 'UNKNOWN' ? 'online.outbox.reviewFlow.unknownNote' : 'online.outbox.reviewFlow.readyNote')}
               </Text>
               {canRetryReplacement(mine) ? (
                 <>
-                  <PremiumButton testID="review-retry" label={tr('online.outbox.review.retrySame')} onPress={retry} loading={busy} />
-                  <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.review.retryNote')}</Text>
+                  <PremiumButton testID="review-retry" label={tr('online.outbox.reviewFlow.retrySame')} onPress={retry} loading={busy} />
+                  <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.reviewFlow.retryNote')}</Text>
                 </>
               ) : null}
             </GlassCard>
@@ -275,15 +275,15 @@ export default function OutboxReviewScreen() {
 
           {lost && !attempt ? (
             <GlassCard style={{ gap: 10 }}>
-              <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.review.decideTitle')}</Text>
+              <Text style={{ color: t.textPrimary, fontWeight: '800' }}>{tr('online.outbox.reviewFlow.decideTitle')}</Text>
               {availability.available ? (
                 <>
                   <Text testID="review-warning" style={{ color: STATUS.warning, fontWeight: '600' }}>
-                    {tr('online.outbox.review.replaceWarning', { sign, qty })}
+                    {tr('online.outbox.reviewFlow.replaceWarning', { sign, qty })}
                   </Text>
-                  <PremiumButton testID="review-replace" label={tr('online.outbox.review.replaceButton')} onPress={confirm} loading={busy} disabled={busy} />
+                  <PremiumButton testID="review-replace" label={tr('online.outbox.reviewFlow.replaceButton')} onPress={confirm} loading={busy} disabled={busy} />
                   <Text style={{ color: t.textMuted, fontSize: 12 }}>
-                    {tr('online.outbox.review.checkedAt', {
+                    {tr('online.outbox.reviewFlow.checkedAt', {
                       time: snapshot ? new Date(snapshot.checkedAt).toLocaleTimeString() : '—',
                       generation: short(snapshot?.generation),
                     })}
@@ -293,7 +293,7 @@ export default function OutboxReviewScreen() {
                 </>
               ) : (
                 <Text testID={`review-why-${availability.reason}`} style={{ color: t.textSecondary }}>
-                  {tr(`online.outbox.review.why.${availability.reason}`)}
+                  {tr(`online.outbox.reviewFlow.why.${availability.reason}`)}
                 </Text>
               )}
             </GlassCard>
@@ -306,9 +306,9 @@ export default function OutboxReviewScreen() {
                 onPress={dismiss}
                 style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: STATUS.error }}
               >
-                <Text style={{ color: STATUS.error, fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.review.acknowledge')}</Text>
+                <Text style={{ color: STATUS.error, fontWeight: '700', fontSize: 13 }}>{tr('online.outbox.reviewFlow.acknowledge')}</Text>
               </Pressable>
-              <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.review.acknowledgeNote')}</Text>
+              <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('online.outbox.reviewFlow.acknowledgeNote')}</Text>
             </View>
           ) : null}
         </ScrollView>

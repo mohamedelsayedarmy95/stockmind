@@ -462,7 +462,7 @@
           "replacement-missing": "History changed again · the replacement is no longer in the server history. Open the review."
         }
       },
-      "review": {
+      "reviewFlow": {
         "title": "Review a lost action",
         "whatHappened": "The server's history changed (for example, the database was restored). This action was confirmed earlier, but the server's current history no longer contains it. That does not prove it never happened, and it was NOT sent again.",
         "receiptTitle": "Original receipt (kept on this device)",
