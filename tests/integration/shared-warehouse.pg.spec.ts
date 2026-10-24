@@ -109,6 +109,14 @@ const password = () => `Aa1!${randomBytes(8).toString('hex')}`;
       await accept(revoked.body.token, 'Revoked').expect(400);
     });
 
+    it('refuses an expired invitation and no longer lists it as pending', async () => {
+      const late = await invite({ email: `late.${TAG}@example.test`, role: 'Manager' }).expect(201);
+      await db.query(`UPDATE team_invitations SET expires_at = now() - interval '1 minute' WHERE id = $1`, [late.body.id]);
+      await accept(late.body.token, 'Late').expect(400);
+      const pending = (await http().get('/api/v1/team/invitations').set(auth(owner)).expect(200)).body as Array<{ id: string }>;
+      expect(pending.map((p) => p.id)).not.toContain(late.body.id);
+    });
+
     it('lists members with their warehouse scope', async () => {
       const members = (await http().get('/api/v1/team/members').set(auth(owner)).expect(200)).body as Array<{
         role: string; warehouses: unknown;
