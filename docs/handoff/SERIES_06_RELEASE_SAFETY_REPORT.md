@@ -26,7 +26,7 @@
 | الأساس | `preflight/series05-rc-admission` @ `e517d82` (متزامن مع origin وقت البدء؛ لا كود اتغيّر بعد `e20cf93`) |
 | الفرع الجديد | `hardening/series06-release-safety` (اتأكد إن الاسم والمسار ما كانوش مستخدمين) |
 | **Commits الكود/الاختبارات** | `d12b810` (migrations + spec) · `ba16cec` (اختبارات التكافؤ) · `9b1f9dd` (تعليق في migration فقط، بدون تغيير سلوك) |
-| **Baseline الاختبارات النهائية** | `9b1f9dd` والشجرة نضيفة وقت التشغيل (مسجّل في `s06-final3.summary.txt`)؛ فرق `ba16cec`..`9b1f9dd` تعليق فقط |
+| **Baseline الاختبارات النهائية** | كود/اختبارات = `9b1f9dd`؛ **HEAD وقت التشغيل = `cac4f4e`** (الفرق بينهم docs فقط: `git diff --name-only 9b1f9dd cac4f4e` ما فيهوش ملفات خارج `docs/`)، والشجرة نضيفة (`clean=True` مسجّل في `s06-final3.summary.txt`). مجموعة تشغيلات أسبق على `ba16cec` (نفس النتيجة 50/313 ×3) اتستبدلت بالمجموعة دي بعد إصلاح تعليق |
 | Commits بعده | docs فقط (التقرير، المصفوفة، الـ runbook، الـ bridge، الـ master) — شوف `git log 9b1f9dd..HEAD` |
 | Refs المحمية | `integration/series04` `84faa31` · `rc4/release-candidate` `1447ade` · `main` `45d9e18` · production `bb071ed`: **ما اتغيّروش** |
 | الحزم/الـ lockfiles/الإعدادات | `package.json`، `package-lock.json`، `mobile/package*.json`، `app.json`، `eas.json`، `tsconfig*.json`، `nest-cli.json`، `jest.config.js`: **مطابقة لـ `e517d82`** (`git diff --stat` فاضي) |
@@ -126,7 +126,7 @@
 | الفحص | الأمر | النتيجة |
 |---|---|---|
 | Backend TypeScript | `npx tsc --noEmit -p tsconfig.json` | exit 0 |
-| Backend build نضيف | حذف `dist` ثم `npm run build` | exit 0؛ `dist/main.js`؛ **9 migrations** و`shared/db/migration-guards.js` مترجمين |
+| Backend build نضيف | حذف `dist` **وملفات `*.tsbuildinfo`** ثم `npm run build` | exit 0؛ `dist/main.js`؛ **9 من 9 migrations** و`shared/db/migration-guards.js` مترجمين (156 ملف JS) |
 | Mobile TypeScript | `cd mobile; npx tsc --noEmit` | exit 0 |
 | Mobile Jest | `cd mobile; npx jest` | **14/14 suites، 203/203** |
 | التكافؤ | `npx jest --testPathPatterns tests/equivalence` | **8 suites، 40 tests** |
@@ -146,7 +146,8 @@
 3. تجربة M6 الأولى ما اتترجمتش (تعديل بيكسر النوع) فما أثبتتش حاجة؛ اتعادت بتعديل سليم.
 4. مسار `__dirname` للـ glob في copy الـ F4 بعد نقل الملف (ميكانيكي).
 5. سكربت تعديل الـ runbook اتقرا بترميز غلط (مفيش تأثير على الـ repo؛ اتعاد).
-6. **تصحيح استنتاج:** كنت فاكر إن TypeORM بيرفض migration بـ timestamp أقدم؛ اختبرت وطلع غير صحيح، فاتصحح التقييم (قسم A).
+6. **build ناقص بسبب cache قديم (مشكلة معروفة، واتكرّرت):** أول build بعد آخر commit خرج exit 0 لكن `dist` ناقص (من غير `main.js`، migration واحد) لأن `tsconfig*.tsbuildinfo` من بناء سابق خلّى `nest build` يظن إن باقي الملفات محدّثة. اكتشفتها بفحص محتوى `dist` مش بالـ exit code فقط؛ مسحت الـ cache (ملفات مُتجاهلة في Git) وأعدت البناء من الصفر فخرج كامل. **exit 0 لوحده مش دليل على build سليم.** (الإصلاح الدائم المقترح: خطوة build تمسح الـ buildinfo، خارج نطاق Series 06.)
+7. **تصحيح استنتاج:** كنت فاكر إن TypeORM بيرفض migration بـ timestamp أقدم؛ اختبرت وطلع غير صحيح، فاتصحح التقييم (قسم A).
 **ولا تشغيلة كاملة فشلت، ولا flaky ظهر، ولا تشغيلة اتشالت من التقرير.**
 
 ---

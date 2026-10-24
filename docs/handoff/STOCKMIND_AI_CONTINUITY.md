@@ -1,9 +1,9 @@
 # STOCKMIND — AI CONTINUITY (canonical)
 
-> **ACTIVE canonical location (since Series 05, 2026-10-24):** `docs/handoff/STOCKMIND_AI_CONTINUITY.md` on branch **`preflight/series05-rc-admission`**, worktree `D:\Projects\StockMind-wt\series05-rc-preflight`.
-> **The copies of this file and of the bridge on `integration/series04` (worktree `series04-integration`) are OLDER and stale.** Do not read them as current.
+> **ACTIVE canonical location (since Series 06, 2026-10-24):** `docs/handoff/STOCKMIND_AI_CONTINUITY.md` on branch **`hardening/series06-release-safety`**, worktree `D:\Projects\StockMind-wt\series06-release-safety`.
+> **The copies of this file and of the bridge on `preflight/series05-rc-admission` (worktree `series05-rc-preflight`) and on `integration/series04` (worktree `series04-integration`) are OLDER and stale.** Do not read them as current.
 > **Portable copy (identical to the canonical file):** `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md`.
-> **Last updated:** 2026-10-24 (after Series 05, the RC admission preflight).
+> **Last updated:** 2026-10-24 (after Series 06, release-line reconciliation and migration safety hardening).
 >
 > This file is a map, not proof. **Git history and the code win over this file.** Labels: VERIFIED, PARTIAL, UNVERIFIED,
 > NOT DONE.
@@ -18,8 +18,8 @@
 3. Check reality before acting:
    ```powershell
    git -C D:\Projects\StockMind worktree list
-   git -C D:\Projects\StockMind-wt\series05-rc-preflight status -sb
-   git -C D:\Projects\StockMind-wt\series05-rc-preflight log --oneline -8
+   git -C D:\Projects\StockMind-wt\series06-release-safety status -sb
+   git -C D:\Projects\StockMind-wt\series06-release-safety log --oneline -10
    git -C D:\Projects\StockMind status --porcelain=v1
    ```
 4. If anything here conflicts with Git or the code, trust the repo, fix this file, and say so.
@@ -40,7 +40,7 @@
 Update only on meaningful state changes. Do not rewrite the whole file for small edits.
 
 **Copy-ready startup line for any AI:**
-> Before any work on StockMind, read `D:\Projects\StockMind-wt\series05-rc-preflight\docs\handoff\STOCKMIND_AI_CONTINUITY.md` (branch `preflight/series05-rc-admission`; the `series04-integration` copy is stale) or the Desktop copy `StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md`). Follow its start/end protocol and its approval boundaries.
+> Before any work on StockMind, read `D:\Projects\StockMind-wt\series06-release-safety\docs\handoff\STOCKMIND_AI_CONTINUITY.md` (branch `hardening/series06-release-safety`; the `series05-rc-preflight` and `series04-integration` copies are stale) or the Desktop copy `StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md`). Follow its start/end protocol and its approval boundaries.
 
 ---
 
@@ -102,14 +102,15 @@ Update only on meaningful state changes. Do not rewrite the whole file for small
   - The mobile release build shows online mode as "Cloud sync coming soon".
   - **Online Preview** works only in a `__DEV__` build with `EXPO_PUBLIC_ONLINE_MODE=1` and an explicit `EXPO_PUBLIC_API_BASE_URL` (`mobile/src/lib/dev-flags.ts`), against a **local** backend.
 
-## C. Engineering state (2026-10-24, after Series 05)
+## C. Engineering state (2026-10-24, after Series 06)
 
 **Branches** (all pushed except local `main`; nothing merged into RC/main; nothing deployed):
 
 | Ref | HEAD | Worktree | Notes |
 |---|---|---|---|
-| **`preflight/series05-rc-admission`** | verified code baseline **`e20cf93`** (test-only changes on top of `84faa31`); later commits are docs only: `git log e20cf93..HEAD` | `D:\Projects\StockMind-wt\series05-rc-preflight` | **ACTIVE working line and canonical handoff.** Series 05 preflight: report + recovery runbook + tests. No app code or migration changed |
-| `integration/series04` | `84faa31` (last code commit `d69f6e8`) | `D:\Projects\StockMind-wt\series04-integration` | The RC candidate. **Not modified by Series 05.** Its handoff files are stale (older than the preflight branch) |
+| **`hardening/series06-release-safety`** | verified code baseline **`9b1f9dd`** (migrations, guard helper and tests on top of `e517d82`); later commits are docs only: `git diff --name-only 9b1f9dd HEAD` | `D:\Projects\StockMind-wt\series06-release-safety` | **ACTIVE working line and canonical handoff.** Series 06: CP-1 production equivalence (6/6) + CP-2 migration hardening. Migrations and tests only; no app code, API or dependency changed |
+| `preflight/series05-rc-admission` | `e517d82` (code baseline `e20cf93`) | `D:\Projects\StockMind-wt\series05-rc-preflight` | Series 05 preflight (report, runbook v0.1, tests). **Not modified by Series 06.** Its handoff files are stale |
+| `integration/series04` | `84faa31` (last code commit `d69f6e8`) | `D:\Projects\StockMind-wt\series04-integration` | The RC candidate. **Not modified by Series 05 or 06.** Its handoff files are stale |
 | `feature/series03-sync` | `55348a6` | `D:\Projects\StockMind-wt\series03-backend` | parent `02c53f5` |
 | `mobile/offline-outbox` | `ac9ba6b` | `D:\Projects\StockMind\.claude\worktrees\clever-poincare-ebc43f` (disposable) | contains `0510bc9`, `905f535`, `dbf43a6` |
 | `feature/shared-warehouse` | `02c53f5` | `D:\Projects\StockMind-wt\shared-warehouse` | Series 02 backend; base `cf5a881` |
@@ -142,10 +143,12 @@ Ancestry notes:
 | Live sync, anchors, reset | VERIFIED (PG + device) | Series 03–04 |
 | Offline outbox exactly-once, slow server, app-kill persistence | VERIFIED (device + ledger, one phone + API client) | Series 03–04 |
 | Restore reconciliation (P0) | VERIFIED (PG + device) | Series 04 |
-| Upgrade from the **production** schema (4 migrations → 8) in one run; tenant-scoped backfills | VERIFIED (PG, synthetic) | Series 05 `rc-admission.migration.pg.spec.ts` |
+| Upgrade from a **reconstruction** of the production schema (4 migrations → 9) in one run, without the `uuid-ossp` extension; tenant-scoped backfills; permission scope exact | VERIFIED (PG, synthetic data only) | Series 06 `release-safety.migration.pg.spec.ts` (17 tests) |
+| Fresh install = upgraded production = previously-upgraded environment (schema parity) | VERIFIED (PG) | Series 06 (only difference: the `user_fcm_tokens.id` default of environments that ran the old FCM text) |
 | Invitation expiry (single use and revoke were already covered) | VERIFIED (PG) | Series 05, `shared-warehouse.pg.spec.ts` |
-| `down()` of `1792560000000`/`1792570000000` is safe to run | **NO** (destroys data, re-widens Staff grants) | Series 05, characterized |
-| Production hotfix (`bb071ed`) security fixes present in the candidate | VERIFIED by spec parity / PARTIAL for two (see report §2-c); **not mergeable mechanically (11 conflicts)** | Series 05 |
+| `down()` of `1792560000000`/`1792570000000` | **fail-closed** since Series 06: refuses, changing nothing, when it would delete invitations, idempotency records, plans or customised grants. No override; going back = restore a backup or fix forward | VERIFIED (PG) |
+| Movements written without a revision (older release) | numbered by a DB trigger under the warehouse lock; unique `(warehouse, revision)`; existing NULLs repaired. **Application rollback is still unsupported as a way back** (degraded mode) | VERIFIED (PG, concurrent writers) |
+| Production hotfix (`bb071ed`) behaviours present in the candidate | **VERIFIED 6/6** (executable specs + negative controls: `tests/equivalence/production-bb071ed/`, 40 tests). Not mergeable mechanically (11 files / 21 conflict hunks); recommended strategy = ancestry-preserving merge on a NEW branch (not executed) | Series 06 matrix |
 | "Catching up" state on device | PARTIAL (unit only) | — |
 | Online transfer on device | UNVERIFIED | — |
 | Two physical devices | NOT DONE | — |
@@ -155,20 +158,21 @@ Ancestry notes:
 | Team-management UI on mobile | NOT DONE (API only) | — |
 | Offline↔online data migration, multi-org, Viewer role, billing | NOT DONE | — |
 
-**Latest verified gates** (Series 05, on `preflight/series05-rc-admission`; Series 04 numbers in brackets):
-- Backend real PG 15, final tree, **3 consecutive fresh-DB runs: 42/42 suites, 264/264 tests** [Series 04: 41/41, 255/255]. The +9 are 8 new migration tests and 1 invitation-expiry test.
-- One full run during Series 05 **failed** (3 tests in `shared-warehouse.migration.pg.spec.ts`: `uuid_generate_v4() does not exist`): a pre-existing spec-order dependency, characterized and fixed in the test harness only. See the report §6.
-- Backend `tsc` 0 and clean build (8 migrations compiled). Mobile `tsc` 0 and Jest **203/203**.
-- No device test in Series 05 (no app code changed). Device evidence remains `docs/handoff/series04-evidence/`.
+**Latest verified gates** (Series 06, code baseline `9b1f9dd`; Series 05 numbers in brackets):
+- Backend real PG 15, **3 consecutive fresh-DB full runs: 50/50 suites, 313/313 tests** [Series 05: 42/42, 264/264]. Arithmetic: 264 − 8 (old characterization spec) + 17 (release-safety) + 40 (equivalence) = 313.
+- Backend `tsc` 0 and a clean build with **9/9 migrations** compiled. Mobile `tsc` 0 and Jest **203/203**. `package.json`, lockfiles, app and tsconfig files identical to Series 05.
+- No full-suite run failed in Series 06. Development-time test-authoring errors and one incomplete-build incident are listed honestly in `SERIES_06_RELEASE_SAFETY_REPORT.md` §5.
+- No device test in Series 06 (no app code changed). Device evidence remains `docs/handoff/series04-evidence/`.
 
 **Risks and known issues:**
 - Re-entry after a restore that is later undone would duplicate the action; a `history-changed` item is never re-checked. Runbook: `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` (draft). Safeguards S1–S6 are proposals, none built.
 - Restore detection assumes point-in-time restores; receipts are kept 7 days.
 - `stock_idempotency_keys` has no cleanup job.
-- Migrations (Series 05, confirmed by tests): `down()` is destructive and re-widens Staff grants; migration `1722345600000` needs the `uuid-ossp` extension that only the app's TypeORM connection installs; an application rollback leaves movements with a NULL `revision` that no delta returns (repair SQL is in the runbook). Never run `migration:revert` on production.
+- Migrations (Series 06): the three Series 05 hazards are closed in code and tests (fail-closed `down()`; no `uuid-ossp` dependency; DB-enforced revisions). Still true: application rollback is a degraded mode, not a way back; `1792580000000` makes the boot fail if duplicate `(warehouse, revision)` pairs exist; the read-only pre-deploy checklist (runbook §13) has NOT been run on any real database; the FCM migration's `CREATE TABLE` fails if the table already exists. Never run `migration:revert` on production.
+- **R12 (open, needs a decision before Production):** `ssl: { rejectUnauthorized: false }` when `DB_SSL=true`, in `src/app.module.ts` and `src/config/data-source.ts`, identical in production. Not tested against Neon.
 - Warehouses created after the rollout are not visible to existing Staff until granted, and there is no grant UI.
 - The production hotfix line (`bb071ed`) is not an ancestor of the RC or the candidate; merging it gives 11 conflicts. The Director's dirty `main` files collide with tracked files of the candidate (3 files).
-- Gotcha: a stale `tsconfig.build.tsbuildinfo` makes `nest build` emit an empty `dist`. Delete it inside the worktree you are building.
+- Gotcha (hit again in Series 06): stale `tsconfig*.tsbuildinfo` makes `nest build` exit 0 with an INCOMPLETE `dist`. Delete the `*.tsbuildinfo` files in the worktree you build and check `dist/main.js` and the migration count, not only the exit code.
 
 ## D. How the Director expects AI engineers to work
 
@@ -238,6 +242,7 @@ Ancestry notes:
   - **Need OAuth:** GitHub plugin and several marketing/engineering connectors.
   - **Available but unused:** Maestro, Android MCP, computer-use, browser pane.
 - **Checkpoints and evidence:**
+  - Series 06 (tracked, this branch): `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md`, `docs/handoff/SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md`, `docs/handoff/series06-evidence/`; the recovery runbook is v0.2; logs in `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s06_*.log` and `s06-final3.summary.txt`.
   - Series 05 (tracked, preflight branch): `docs/handoff/SERIES_05_RC_PREFLIGHT_REPORT.md` and `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md`; test logs in `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s05_*.log` and `s05-final3.summary.txt`.
   - Series 04 (tracked): `docs/handoff/SERIES_04_CHECKPOINT.md` + `docs/handoff/series04-evidence/`.
   - Series 03 backup: `D:\StockMind_Backups\Checkpoints\SERIES_03_CHECKPOINT_2026-10-20.md` (SHA-256 `B555D4D2…26A6`).
@@ -247,22 +252,21 @@ Ancestry notes:
 
 ## G. Next actions
 
-Series 05 (RC admission preflight) is **done**: RC admission = **CONDITIONAL GO**, Production = **NO-GO**. Details and conditions: `docs/handoff/SERIES_05_RC_PREFLIGHT_REPORT.md`.
+Series 06 (release-line reconciliation + migration safety) is **done**: CP-1 PASS (6/6 production fixes), CP-2 PASS (synthetic data). RC readiness: ready for release-line execution **planning**, subject to the Director's decisions. Production = **NO-GO**. Details: `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md`.
 
-1. **Waiting for the Director's decision** on the next phase. Recommended (not authorized): **Series 06 = release-line reconciliation + migration hardening** (report §8, CP-1 + CP-2), in a new branch from `preflight/series05-rc-admission`.
-   - Prerequisites: the Director's decision on the release-line strategy (recommended: build the release line from the candidate and do not merge `bb071ed` mechanically); a clean worktree; the PG cluster started.
-   - Includes migration changes, so it needs the expanded gates: three consecutive fresh-DB full runs plus a rehearsal on a copy of the production schema (needs the Director's approval for anything touching production).
-   - Acceptance: see report §8 (CP-1, CP-2). Nothing merged into RC/main/release without approval.
-2. Then, in order of need: S1 + S2 recovery safeguards, warehouse-grant UX (CP-4), entitlements grandfathering (CP-5), two-device / iOS / Redis checks (CP-6), a mobile team-management screen, Viewer role, multi-org.
-3. **Deferred until approved:** production deploy, RC promotion, AAB/Play, billing, iOS build (needs macOS/EAS), real Redis, logo adoption.
-4. **First minimal verification commands for the next session:** the four `git` commands in the protocol, then `Test-Path D:\Projects\StockMind-wt\_local-tools\pg15\pgsql\bin\pg_ctl.exe`. The local PostgreSQL is stopped; its scratch databases were dropped.
-
+1. **Waiting for the Director's decisions** (report §8): the release-line strategy (recommended: Option A, an ancestry-preserving `-s ours` merge on a NEW branch, then a fast-forward; not executed) plus a hotfix freeze on the production branch; the Director's dirty `main` files and the 3 unpushed local commits; authorisation of the read-only pre-deploy checks on the real database (runbook §13); authorisation to assess R12 (TLS) against a non-production branch.
+2. **Recommended next phase (not authorized): Series 07 = recovery safeguards S1 + S2** (runbook §11) together with the CP-4 decision on warehouse grants, in a new branch from `hardening/series06-release-safety`. It is the largest remaining gap before shared warehouses can be enabled.
+3. Then: entitlements grandfathering (CP-5), two-device / iOS / Redis / Google Sign-In checks, a mobile team-management screen, Viewer role, multi-org.
+4. **Deferred until approved:** production deploy, executing the release line, RC promotion, AAB/Play, billing, iOS build (needs macOS/EAS), real Redis, logo adoption.
+5. **First minimal verification commands for the next session:** the four `git` commands in the protocol, then `Test-Path D:\Projects\StockMind-wt\_local-tools\pg15\pgsql\bin\pg_ctl.exe`. The local PostgreSQL is stopped; its scratch databases were dropped.
 ## H. Where to look (read only what the task needs)
 
 | Need | Read |
 |---|---|
-| RC admission verdict, ancestry, migration safety, security gates, corrective phases | `docs/handoff/SERIES_05_RC_PREFLIGHT_REPORT.md` |
-| What operators do after a database restore; duplicate investigation; NULL-revision repair | `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` (draft, not an approved Production policy) |
+| Series 06 verdict, migration changes, tests, remaining risks, Director decisions | `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md` |
+| Which production fix is where in the candidate, with its test; release-line strategy options and evidence | `docs/handoff/SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md` |
+| RC admission verdict, ancestry, security gates, corrective phases (Series 05) | `docs/handoff/SERIES_05_RC_PREFLIGHT_REPORT.md` |
+| What operators do after a database restore; duplicate investigation; fail-closed down(); pre-deploy read-only checklist | `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` (v0.2 draft, not an approved Production policy) |
 | Integration, P0 contract, gates, device evidence | `docs/handoff/SERIES_04_CHECKPOINT.md` |
 | Series 03 outbox/anchors | Series 03 backup (path in section F) |
 | Series 02 APIs, migrations, cost model | `D:\Projects\StockMind\.ai-handoff\SERIES_02_CHECKPOINT.md` (read only) |
@@ -277,3 +281,4 @@ Series 05 (RC admission preflight) is **done**: RC admission = **CONDITIONAL GO*
   - Inventories and quarantine: `D:\StockMind_Backups\Maintenance\2026-10-21_C_cleanup\`.
 - **2026-10-24:** onboarding on a new Claude account. Added `docs/handoff/STOCKMIND_AI_BRIDGE.md` (ChatGPT↔Claude bridge, Egyptian Arabic) with a Desktop mirror. Corrected the `integration/series04` HEAD in section C (`322e8a0` → `eb19ab0`; docs-only since `d69f6e8`). No code, tests, branches or tools changed.
 - **2026-10-24 (Series 05):** RC admission preflight on the new isolated branch `preflight/series05-rc-admission` (worktree `series05-rc-preflight`). Verdict CONDITIONAL GO (RC) / NO-GO (Production). Added the report, the recovery runbook, a migration-safety spec and an invitation-expiry test, and fixed a spec-order dependency in the test harness. **The canonical handoff files moved to this branch**; the copies on `integration/series04` are stale. No application code or migration changed; nothing merged or deployed.
+- **2026-10-24 (Series 06):** release-line reconciliation and migration safety hardening on the new isolated branch `hardening/series06-release-safety` (worktree `series06-release-safety`). CP-1: the six production hotfix behaviours pass as executable specs on the candidate (40 tests, negative controls red). CP-2: the FCM migration no longer needs `uuid-ossp`; `down()` of `1792560000000` and `1792570000000` is fail-closed; new migration `1792580000000` (revision trigger, repair, unique partial index); 17-test migration suite replaces the Series 05 characterization spec. Backend PG ×3: 50/50 suites, 313/313 tests. **The canonical handoff files moved to this branch**; the copies on the Series 05 and Series 04 branches are stale. Nothing merged, no release branch created, nothing deployed.
