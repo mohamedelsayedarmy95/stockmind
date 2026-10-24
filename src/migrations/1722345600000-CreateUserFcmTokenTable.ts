@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * The id default is gen_random_uuid() (built into PostgreSQL 13+, like in every other migration of this project), not
+ * The id default is gen_random_uuid() (built into PostgreSQL 13+, as in the project's other migrations that generate ids), not
  * uuid_generate_v4(): that one needs the uuid-ossp extension, which no migration creates and only the application's own
  * TypeORM connection installs on connect, so on a bare database this migration failed and rolled the whole upgrade back.
  * Databases that already ran the earlier text keep a uuid_generate_v4() default on this table; both produce random v4
