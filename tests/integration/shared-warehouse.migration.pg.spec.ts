@@ -36,6 +36,10 @@ const options = (migrations: string[] = [], schema: string | undefined = SCHEMA)
 
   beforeAll(async () => {
     admin = await new DataSource(options([], undefined)).initialize();
+    // Migration 1722345600000 calls uuid_generate_v4() but never creates the extension: the app's TypeORM connection
+    // installs it on connect. Do the same here, so this spec does not depend on another spec having run first (alone, or
+    // scheduled first, it failed with "function uuid_generate_v4() does not exist"). A concurrent installer is fine.
+    await admin.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`).catch(() => undefined);
     await admin.query(`CREATE SCHEMA "${SCHEMA}"`);
 
     // The previous release's schema, with a company, two warehouses, an Admin, a Staff member and three movements.

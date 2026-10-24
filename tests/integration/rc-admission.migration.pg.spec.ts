@@ -245,4 +245,41 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
       [ids.a1, '0']);
     expect(delta.map((r: { id: string }) => r.id)).not.toContain(id);
   });
+
+  it('the repair procedure in the recovery runbook gives those movements revisions above every revision already issued', async () => {
+    // Same statements as "After an application rollback" in docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md.
+    const issued = Number((await one(`SELECT stock_revision FROM warehouses WHERE id = $1`, [ids.a1])).stock_revision);
+    const [{ id }] = await ds.query(`SELECT id FROM stock_movements WHERE warehouse_id = $1 AND revision IS NULL`, [ids.a1]);
+    const runner = ds.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      await runner.query(`SELECT id FROM warehouses WHERE id IN (
+          SELECT DISTINCT warehouse_id FROM stock_movements WHERE revision IS NULL) ORDER BY id FOR UPDATE`);
+      await runner.query(`
+        WITH todo AS (
+          SELECT id, warehouse_id, row_number() OVER (PARTITION BY warehouse_id ORDER BY created_at, id) AS rn
+          FROM stock_movements WHERE revision IS NULL)
+        UPDATE stock_movements m SET revision = w.stock_revision + t.rn
+        FROM todo t JOIN warehouses w ON w.id = t.warehouse_id WHERE m.id = t.id`);
+      await runner.query(`
+        UPDATE warehouses w SET stock_revision =
+          COALESCE((SELECT max(m.revision) FROM stock_movements m WHERE m.warehouse_id = w.id), 0)`);
+      await runner.commitTransaction();
+    } catch (err) {
+      await runner.rollbackTransaction();
+      throw err;
+    } finally {
+      await runner.release();
+    }
+
+    expect(Number((await one(`SELECT revision FROM stock_movements WHERE id = $1`, [id])).revision)).toBe(issued + 1);
+    expect(Number((await one(`SELECT stock_revision FROM warehouses WHERE id = $1`, [ids.a1])).stock_revision)).toBe(issued + 1);
+    // A device whose cursor was at the old counter now receives it in its next delta.
+    const delta = await ds.query(
+      `SELECT sm.id FROM stock_movements sm WHERE sm.warehouse_id = $1 AND sm.revision > $2 ORDER BY sm.revision`,
+      [ids.a1, String(issued)]);
+    expect(delta.map((r: { id: string }) => r.id)).toEqual([id]);
+    expect(await one(`SELECT count(*)::int AS n FROM stock_movements WHERE revision IS NULL`)).toEqual({ n: 0 });
+  });
 });
