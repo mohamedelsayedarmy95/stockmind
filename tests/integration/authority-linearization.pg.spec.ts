@@ -319,22 +319,48 @@ type Done<T> = { settled: boolean; res?: T };
       });
     });
 
-  it("CP-4 with several targets: the creating administrator stays ordered ahead of a revocation for the whole transaction; refusal leaves nothing behind", async () => {
-    const A = await newAdmin();
-    const B = await newStaff(); const C = await newStaff();
+  // Series 13 (F13-T1): the member locks are taken as ONE set in ascending id order, so where the creation parks depends on
+  // how the held target's id sorts against the actor's. The Series 11 version of this test held C's lock and assumed the
+  // creation already held A's: true only when A < C (random UUIDs: it failed 3 of 10 isolated runs). Both orders are now
+  // pinned and each asserts the guarantee that holds for it; together they are the linearization of creation vs revocation.
+  it.each([
+    ['the actor sorts before the held target: the creator is held and stays ordered ahead of the revocation', true],
+    ['the held target sorts before the actor: the revocation commits first and the creation is refused, leaving nothing', false],
+  ])("CP-4 with several targets, %s", async (_case, actorFirst) => {
+    let A = await newAdmin();
+    const B = await newStaff();
+    let C = await newStaff();
+    // Converges quickly: an actor in the wrong half of the id space is replaced, otherwise the held target is.
+    const wrongHalf = () => (A.id.toLowerCase()[0] >= '8') === actorFirst;
+    for (let i = 0; i < 24 && (A.id.toLowerCase() < C.id.toLowerCase()) !== actorFirst; i++) {
+      if (wrongHalf()) A = await newAdmin(); else C = await newStaff();
+    }
+    expect(A.id.toLowerCase() < C.id.toLowerCase()).toBe(actorFirst); // the premise of this case, not a hope
     const name = `Cp4 ${TAG} ${++seq}`;
-    const hold = await holdMemberLock(C.id); // parks the creation after it has taken its other locks
+    const hold = await holdMemberLock(C.id); // parks the creation at C, after every member lock that sorts before C
     const g = track(http().post('/api/v1/warehouses').set(auth(A.token)).send({ name, initialAccess: [{ userId: B.id, profile: 'operator' }, { userId: C.id, profile: 'warehouse_manager' }] }).then((r) => r));
     await until(async () => (await waitersOnMember(C.id)) > 0, 10_000, 'the creation to wait for the second target');
     const r = track(revocations["demoted to Staff"](A).then((x) => x));
-    await sleep(1500);
-    expect(r.settled).toBe(false);
-    expect((await rowOf(A.id)).role).toBe('Admin');
-    await hold.release();
-    await until(() => g.settled && r.settled, 15_000, 'both to finish');
-    expect(status(g)).toBe(201);
-    expect(status(r)).toBe(200);
-    expect((await db.query(`SELECT 1 FROM warehouses WHERE company_id = $1 AND name = $2`, [companyId, name])).length).toBe(1);
+    if (actorFirst) {
+      await sleep(1500);
+      expect(r.settled).toBe(false);
+      expect((await rowOf(A.id)).role).toBe('Admin');
+      await hold.release();
+      await until(() => g.settled && r.settled, 15_000, 'both to finish');
+      expect(status(g)).toBe(201);
+      expect(status(r)).toBe(200);
+      expect((await db.query(`SELECT 1 FROM warehouses WHERE company_id = $1 AND name = $2`, [companyId, name])).length).toBe(1);
+    } else {
+      await until(() => r.settled, 10_000, 'the revocation to commit (the creation does not hold the actor yet)');
+      expect(status(r)).toBe(200);
+      expect((await rowOf(A.id)).role).toBe('Staff');
+      expect(g.settled).toBe(false);
+      await hold.release();
+      await until(() => g.settled, 15_000, 'the creation to finish');
+      expect([401, 403]).toContain(status(g)); // re-authorized inside its transaction: it sees the committed demotion
+      expect((await db.query(`SELECT 1 FROM warehouses WHERE company_id = $1 AND name = $2`, [companyId, name])).length).toBe(0);
+      expect(await scopedRows(C.id)).toEqual([]);
+    }
   });
 
   it("CP-4 where the second target is not eligible: the whole creation is refused, no warehouse, no grant, no evidence", async () => {

@@ -7,7 +7,7 @@ import 'reflect-metadata';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Controller, Get, INestApplication, MiddlewareConsumer, Module, NestModule, Post, Req, RequestMethod } from '@nestjs/common';
-import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
@@ -229,6 +229,8 @@ describe('F1: @Public route allowlist on the real controllers', () => {
     'GET /auth/saml/login',
     'GET /auth/saml/logout',
     'GET /health',
+    // Series 13: no JWT because no tenant may read it, but NOT open: ShadowDiagnosticsGuard (token + loopback; 404 otherwise)
+    'GET /internal/capability-shadow',
     'POST /auth/2fa/login',
     'POST /auth/accept-invitation',
     'POST /auth/google',
@@ -236,7 +238,16 @@ describe('F1: @Public route allowlist on the real controllers', () => {
     'POST /auth/refresh-token',
     'POST /auth/register',
     'POST /auth/saml/callback',
+    'POST /internal/capability-shadow/window', // Series 13, same guard
   ];
+
+  it('the public operator diagnostics routes are behind their own guard (no JWT does not mean no gate)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { ShadowDiagnosticsController } = require('../../src/presentation/controllers/shadow-diagnostics.controller');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { ShadowDiagnosticsGuard } = require('../../src/presentation/guards/shadow-diagnostics.guard');
+    expect(Reflect.getMetadata(GUARDS_METADATA, ShadowDiagnosticsController)).toEqual([ShadowDiagnosticsGuard]);
+  });
 
   it('only the documented routes are marked @Public()', () => {
     const dir = path.join(__dirname, '../../src/presentation/controllers');

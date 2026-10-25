@@ -43,7 +43,9 @@ export class PermissionsGuard implements CanActivate {
 
     const mode = capabilityMode();
     // Every guarded decision is counted by mode, so a shadow window that was partly decided in another mode is not conclusive.
-    this.shadow?.noteGuardedRequest(mode);
+    // Telemetry never takes part in the decision: a failure here is swallowed (the window then lacks the count, and says so
+    // through a lower `guardedByMode` total than the comparisons it holds; no answer can change).
+    try { this.shadow?.noteGuardedRequest(mode); } catch { /* telemetry only */ }
     if (mode === 'enforce') return this.enforce(context, req, user, required);
 
     const legacyAllowed = await this.legacyAllows(user, required);
