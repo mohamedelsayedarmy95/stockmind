@@ -102,6 +102,27 @@ type Done<T> = { settled: boolean; res?: T };
   };
   const parkOnAccessRow = (memberId: string, warehouseId: string) => parkOnRow('warehouse_access', 'user_id = $1 AND warehouse_id = $2', [memberId, warehouseId]);
 
+  /** The company row held by the test: a grant parks on its company key-share BEFORE it has taken any member lock. */
+  const parkOnCompany = async () => {
+    const qr = db.createQueryRunner(); await qr.connect(); await qr.startTransaction(); holders.push(qr);
+    await qr.query(`SELECT 1 FROM companies WHERE id = $1 FOR UPDATE`, [companyId]);
+    const [{ x }] = await qr.query(`SELECT pg_current_xact_id()::xid::text AS x`);
+    return {
+      parked: () => until(async () => (await waitersOn(x)) > 0, 10_000, 'the request to park on the company row'),
+      release: async () => { await qr.rollbackTransaction(); await qr.release(); holders.splice(holders.indexOf(qr), 1); },
+    };
+  };
+  /** A revoker that follows the documented protocol (member lock, then the row) and does NOT need the company row. */
+  const protocolRevoke = async (memberId: string) => {
+    const qr = db.createQueryRunner(); await qr.connect();
+    try {
+      await qr.startTransaction();
+      await qr.query(`SELECT pg_advisory_xact_lock(hashtextextended('stockmind:member:' || $1::uuid::text, 0))`, [memberId]);
+      await qr.query(`UPDATE users SET role = 'Staff', token_version = token_version + 1 WHERE id = $1`, [memberId]);
+      await qr.commitTransaction();
+    } finally { await qr.release(); }
+  };
+
   /** The member's authority lock held by the test (what an in-flight authority change of that member would hold). */
   const holdMemberLock = async (memberId: string) => {
     const qr = db.createQueryRunner(); await qr.connect(); holders.push(qr);
@@ -271,6 +292,32 @@ type Done<T> = { settled: boolean; res?: T };
     }
   });
 
+  describe.each([
+    ['PUT /team/members/:id/access', (A: Member, B: Member) => grant(A, B.id, [{ warehouseId: w1, profile: 'operator' }, { warehouseId: w3, profile: 'operator' }]), 200],
+    ['legacy PUT /team/members/:id/warehouses', (A: Member, B: Member) => legacyGrant(A, B.id, [w1, w3]), 200],
+    ['POST /warehouses with initialAccess (CP-4)', (A: Member, B: Member) => http().post('/api/v1/warehouses').set(auth(A.token)).send({ name: `Cp4 late ${TAG} ${++seq}`, initialAccess: [{ userId: B.id, profile: 'operator' }] }), 201],
+  ] as Array<[string, (A: Member, B: Member) => request.Test, number]>)(
+    'an administrator revoked AFTER the request guard but BEFORE the transaction takes any lock: %s', (_name, send, _okStatus) => {
+      it('is refused inside the transaction and writes nothing', async () => {
+        const A = await newAdmin();
+        const B = await newStaff();
+        const before = await operatorRows(B.id);
+        const eventsBefore = await events(B.id);
+        const warehousesBefore = (await db.query(`SELECT count(*)::int AS n FROM warehouses WHERE company_id = $1`, [companyId]))[0].n as number;
+        const park = await parkOnCompany();
+        const g = track(send(A, B).then((r) => r)); // passes the guards while A is still an administrator, then parks on the company row
+        await park.parked();
+        await protocolRevoke(A.id); // commits: it does not need the company row
+        expect((await rowOf(A.id)).role).toBe('Staff');
+        await park.release();
+        await until(() => g.settled, 15_000, 'the request to finish');
+        expect([401, 403]).toContain(status(g)); // the revocation committed first, so the change must see it
+        expect(await operatorRows(B.id)).toEqual(before);
+        expect(await events(B.id)).toBe(eventsBefore);
+        expect((await db.query(`SELECT count(*)::int AS n FROM warehouses WHERE company_id = $1`, [companyId]))[0].n).toBe(warehousesBefore);
+      });
+    });
+
   it("CP-4 with several targets: the creating administrator stays ordered ahead of a revocation for the whole transaction; refusal leaves nothing behind", async () => {
     const A = await newAdmin();
     const B = await newStaff(); const C = await newStaff();
@@ -392,8 +439,9 @@ type Done<T> = { settled: boolean; res?: T };
       pairs.push(service.setMemberAccess(companyId, A.id, B.id, [{ warehouseId: w1, profile: 'operator' }]).catch((e) => e));
       pairs.push(service.setMemberAccess(companyId, B.id, A.id, [{ warehouseId: w1, profile: 'operator' }]).catch((e) => e));
     }
-    const results = await Promise.all(pairs) as Array<{ status?: number; message?: string; getStatus?: () => number }>;
-    const bad = results.filter((e) => e && typeof e === 'object' && /deadlock|40P01|55P03/i.test(String((e as Error).message)));
+    const results = await Promise.all(pairs) as Array<{ message?: string; getResponse?: () => { code?: string } }>;
+    // A deadlock victim or a lock timeout is answered as AUTHORITY_BUSY (503): under a correct protocol neither can happen here.
+    const bad = results.filter((e) => e && typeof e === 'object' && (e.getResponse?.()?.code === 'AUTHORITY_BUSY' || /deadlock|40P01|55P03/i.test(String(e.message))));
     expect(bad).toEqual([]);
   });
 

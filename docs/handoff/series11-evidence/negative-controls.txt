@@ -1,0 +1,45 @@
+Series 11 negative controls. Each run disables ONE protection in the working tree (restored with git checkout afterwards) and runs the matching specs on a fresh disposable PostgreSQL database. Every control must turn tests RED.
+
+N1  the granting administrator is NOT locked (only targets are)
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       23 passed, 23 total] jest exit 0  (56s)  restored=yes
+N2  the company key-share is not taken first by a grant (FK lock cycle with a membership action)
+      -> RED  [Tests:       8 failed, 15 passed, 23 total] jest exit 1  (63s)  restored=yes
+N3  member locks are taken in the caller order instead of ascending id order
+      -> RED  [Tests:       1 failed, 22 passed, 23 total] jest exit 1  (98s)  restored=yes
+N4  the lock key is built from the raw text of the id (not canonical)
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       23 passed, 23 total] jest exit 0  (56s)  restored=yes
+N5  tenancy is not checked before the locks are taken
+      -> RED  [Tests:       1 failed, 22 passed, 23 total] jest exit 1  (60s)  restored=yes
+N6  the legacy endpoint does not re-authorize its actor inside the transaction
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       23 passed, 23 total] jest exit 0  (56s)  restored=yes
+N7  authority transactions have no lock timeout
+      -> RED  [Tests:       3 failed, 20 passed, 23 total] jest exit 1  (77s)  restored=yes
+N8  stock writes take the member lock before (without) the company key-share
+      -> RED  [Tests:       1 failed, 22 passed, 23 total] jest exit 1  (57s)  restored=yes
+N9  the legacy endpoint silently keeps scoped grants it cannot replace
+      -> RED  [Tests:       1 failed, 22 passed, 23 total] jest exit 1  (55s)  restored=yes
+N10  a shadow difference is explained by ANY active grant of the member
+      -> RED  [Tests:       4 failed, 13 passed, 17 total] jest exit 1  (8s)  restored=yes
+N11  an invalid CAPABILITY_MODE falls back to off
+      -> RED  [Tests:       18 failed, 5 passed, 23 total] jest exit 1  (12s)  restored=yes
+N12  a comparison with no principal is counted as equal (parity) instead of incomplete
+      -> RED  [Tests:       2 failed, 11 passed, 13 total] jest exit 1  (10s)  restored=yes
+N13  the guard does not count an impossible comparison as incomplete
+      -> RED  [Tests:       2 failed, 11 passed, 13 total] jest exit 1  (9s)  restored=yes
+N14  a scoped grant is shown as effective even when the engine does not enforce
+      -> RED  [Tests:       2 failed, 5 passed, 7 total] jest exit 1  (19s)  restored=yes
+N15  a classifier that ignores the expiry window of a grant
+      -> RED  [Tests:       2 failed, 15 passed, 17 total] jest exit 1  (9s)  restored=yes
+N16  a classifier that does not flag a cross-tenant decision
+      -> RED  [Tests:       1 failed, 16 passed, 17 total] jest exit 1  (9s)  restored=yes
+
+PASS 1 SUMMARY (honest): 13 of the 16 controls turned tests red. THREE WERE NOT CAUGHT and are kept here on purpose:
+  N1  removing the granting administrator from the ordered lock set stayed green: the protection existed TWICE (the actor was also
+      share-locked when loaded), so the mutant was equivalent for linearization; and the opposite-pairs test could not see a
+      deadlock because the deadlock victim is now mapped to AUTHORITY_BUSY and the test looked for the raw database message.
+  N4  the canonical lock key existed twice too (JavaScript lower-casing AND the SQL ::uuid cast): removing one layer changes nothing.
+  N6  the legacy endpoint without its in-transaction actor check stayed green: no test revoked the actor BEFORE the transaction took
+      its locks (the company key-share made every membership-service revocation wait behind the grant).
+Fixes: the opposite-pairs test now treats AUTHORITY_BUSY as a failure; three new tests park a request on the company row, commit a
+revocation that does not need that row, then release it (legacy, PUT access, CP-4); controls N1/N4/N6 are re-defined below as
+single-layer variants (N1b, N4a, N4b), both-layer variants (N1, N4c) and N6/N6b/N6c.
