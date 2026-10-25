@@ -1,0 +1,75 @@
+Series 11 / F11-01 and companions: BEFORE the fix (Series 10 code, commit 7e695d8), spec tests/integration/authority-linearization.pg.spec.ts
+run on a fresh PostgreSQL 15.19 database (disposable, 127.0.0.1:55433). The spec was copied into the Series 10 worktree for this run only and
+removed afterwards (that worktree is clean). Result: Tests: 14 failed, 8 passed, 22 total.
+
+What the failures MEAN (each is a reproduced defect, not a test mistake):
+  "Expected: false / Received: true" at expect(r.settled).toBe(false)
+      -> the REVOCATION of the granting administrator (demotion to Staff, demotion to Manager, suspension, removal, or a revoker
+         following the documented member-lock protocol, or the legacy endpoint) COMMITTED while the administrator\'s grant was still
+         in flight. The grant then commits on authority that an earlier committed change had already revoked.   [F11-01 CONFIRMED]
+  legacy endpoint test: "Expected value: 200 / Received array: [401, 403]" at expect([401, 403]).toContain(status)
+      -> the revocation committed FIRST and the legacy PUT /team/members/:id/warehouses STILL returned 200 and wrote the rows:
+         the legacy path never re-checks its actor inside the transaction.                               [F11-01 CONFIRMED, legacy path]
+  tenancy test: request "HUNG" -> another company\'s administrator queued behind a lock on a member of THIS company
+         (the lock is taken before the tenancy check).                                                    [cross-tenant interference]
+  upper-case id test: 200 instead of waiting -> the lock key was built from the raw URL text, so an upper-case id is a different
+         lock from the lower-case id in the member\'s own token.                                          [lock-key canonicalization]
+  AUTHORITY_BUSY tests: HUNG -> no bounded wait existed (feature absent before the fix).
+  stock-write vs membership tests: "deadlock detected" at StockService.claimIdempotencyKey, HTTP 500 -> a stock write holding the
+         member lock and a membership action holding the company row wait for each other.              [latent lock-order inversion]
+  legacy scoped-grants test: 200 instead of 409 -> the legacy replace silently left scoped access in place.
+
+Filtered log (jest output; application logs removed):
+  [Nest] 25516  - 10/25/2026, 1:37:14 PM   ERROR [GlobalExceptionFilter] [filter] caught QueryFailedError: deadlock 
+  QueryFailedError: deadlock detected
+  [Nest] 25516  - 10/25/2026, 1:37:16 PM   ERROR [GlobalExceptionFilter] [filter] caught QueryFailedError: deadlock 
+  QueryFailedError: deadlock detected
+  FAIL tests/integration/authority-linearization.pg.spec.ts (69.153 s)
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › the granting administrator is demoted to 
+      Expected: false
+      Received: true
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › the granting administrator is demoted to 
+      Expected: false
+      Received: true
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › the granting administrator is suspended 
+      Expected: false
+      Received: true
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › the granting administrator is removed while 
+      Expected: false
+      Received: true
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › the same holds for a revoker that follows 
+      Expected: false
+      Received: true
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › legacy PUT /team/members/:id/warehouses: 
+      Expected: false
+      Received: true
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › legacy endpoint: an actor revoked after the 
+      Expected value: 200
+      Received array: [401, 403]
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › legacy endpoint does not silently keep 
+      Expected: 409
+      Received: 200
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › tenancy: another company's administrator 
+      Expected: not Symbol(hung)
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › a grant waiting for a held member lock 
+      Expected: not Symbol(hung)
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › an UPPER-CASE member id in the URL is the 
+      Expected: 503
+      Received: 200
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › a membership action waiting for a held 
+      Expected: not Symbol(hung)
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › a stock write parked at its idempotency 
+      Expected: < 500
+      Received:   500
+    ● F11-01 authority linearization (PostgreSQL, CAPABILITY_MODE=enforce) › the same, for a TRANSFER and for a 
+      Expected: < 500
+      Received:   500
+  Test Suites: 1 failed, 1 total
+  Tests:       14 failed, 8 passed, 22 total
+
+ADDENDUM (re-run of one case). In the run above the "removed" case sent {} instead of {confirm: true}, so it was refused by DTO validation
+before it reached the lock (a test mistake, fixed). The case was re-run alone on the same Series 10 code (db stockmind_gate_s11_before5):
+  Tests: 1 failed, 21 skipped; "the granting administrator is removed while the grant transaction is in flight":
+  expect(r.settled).toBe(false) -> Received: true  (the removal of the granting administrator COMMITTED while the grant was in flight).
+So all four membership revocations (demote to Staff, demote to Manager, suspend, remove), the documented-protocol revoker and the
+legacy path reproduce F11-01 on the Series 10 code. The Series 10 worktree was left clean (the temporary spec copy was deleted).

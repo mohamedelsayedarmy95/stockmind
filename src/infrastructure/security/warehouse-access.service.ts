@@ -64,18 +64,11 @@ export class WarehouseAccessService {
 
   private async compareScope(userId: string, companyId: string, legacy: string[] | null): Promise<void> {
     try {
-      const scoped = await this.scopedScope(userId, companyId);
+      // One snapshot serves both the new scope and the explanation of any difference.
       const principal = await this.capabilities.loadPrincipal(userId, companyId);
-      // Compare as sets: "all" (null) against a list is a difference unless both are "all".
-      const key = (s: string[] | null) => (s === null ? '*' : [...new Set(s)].sort().join(','));
-      const same = key(legacy) === key(scoped);
-      // A scoped grant can only ADD warehouses: the new scope must always contain the legacy one.
-      const superset = legacy === null ? scoped === null : scoped === null || legacy.every((id) => scoped.includes(id));
-      // equal → (true, true); wider → (false, true) "the legacy scope lacked these"; narrower → (true, false) never expected
-      this.shadow.record({
-        kind: 'scope', route: 'WarehouseAccessService.scope', userId, capability: null, warehouseIds: [],
-        legacy: same ? true : !superset, scoped: same ? true : superset,
-        expected: !!principal?.grants.some((g) => g.source === 'access_grant'),
+      this.shadow.observeScope({
+        route: 'WarehouseAccessService.scope', userId, requestCompanyId: companyId, principal,
+        legacy, scoped: principal && principal.status === 'active' ? warehouseScope(principal, 'scoped') : null,
       });
     } catch (err) {
       this.shadow.error();

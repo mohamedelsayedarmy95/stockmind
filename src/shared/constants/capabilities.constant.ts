@@ -85,12 +85,38 @@ export const MOVEMENT_CAPABILITY: Readonly<Record<string, Permission>> = {
 
 export type CapabilityMode = 'off' | 'shadow' | 'enforce';
 
+/** An unrecognised CAPABILITY_MODE. Never answered by choosing a mode: the application refuses to start (or to decide). */
+export class CapabilityModeError extends Error {
+  readonly code = 'CAPABILITY_MODE_INVALID';
+  constructor(raw: string) {
+    // Shown at startup / in logs: bounded and printable, so a pasted secret or control characters cannot leak or inject.
+    const shown = raw.slice(0, 24).replace(/[^ -~]/g, '?');
+    super(`CAPABILITY_MODE must be one of off, shadow, enforce (got "${shown}${raw.length > 24 ? '...' : ''}")`);
+    this.name = 'CapabilityModeError';
+  }
+}
+
 /**
- * CAPABILITY_MODE: off (legacy only), shadow (legacy decides, the new model is computed and compared; the default),
- * enforce (the new model decides). Read on every call so a deployment can roll back without a restart of anything but its
- * environment; an unrecognised value means `off` (no new behaviour).
+ * CAPABILITY_MODE (Series 11 / F11-02): off (legacy only, an intentional operator choice), shadow (legacy decides, the new
+ * model is computed and compared; the DEFAULT when the variable is missing or blank), enforce (the new model decides).
+ * Case and surrounding whitespace are ignored. ANY other value throws: a typo must never silently select legacy
+ * authorization (or any other mode). The application validates it at startup, before it accepts a request; a decision made
+ * with an invalid value (only possible if the environment is changed under a running process) fails closed as well.
  */
+export function parseCapabilityMode(raw: string | undefined): CapabilityMode {
+  if (raw === undefined || raw.trim() === '') return 'shadow';
+  const v = raw.trim().toLowerCase();
+  if (v === 'off' || v === 'shadow' || v === 'enforce') return v;
+  throw new CapabilityModeError(raw);
+}
+
+/** Read on every call so a deployment can change mode with an environment change and a restart, nothing else. */
 export function capabilityMode(env: NodeJS.ProcessEnv = process.env): CapabilityMode {
-  const raw = (env.CAPABILITY_MODE?.trim() || 'shadow').toLowerCase();
-  return raw === 'off' || raw === 'shadow' || raw === 'enforce' ? raw : 'off';
+  return parseCapabilityMode(env.CAPABILITY_MODE);
+}
+
+/** For ConfigModule's `validate`: refuses to boot on an invalid CAPABILITY_MODE, changing nothing else. */
+export function validateCapabilityConfig<T extends Record<string, unknown>>(config: T): T {
+  parseCapabilityMode(config.CAPABILITY_MODE as string | undefined);
+  return config;
 }

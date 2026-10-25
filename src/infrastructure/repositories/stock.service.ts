@@ -24,7 +24,7 @@ import {
 import { createHash, randomUUID } from 'crypto';
 import { RedisService } from '../../infrastructure/cache/redis.service';
 import { assertActorAuthorized } from '../security/actor-guard';
-import { lockMemberShared } from '../security/member-lock';
+import { lockCompanyKeyShare, lockMemberShared } from '../security/member-lock';
 import { MOVEMENT_CAPABILITY } from '../../shared/constants/capabilities.constant';
 import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
@@ -229,7 +229,8 @@ export class StockService {
     const idempotency = this.idempotency(options, 'transfer', dto);
     let result: WriteResult<{ referenceId: string; out: StockMovement; in: StockMovement }>;
     try {
-      await lockMemberShared(qr, userId); // first, as in executeMovement
+      await lockCompanyKeyShare(qr, companyId); // company, then member: first, as in executeMovement
+      await lockMemberShared(qr, userId);
       if (idempotency) {
         const replay = await this.claimIdempotencyKey(qr, companyId, userId, idempotency);
         if (replay !== undefined) {
@@ -371,9 +372,12 @@ export class StockService {
     await qr.startTransaction();
 
     try {
-      // The member's authority lock is the FIRST thing this transaction takes (see member-lock.ts): the idempotency insert
-      // below key-shares the member's row through its foreign key, and a revocation that already queued for the lock must
-      // not be able to wait on that row while we wait on the lock.
+      // Global lock order (member-lock.ts): the company row (key-share: its foreign keys would take it anyway), then the
+      // member's authority lock, before anything else. The idempotency insert below key-shares the member's row through its
+      // foreign key, and a revocation that already queued for the lock must not be able to wait on that row while we wait on
+      // the lock. A membership action holds the company row first and then queues for the member lock: taking the company
+      // key-share BEFORE the member lock is what keeps the two from waiting on each other (a real deadlock before Series 11).
+      await lockCompanyKeyShare(qr, params.companyId);
       await lockMemberShared(qr, params.userId);
       // Idempotency first: a duplicate waits here for the first request's outcome, then replays it.
       if (params.idempotency) {

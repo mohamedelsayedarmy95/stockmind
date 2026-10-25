@@ -45,7 +45,12 @@ export class PermissionsGuard implements CanActivate {
     if (mode === 'enforce') return this.enforce(context, req, user, required);
 
     const legacyAllowed = await this.legacyAllows(user, required);
-    if (mode === 'shadow' && user.companyId && this.capabilities && this.shadow) await this.compare(context, req, user, required, legacyAllowed);
+    if (mode === 'shadow') {
+      // A comparison that cannot be made (the model is not wired, the token carries no company) is counted as INCOMPLETE:
+      // it is missing evidence, never parity.
+      if (user.companyId && this.capabilities && this.shadow) await this.compare(context, req, user, required, legacyAllowed);
+      else this.shadow?.incomplete();
+    }
     if (!legacyAllowed) throw this.deny(required);
     return true;
   }
@@ -68,16 +73,13 @@ export class PermissionsGuard implements CanActivate {
   ): Promise<void> {
     try {
       const principal = await this.capabilities!.principalFor(req, user.sub, user.companyId as string);
-      if (!principal) return;
       const ids = requestedWarehouseIds(this.reflector, context, req);
       // Legacy, as one question: permission AND warehouse scope (the scope was checked by a second guard).
-      const legacyScope = warehouseScope(principal, 'legacy');
+      const legacyScope = principal ? warehouseScope(principal, 'legacy') : null;
       const legacy = legacyAllowed && (legacyScope === null || ids.every((id) => legacyScope.includes(id)));
-      const scoped = required.every((cap) => canAll(principal, cap, ids, 'scoped').allowed);
-      this.shadow!.record({
-        kind: 'permission', route: `${context.getClass().name}.${context.getHandler().name}`, userId: user.sub,
-        capability: required.join('+'), warehouseIds: ids, legacy, scoped,
-        expected: principal.grants.some((g) => g.source === 'access_grant'),
+      this.shadow!.observePermission({
+        route: `${context.getClass().name}.${context.getHandler().name}`, userId: user.sub, requestCompanyId: user.companyId as string,
+        principal, capabilities: required, warehouseIds: ids, legacyAllowed: legacy,
       });
     } catch (err) {
       this.shadow?.error();

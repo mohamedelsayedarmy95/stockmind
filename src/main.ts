@@ -7,6 +7,7 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { applyTrustProxy } from './shared/http/trust-proxy';
 import { swaggerEnabled } from './shared/http/swagger';
+import { capabilityMode } from './shared/constants/capabilities.constant';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -59,6 +60,9 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
+  // The capability engine mode is validated at import (app.module.ts); stating it makes an intentional `off` visible.
+  const mode = capabilityMode();
+  app.get(Logger).log(`Capability engine mode: ${mode}${mode === 'off' ? ' (legacy authorization only; an intentional operator choice)' : ''}`);
 }
 
 bootstrap();

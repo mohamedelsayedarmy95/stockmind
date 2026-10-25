@@ -10,7 +10,7 @@ import { DataSource } from 'typeorm';
 import { AuditLogService } from '../audit/audit-log.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { AccessGrantService } from './access-grant.service';
-import { lockMemberExclusive } from '../security/member-lock';
+import { authorityTransaction, lockMembers } from '../security/member-lock';
 import {
   decideMembershipAction,
   MEMBERSHIP_ERROR_STATUS,
@@ -59,10 +59,18 @@ export class MembershipService {
     input: MembershipInput & { reason?: string } = {},
   ): Promise<MembershipChange> {
     let change: MembershipChange;
+    targetId = targetId.toLowerCase(); // canonical, like the lock key and the ids read back from the database
+    actorId = actorId.toLowerCase();
     try {
-      change = await this.dataSource.transaction(async (m) => {
+      change = await authorityTransaction(this.dataSource, async (m) => {
         await m.query(`SELECT 1 FROM companies WHERE id = $1 FOR UPDATE`, [companyId]);
-        await lockMemberExclusive(m, targetId); // fair queue behind/ahead of the member's own writes (see member-lock.ts)
+        // The other company's member and a missing id answer the same 404 BEFORE any member lock is taken, so a foreign
+        // administrator can neither queue behind nor delay a member of this company.
+        const [{ inCompany }] = await m.query(`SELECT count(*)::int AS "inCompany" FROM users WHERE id = $1 AND company_id = $2`, [targetId, companyId]);
+        if (!inCompany) throw new NotFoundException('Member not found');
+        // The actor's authority is relied on (shared) and the target's is changed (exclusive): both locks as one ordered set
+        // (member-lock.ts), so this action is ordered against any grant or write that relies on either of them.
+        await lockMembers(m, [{ userId: actorId, mode: 'shared' }, { userId: targetId, mode: 'exclusive' }]);
         const ids = [...new Set([actorId, targetId])].sort();
         const rows: Row[] = await m.query(
           `SELECT id, company_id, email, name, role::text AS role, status, is_owner

@@ -2,8 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { createHash } from 'crypto';
 import {
-  EffectiveCapabilities, GrantView, Principal,
+  canAll, EffectiveCapabilities, GrantView, Principal,
 } from '../../domain/authorization/capability-evaluator';
+import {
+  classifyPermission, classifyScope, Justification, ShadowClassification, ShadowReason, ShadowVerdict, Unexplained,
+} from '../../domain/authorization/shadow-classifier';
 import { OPERATOR_PROFILE_KEY, SYSTEM_PROFILES } from '../../shared/constants/capabilities.constant';
 import { lockMemberShared } from './member-lock';
 
@@ -11,47 +14,95 @@ type Runner = { query: (sql: string, params?: unknown[]) => Promise<any> };
 
 const OPERATOR = SYSTEM_PROFILES.find((p) => p.key === OPERATOR_PROFILE_KEY)!;
 
-/** One diverging decision between the legacy model and the new one (no values, only identifiers of the question). */
+/**
+ * One diverging decision between the legacy model and the new one. Identifiers of the question only: no request data, no
+ * tokens, no values (the guard never passes a body, header or query value in).
+ */
 export interface ShadowDifference {
   at: string;
   kind: 'permission' | 'scope';
   route: string;
   userId: string;
-  capability: string | null;
+  /** The capabilities the guard required (permission differences). */
+  capabilities: string[];
   warehouseIds: string[];
-  legacy: boolean;
-  scoped: boolean;
-  /** True when the member holds a non-legacy grant: a difference is then the intended effect of that grant. */
-  expected: boolean;
+  /** What each model decided (permission differences); for scope differences, whether the scope was "all" or a list. */
+  legacy: boolean | 'all' | 'list';
+  scoped: boolean | 'all' | 'list';
+  /** The verdict of the classifier (shadow-classifier.ts) and its reason. */
+  verdict: Exclude<ShadowVerdict, 'equal'>;
+  reason: ShadowReason;
+  /** Which grants explain an expected difference, and which (capability, warehouse) pairs nothing explains. */
+  justifiedBy: Justification[];
+  unexplained: Unexplained[];
 }
 
 /**
  * Collects the comparison between the legacy decision and the new capability model while the engine runs in shadow mode.
- * Counters and a short ring of differences, in memory only: it informs a rollout decision (zero UNEXPECTED differences),
- * it is not an audit trail, and it never carries request data.
+ * Every difference is classified by `shadow-classifier.ts`: EXPECTED only when an explicit active grant explains exactly that
+ * capability on exactly that warehouse. Counters and a short ring of differences, in memory only and per process: they inform
+ * a NON-production rehearsal (zero UNEXPECTED differences, zero errors, zero incomplete comparisons), they are not an audit
+ * trail, they are lost on restart, they are not aggregated across instances, and they are not a monitoring system.
  */
 @Injectable()
 export class CapabilityShadowService {
   private readonly logger = new Logger('CapabilityShadow');
-  private counters = { compared: 0, equal: 0, expectedDifferences: 0, unexpectedDifferences: 0, errors: 0 };
+  private counters = { compared: 0, equal: 0, expectedDifferences: 0, unexpectedDifferences: 0, errors: 0, incomplete: 0 };
   private ring: ShadowDifference[] = [];
 
-  record(d: Omit<ShadowDifference, 'at'>): void {
+  observePermission(input: {
+    route: string; userId: string; requestCompanyId: string; principal: Principal | null | undefined;
+    capabilities: string[]; warehouseIds: string[]; legacyAllowed: boolean;
+  }): void {
+    if (!input.principal) return this.incomplete();
+    const principal = input.principal;
+    const c = classifyPermission({
+      principal, requestCompanyId: input.requestCompanyId, capabilities: input.capabilities,
+      warehouseIds: input.warehouseIds, legacyAllowed: input.legacyAllowed,
+    });
+    const scopedAllowed = input.capabilities.every((cap) => canAll(principal, cap, input.warehouseIds, 'scoped').allowed);
+    this.tally(c, {
+      kind: 'permission', route: input.route, userId: input.userId, capabilities: input.capabilities, warehouseIds: input.warehouseIds,
+      legacy: input.legacyAllowed, scoped: scopedAllowed,
+    });
+  }
+
+  observeScope(input: {
+    route: string; userId: string; requestCompanyId: string; principal: Principal | null | undefined;
+    legacy: string[] | null; scoped: string[] | null;
+  }): void {
+    if (!input.principal) return this.incomplete();
+    const c = classifyScope({
+      principal: input.principal, requestCompanyId: input.requestCompanyId, legacy: input.legacy, scoped: input.scoped,
+    });
+    this.tally(c, {
+      kind: 'scope', route: input.route, userId: input.userId, capabilities: [], warehouseIds: [],
+      legacy: input.legacy === null ? 'all' : 'list', scoped: input.scoped === null ? 'all' : 'list',
+    });
+  }
+
+  private tally(c: ShadowClassification, d: Omit<ShadowDifference, 'at' | 'verdict' | 'reason' | 'justifiedBy' | 'unexplained'>): void {
     this.counters.compared += 1;
-    if (d.legacy === d.scoped) {
+    if (c.verdict === 'equal') {
       this.counters.equal += 1;
       return;
     }
-    // A difference is expected only where a scoped grant GIVES something the legacy model did not: the new model must never
-    // take away what the legacy model allowed.
-    const expected = d.expected && d.scoped && !d.legacy;
-    if (expected) this.counters.expectedDifferences += 1;
+    if (c.verdict === 'expected') this.counters.expectedDifferences += 1;
     else {
       this.counters.unexpectedDifferences += 1;
-      this.logger.warn(`UNEXPECTED difference ${d.kind} ${d.route} cap=${d.capability} legacy=${d.legacy} scoped=${d.scoped}`);
+      // One structured line, identifiers only.
+      this.logger.warn(JSON.stringify({
+        event: 'capability-shadow-unexpected', kind: d.kind, route: d.route, capabilities: d.capabilities, reason: c.reason,
+        unexplained: c.unexplained,
+      }));
     }
-    this.ring.push({ ...d, expected, at: new Date().toISOString() });
+    this.ring.push({ ...d, verdict: c.verdict, reason: c.reason, justifiedBy: c.justifiedBy, unexplained: c.unexplained, at: new Date().toISOString() });
     if (this.ring.length > 50) this.ring.shift();
+  }
+
+  /** A comparison that could not be made (no principal, model not wired): evidence is missing, which is NOT parity. */
+  incomplete(): void {
+    this.counters.incomplete += 1;
   }
 
   error(): void {
@@ -63,7 +114,7 @@ export class CapabilityShadowService {
   }
 
   reset(): void {
-    this.counters = { compared: 0, equal: 0, expectedDifferences: 0, unexpectedDifferences: 0, errors: 0 };
+    this.counters = { compared: 0, equal: 0, expectedDifferences: 0, unexpectedDifferences: 0, errors: 0, incomplete: 0 };
     this.ring = [];
   }
 }
@@ -120,19 +171,20 @@ export async function loadPrincipalFrom(runner: Runner, userId: string, companyI
     );
     if (!u) return null;
 
-    const rows: Array<{ kind: string; warehouse_id: string | null; name: string | null; key: string | null; version: number | null; capabilities: string[] | null }> =
+    const rows: Array<{ kind: string; warehouse_id: string | null; name: string | null; key: string | null; version: number | null; capabilities: string[] | null; valid_from: string | null; valid_until: string | null }> =
       await runner.query(
-        `SELECT 'custom' AS kind, NULL::text AS warehouse_id, p.name AS name, NULL::text AS key, NULL::int AS version, NULL::text[] AS capabilities
+        `SELECT 'custom' AS kind, NULL::text AS warehouse_id, p.name AS name, NULL::text AS key, NULL::int AS version, NULL::text[] AS capabilities,
+                NULL::text AS valid_from, NULL::text AS valid_until
            FROM user_roles ur
            JOIN role_permissions rp ON rp.role_id = ur.role_id
            JOIN permissions p ON p.id = rp.permission_id
           WHERE ur.user_id = $1
          UNION ALL
-         SELECT 'legacy', wa.warehouse_id::text, NULL, NULL, NULL, NULL
+         SELECT 'legacy', wa.warehouse_id::text, NULL, NULL, NULL, NULL, NULL, NULL
            FROM warehouse_access wa
           WHERE wa.user_id = $1 AND wa.company_id = $2
          UNION ALL
-         SELECT 'grant', g.scope_id::text, NULL, p.key, p.version, p.capabilities
+         SELECT 'grant', g.scope_id::text, NULL, p.key, p.version, p.capabilities, g.valid_from::text, g.valid_until::text
            FROM access_grants g
            JOIN permission_profiles p ON p.id = g.profile_id
           WHERE g.user_id = $1 AND g.company_id = $2
@@ -153,6 +205,7 @@ export async function loadPrincipalFrom(runner: Runner, userId: string, companyI
         grants.push({
           warehouseId: r.warehouse_id as string, profileKey: r.key as string, profileVersion: r.version as number,
           capabilities: r.capabilities ?? [], source: 'access_grant',
+          validFrom: r.valid_from, validUntil: r.valid_until, revokedAt: null,
         });
       }
     }

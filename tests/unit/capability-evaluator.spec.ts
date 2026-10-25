@@ -174,7 +174,7 @@ describe('engine mode', () => {
     expect(capabilityMode({} as NodeJS.ProcessEnv)).toBe('shadow');
     expect(capabilityMode({ CAPABILITY_MODE: 'ENFORCE' } as unknown as NodeJS.ProcessEnv)).toBe('enforce');
     expect(capabilityMode({ CAPABILITY_MODE: 'off' } as unknown as NodeJS.ProcessEnv)).toBe('off');
-    expect(capabilityMode({ CAPABILITY_MODE: 'yes' } as unknown as NodeJS.ProcessEnv)).toBe('off');
+    expect(() => capabilityMode({ CAPABILITY_MODE: 'yes' } as unknown as NodeJS.ProcessEnv)).toThrow(); // Series 11: an invalid value is refused, never turned into off
     expect(capabilityMode({ CAPABILITY_MODE: '' } as unknown as NodeJS.ProcessEnv)).toBe('shadow');
   });
 });

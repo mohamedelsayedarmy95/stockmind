@@ -5,7 +5,9 @@ import { AuditLogService } from '../audit/audit-log.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { CreateInvitationDto } from '../../application/dtos/team/team.dto';
 import { UserRole } from '../../shared/constants/enums';
-import { lockMemberExclusive } from '../security/member-lock';
+import { authorityTransaction, lockForAuthorityChange } from '../security/member-lock';
+import { assertActorAuthorized } from '../security/actor-guard';
+import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -48,7 +50,7 @@ export class TeamService {
     if (dto.role === 'Staff' && !warehouseIds.length) {
       throw new BadRequestException('A Staff invitation needs at least one warehouse');
     }
-    await this.assertCompanyWarehouses(companyId, warehouseIds);
+    await this.assertCompanyWarehouses(this.dataSource, companyId, warehouseIds);
     await this.entitlements.assertCanInvite(companyId);
     const [taken] = await this.dataSource.query(`SELECT 1 FROM users WHERE email = $1`, [email]);
     if (taken) throw new ConflictException('Email already registered');
@@ -108,22 +110,29 @@ export class TeamService {
     }));
   }
 
-  /** Replaces a Staff member's warehouse grants. Admin and Manager always see every warehouse. */
+  /**
+   * Replaces a Staff member's warehouse grants. Admin and Manager always see every warehouse.
+   *
+   * Series 11: ONE authority transaction in the global lock order (member-lock.ts): the company, then the acting administrator
+   * (shared) and the member (exclusive) together, then the rows. The actor is re-authorized INSIDE it, and the member's role,
+   * status and the warehouses are re-read inside it, so a demotion or suspension that committed first is seen and one that
+   * arrives later waits for this transaction.
+   */
   async setWarehouseAccess(companyId: string, actorId: string, memberId: string, warehouseIds: string[]) {
-    const ids = [...new Set(warehouseIds)];
-    const [member] = await this.dataSource.query(
-      `SELECT role FROM users WHERE id = $1 AND company_id = $2 AND status <> 'removed'`, [memberId, companyId],
-    );
-    if (!member) throw new NotFoundException('Member not found');
-    if (member.role !== UserRole.STAFF) {
-      throw new BadRequestException('Admin and Manager have access to every warehouse');
-    }
-    await this.assertCompanyWarehouses(companyId, ids);
-    await this.dataSource.transaction(async (m) => {
-      // Series 10: every change of a member's access takes the member row FOR UPDATE (it serializes against that member's
-      // in-flight stock writes, which hold it FOR SHARE) and leaves evidence in the same transaction.
-      await lockMemberExclusive(m, memberId);
+    memberId = memberId.toLowerCase();
+    const ids = [...new Set(warehouseIds.map((w) => w.toLowerCase()))];
+    await authorityTransaction(this.dataSource, async (m) => {
+      await lockForAuthorityChange(m, companyId, actorId, [memberId]);
+      await assertActorAuthorized(m, { userId: actorId, companyId, capability: PERMISSIONS.MANAGE_USERS });
       await m.query(`SELECT 1 FROM users WHERE id = $1 AND company_id = $2 FOR UPDATE`, [memberId, companyId]);
+      const [member] = await m.query(
+        `SELECT role::text AS role FROM users WHERE id = $1 AND company_id = $2 AND status <> 'removed'`, [memberId, companyId],
+      );
+      if (!member) throw new NotFoundException('Member not found');
+      if (member.role !== UserRole.STAFF) {
+        throw new BadRequestException('Admin and Manager have access to every warehouse');
+      }
+      await this.assertCompanyWarehouses(m, companyId, ids);
       const before: string[] = (await m.query(
         `SELECT warehouse_id FROM warehouse_access WHERE user_id = $1 AND company_id = $2`, [memberId, companyId],
       )).map((r: { warehouse_id: string }) => r.warehouse_id);
@@ -131,6 +140,15 @@ export class TeamService {
       const covered: string[] = (await m.query(
         `SELECT scope_id FROM access_grants WHERE user_id = $1 AND company_id = $2 AND revoked_at IS NULL`, [memberId, companyId],
       )).map((r: { scope_id: string }) => r.scope_id);
+      // This endpoint replaces the plain (operator) list only. If the member also holds scoped grants on warehouses the request
+      // leaves out, "replace" would silently keep that access: refuse instead, and point to the endpoint that manages both.
+      const kept = covered.filter((id) => !ids.includes(id));
+      if (kept.length) {
+        throw new ConflictException({
+          code: 'SCOPED_GRANTS_PRESENT',
+          message: 'This member holds scoped warehouse grants that this endpoint does not change; use PUT /team/members/:id/access',
+        });
+      }
       const wanted = ids.filter((id) => !covered.includes(id));
       await m.query(`DELETE FROM warehouse_access WHERE user_id = $1 AND company_id = $2`, [memberId, companyId]);
       if (wanted.length) {
@@ -158,9 +176,9 @@ export class TeamService {
     return { id: memberId, warehouses: ids };
   }
 
-  private async assertCompanyWarehouses(companyId: string, ids: string[]): Promise<void> {
+  private async assertCompanyWarehouses(runner: { query: (sql: string, params?: unknown[]) => Promise<any> }, companyId: string, ids: string[]): Promise<void> {
     if (!ids.length) return;
-    const [{ n }] = await this.dataSource.query(
+    const [{ n }] = await runner.query(
       `SELECT count(*)::int AS n FROM warehouses WHERE company_id = $1 AND id = ANY($2::uuid[])`, [companyId, ids],
     );
     if (n !== ids.length) throw new NotFoundException('Warehouse not found or access denied');

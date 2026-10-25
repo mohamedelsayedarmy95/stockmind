@@ -7,6 +7,9 @@ import { UpdateWarehouseDto } from '../../application/dtos/warehouse/update-ware
 import { WarehouseAccessService } from '../security/warehouse-access.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { AccessGrantService } from './access-grant.service';
+import { authorityTransaction, lockForAuthorityChange } from '../security/member-lock';
+import { assertActorAuthorized } from '../security/actor-guard';
+import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
 @Injectable()
 export class WarehouseService {
@@ -30,7 +33,12 @@ export class WarehouseService {
       const warehouse = this.repo.create({ companyId, name: dto.name, address: dto.address ?? null });
       return this.repo.save(warehouse);
     }
-    return this.dataSource.transaction(async (m) => {
+    const initial = dto.initialAccess;
+    return authorityTransaction(this.dataSource, async (m) => {
+      // Global lock order (member-lock.ts): the company, then the creating administrator (shared) with every target
+      // (exclusive) as one ordered set, and only then the writes. The actor is re-authorized inside the transaction.
+      await lockForAuthorityChange(m, companyId, actorId as string, initial.map((r) => r.userId));
+      await assertActorAuthorized(m, { userId: actorId as string, companyId, capability: PERMISSIONS.CREATE_WAREHOUSE });
       const saved = await m.getRepository(Warehouse).save(
         m.getRepository(Warehouse).create({ companyId, name: dto.name, address: dto.address ?? null }),
       );

@@ -137,9 +137,18 @@ let currentUser: JwtPayload;
     // Full warehouse scope (null): this suite is about credential columns, not warehouse grants.
     { provide: WarehouseAccessService, useValue: { scope: async () => null, assertCanUse: async () => undefined } },
     { provide: OperationLookupService, useValue: { lookup: async () => [] } },
-    // The permission guard consults the capability model (shadow mode); this suite is about credential columns only.
-    { provide: CapabilityService, useValue: { principalFor: async () => null } },
-    { provide: CapabilityShadowService, useValue: { record: () => undefined, error: () => undefined } },
+    // The permission guard consults the capability model. Series 11: the principal is built from the request's own user (a
+    // member of that company with that role and no grants), so this suite decides the same way under CAPABILITY_MODE=shadow
+    // AND =enforce: a Staff member may read movements (VIEW_MOVEMENTS, role default), an unknown role may not.
+    {
+      provide: CapabilityService,
+      useValue: {
+        principalFor: async (_req: unknown, userId: string, companyId: string) => ({
+          userId, companyId, role: currentUser.role, status: 'active', isOwner: false, customCapabilities: [], grants: [],
+        }),
+      },
+    },
+    { provide: CapabilityShadowService, useValue: { observePermission: () => undefined, observeScope: () => undefined, incomplete: () => undefined, error: () => undefined } },
   ],
 })
 class MovementHistoryTestModule {}

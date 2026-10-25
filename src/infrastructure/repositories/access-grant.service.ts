@@ -5,7 +5,7 @@ import { DataSource } from 'typeorm';
 import { createHash } from 'crypto';
 import { AuditLogService } from '../audit/audit-log.service';
 import { CapabilityService } from '../security/capability.service';
-import { lockMemberExclusive } from '../security/member-lock';
+import { authorityTransaction, lockForAuthorityChange } from '../security/member-lock';
 import { can, mayGrantProfile, Principal } from '../../domain/authorization/capability-evaluator';
 import {
   capabilityMode, OPERATOR_PROFILE_KEY, SYSTEM_PROFILES, SystemProfile, WAREHOUSE_MANAGER_PROFILE_KEY,
@@ -113,7 +113,9 @@ export class AccessGrantService {
       // Admin and Manager see every warehouse: assignments do not apply to them.
       applicable: m.role === UserRole.STAFF && m.status !== MemberStatus.REMOVED,
       version: assignmentsVersion(assignments),
-      assignments,
+      // `effective`: whether the assignment decides anything right now. A scoped grant (warehouse_manager) does nothing unless the
+      // engine enforces, so after a rollback an administrator SEES that it is dormant (and that it returns with enforce).
+      assignments: assignments.map((a) => ({ ...a, effective: a.source === 'legacy_warehouse_access' || capabilityMode() === 'enforce' })),
       ...this.listProfiles(),
     };
   }
@@ -123,7 +125,7 @@ export class AccessGrantService {
     companyId: string, actorId: string, memberId: string, assignments: Assignment[],
     opts: { reason?: string; expectedVersion?: string } = {},
   ) {
-    const result = await this.dataSource.transaction((m) =>
+    const result = await authorityTransaction(this.dataSource, (m) =>
       this.applyForMember(m, companyId, actorId, memberId, () => assignments, 'api', opts),
     );
     await this.audit.write({
@@ -145,7 +147,7 @@ export class AccessGrantService {
     if (actorId === memberId) {
       throw new ConflictException({ code: 'CANNOT_MODIFY_SELF', message: 'You cannot change your own access' });
     }
-    await lockMemberExclusive(m, memberId);
+    await lockForAuthorityChange(m, companyId, actorId, [memberId]);
     const [target] = await m.query(
       `SELECT id, role::text AS role, status FROM users WHERE id = $1 AND company_id = $2 FOR UPDATE`, [memberId, companyId],
     );
@@ -159,7 +161,9 @@ export class AccessGrantService {
 
     const mode = capabilityMode();
     const view = mode === 'enforce' ? 'scoped' : 'legacy';
-    const actor = await this.capabilities.loadPrincipal(actorId, companyId, m);
+    // The granting actor is judged on committed truth AND cannot change before this transaction ends: their member lock is
+    // held shared since `lockForAuthorityChange`, and the row is share-locked here.
+    const actor = await this.capabilities.loadPrincipal(actorId, companyId, m, { lock: true });
     if (!actor || actor.status !== MemberStatus.ACTIVE || !can(actor, PERMISSIONS.MANAGE_USERS, { view }).allowed) {
       throw new ForbiddenException({ code: 'ACCESS_GRANT_NOT_PERMITTED', message: 'You are not allowed to manage team access' });
     }
@@ -279,8 +283,14 @@ export class AccessGrantService {
 
   /** CP-4: assignments chosen at warehouse creation, in the creation transaction. Nothing is granted unless asked. */
   async assignOnCreate(m: Tx, companyId: string, actorId: string, warehouseId: string, requests: Array<{ userId: string; profile: string }>) {
-    // Members are locked in id order, so two warehouse creations naming the same people cannot wait on each other.
-    for (const req of [...requests].sort((a, b) => a.userId.localeCompare(b.userId))) {
+    if (actorId && requests.some((r) => r.userId.toLowerCase() === actorId.toLowerCase())) {
+      throw new ConflictException({ code: 'CANNOT_MODIFY_SELF', message: 'You cannot change your own access' });
+    }
+    // Every member lock of the transaction is taken up front, as one ordered set (actor shared, every target exclusive), so
+    // two warehouse creations naming the same people, or opposite actor/target pairs, can never wait on each other, and
+    // the creating administrator stays ordered ahead of any revocation of their own authority until this commits.
+    await lockForAuthorityChange(m, companyId, actorId, requests.map((r) => r.userId));
+    for (const req of [...requests].sort((a, b) => a.userId.toLowerCase().localeCompare(b.userId.toLowerCase()))) {
       await this.applyForMember(
         m, companyId, actorId, req.userId,
         (current) => [...current.filter((c) => c.warehouseId !== warehouseId).map((c) => ({ warehouseId: c.warehouseId, profile: c.profile })), { warehouseId, profile: req.profile }],

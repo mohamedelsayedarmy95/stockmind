@@ -130,7 +130,8 @@ interface Member { id: string; token: string }
     const snap = shadow.snapshot();
     expect(snap.unexpectedDifferences).toBe(0);
     expect(snap.expectedDifferences).toBeGreaterThanOrEqual(1);
-    expect(snap.recent[0]).toMatchObject({ kind: 'permission', legacy: false, scoped: true, expected: true });
+    expect(snap.recent[0]).toMatchObject({ kind: 'permission', legacy: false, scoped: true, verdict: 'expected', reason: 'justified-by-grant' });
+    expect(snap.recent[0].justifiedBy).toEqual([{ warehouseId: w1, profileKey: 'warehouse_manager', profileVersion: 1, capability: 'STOCK_ADJUSTMENT' }]); // the very grant that explains it
     // and /me/capabilities does not promise it: while the engine does not enforce it reports the legacy authority
     const me = (await http().get('/api/v1/me/capabilities').set(auth(granted.token)).expect(200)).body;
     expect(me.engine).toMatchObject({ mode: 'shadow', enforced: false });
@@ -202,5 +203,61 @@ interface Member { id: string; token: string }
     expect((await adjust()).status).toBe(403);
     expect(await db.query(`SELECT 1 FROM access_grants WHERE user_id = $1 AND revoked_at IS NULL`, [granted.id])).toHaveLength(1); // data kept
     expect((await http().get('/api/v1/warehouses').set(auth(staff.token)).expect(200)).body.map((w: { id: string }) => w.id).sort()).toEqual([w1, w3].sort());
+  });
+  // ------------------------------------------------------------------------------------------ Series 11: rollback semantics
+
+  it('F11 rollback: enforce -> off/shadow only NARROWS (exactly the scoped grants), nothing is broadened, the data stays, and enforcing again restores it', async () => {
+    setMode('enforce');
+    const put = (id: string, assignments: object[]) => http().put(`/api/v1/team/members/${id}/access`).set(auth(owner.token)).send({ assignments });
+    const wmOnly = await join('Staff', [w1]);
+    await put(wmOnly.id, [{ warehouseId: w2, profile: 'warehouse_manager' }]).expect(200); // no plain row at all: only the scoped grant
+    const wmMixed = await join('Staff', [w1]);
+    await put(wmMixed.id, [{ warehouseId: w1, profile: 'operator' }, { warehouseId: w3, profile: 'warehouse_manager' }]).expect(200);
+    const personas: Record<string, Member> = { owner, manager, staff, bare, wmOnly, wmMixed };
+    const run = async (mode: string) => {
+      setMode(mode);
+      const out: Record<string, number[]> = {};
+      for (const [name, m] of Object.entries(personas)) out[name] = await traffic(m);
+      return out;
+    };
+    const allowed = (n: number) => n < 300;
+
+    const enforced = await run('enforce');
+    const off = await run('off');
+    const shadowRun = await run('shadow');
+    const again = await run('enforce');
+
+    // 1. rolling back never ADDS anything: whatever the legacy model allows, the capability model already allowed
+    for (const name of Object.keys(personas)) {
+      off[name].forEach((status, i) => { if (allowed(status)) expect({ name, i, enforcedAllowed: allowed(enforced[name][i]) }).toEqual({ name, i, enforcedAllowed: true }); });
+    }
+    // 2. shadow decides exactly like off (legacy), and enforcing again restores exactly what enforce gave
+    expect(shadowRun).toEqual(off);
+    expect(again).toEqual(enforced);
+    // 3. what enforce adds over the legacy answer is exactly the scoped grants, and only on their own warehouses
+    const gained = (name: string) => enforced[name].map((s, i) => (allowed(s) && !allowed(off[name][i]) ? i : -1)).filter((i) => i >= 0);
+    for (const legacyPersona of ['owner', 'manager', 'staff', 'bare']) expect(gained(legacyPersona)).toEqual([]);
+    expect(gained('wmOnly')).toEqual([3, 5, 12]); // GET warehouse w2, balance w2, inbound w2: nothing on w1/w3, nothing organization-wide
+    expect(gained('wmMixed')).toEqual([7]); // changes on w3 (the granted warehouse); the transfer w1->w3 still needs the capability at BOTH ends
+    // 4. the grants are untouched by the rollback, and an administrator can SEE that they are dormant
+    expect((await db.query(`SELECT 1 FROM access_grants WHERE user_id = ANY($1::uuid[]) AND revoked_at IS NULL`, [[wmOnly.id, wmMixed.id]])).length).toBe(2);
+    setMode('off');
+    const dormant = (await http().get(`/api/v1/team/members/${wmOnly.id}/access`).set(auth(owner.token)).expect(200)).body;
+    expect(dormant.assignments).toEqual([expect.objectContaining({ warehouseId: w2, profile: 'warehouse_manager', effective: false })]);
+    expect(dormant.profiles.find((p: { key: string }) => p.key === 'warehouse_manager')).toMatchObject({ available: false });
+    setMode('enforce');
+    expect((await http().get(`/api/v1/team/members/${wmOnly.id}/access`).set(auth(owner.token)).expect(200)).body.assignments[0].effective).toBe(true);
+    // 5. /me/capabilities tells the truth about the active model, so the app navigates by what is enforced right now
+    setMode('off');
+    const meOff = (await http().get('/api/v1/me/capabilities').set(auth(wmOnly.token)).expect(200)).body;
+    expect(meOff.engine).toMatchObject({ mode: 'off', enforced: false });
+    expect(meOff.warehouses.items).toEqual([]); // the legacy view: no plain row, so no warehouse
+    setMode('enforce');
+    const meOn = (await http().get('/api/v1/me/capabilities').set(auth(wmOnly.token)).expect(200)).body;
+    expect(meOn.engine).toMatchObject({ mode: 'enforce', enforced: true });
+    expect(meOn.warehouses.items.map((w: { id: string }) => w.id)).toEqual([w2]);
+    expect(meOn.warehouses.items[0].capabilities).toContain('STOCK_ADJUSTMENT');
+    expect(meOn.capabilities.financial.viewCost).toBe(false);
+    setMode('shadow');
   });
 });

@@ -28,6 +28,14 @@ export interface GrantView {
   capabilities: readonly string[];
   /** `warehouse_access` rows (implicit operator grants of the legacy model) or `access_grants` rows. */
   source: 'legacy_warehouse_access' | 'access_grant';
+  /**
+   * The grant's validity window and revocation, when known (the loader fills them for access_grants). The evaluator itself does
+   * not use them: the loader only returns ACTIVE grants. They exist so the shadow comparison can re-verify, at the moment it
+   * explains a difference, that the grant it cites is really active.
+   */
+  validFrom?: string | null;
+  validUntil?: string | null;
+  revokedAt?: string | null;
 }
 
 export interface Principal {

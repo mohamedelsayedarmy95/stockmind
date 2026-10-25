@@ -31,10 +31,16 @@ import { TenantMiddleware } from './presentation/middleware/tenant.middleware';
 import { TenantSubscriber } from './infrastructure/database/subscribers/tenant.subscriber';
 import { httpLoggerOptions } from './shared/logging/http-logger.options';
 import { THROTTLERS } from './shared/constants/throttling.constant';
+import { parseCapabilityMode, validateCapabilityConfig } from './shared/constants/capabilities.constant';
+
+// An invalid CAPABILITY_MODE in the real environment stops the process HERE, at import, before anything is wired or connected.
+// (A value that only comes from a .env file is caught by the ConfigModule validation below, before TypeORM connects.)
+parseCapabilityMode(process.env.CAPABILITY_MODE);
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // An invalid CAPABILITY_MODE stops the boot before the database is touched (Series 11 / F11-02).
+    ConfigModule.forRoot({ isGlobal: true, validate: validateCapabilityConfig }),
 
     EventEmitterModule.forRoot({ wildcard: false, delimiter: '.', maxListeners: 20 }),
 

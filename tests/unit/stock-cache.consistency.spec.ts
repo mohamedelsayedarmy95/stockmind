@@ -109,6 +109,7 @@ class FakeDb {
           staged.set(rowKey(params[1], params[2]), params[0] as string);
           return [];
         }
+        if (sql.includes('FROM companies') && sql.includes('FOR KEY SHARE')) return []; // Series 11: the company row is key-shared first (lock order)
         if (sql.includes('FROM companies') && sql.includes('history_generation')) {
           // Series 07: a write's receipt names the history generation it was issued in.
           return [{ generation: '00000000-0000-4000-8000-000000000001' }];
