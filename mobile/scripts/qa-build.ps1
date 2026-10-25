@@ -55,7 +55,8 @@ $store = Join-Path $signingDir 'stockmind-qa.p12'
 if (-not (Test-Path $store)) { Fail "QA signing key not found in $signingDir. Run mobile/scripts/qa-signing-init.ps1 once." }
 
 $commit = (Invoke-Native { & git -C $mobile rev-parse --short HEAD }) | Select-Object -First 1
-$dirty = (Invoke-Native { & git -C $mobile status --porcelain=v1 }) | Where-Object { $_ }
+# Only uncommitted changes under mobile/ can change the APK (documentation elsewhere cannot).
+$dirty = (Invoke-Native { & git -C $mobile status --porcelain=v1 -- . }) | Where-Object { $_ }
 $buildId = $commit
 if ($dirty) { $buildId = "$commit-dirty" }
 # Monotonic per minute since 2026-01-01 UTC, so every QA build can update the previous one in place.
