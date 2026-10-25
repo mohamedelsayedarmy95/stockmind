@@ -79,7 +79,18 @@ $nsc = [bool]($manifest | Where-Object { $_ -match 'networkSecurityConfig' })
 $cleartextTrue = [bool]($manifest | Where-Object { $_ -match 'usesCleartextTraffic' -and $_ -match '0xffffffff' })
 Check $nsc 'manifest uses the QA network security config'
 Check (-not $cleartextTrue) 'manifest does not allow cleartext traffic globally'
-$nscXml = Invoke-Native { & $aapt2 dump xmltree $Apk --file res/xml/stockmind_qa_network_security.xml }
+# Release builds shorten resource file names (res/xml/x.xml -> res/Q2.xml), so look the file up in the resource table.
+$resTable = Invoke-Native { & $aapt2 dump resources $Apk }
+$nscPath = $null
+for ($i = 0; $i -lt $resTable.Count; $i++) {
+    if ($resTable[$i] -match 'xml/stockmind_qa_network_security$') {
+        $nscPath = [regex]::Match(($resTable[($i + 1)..([Math]::Min($i + 3, $resTable.Count - 1))] -join ' '), '\(file\)\s+(\S+)').Groups[1].Value
+        break
+    }
+}
+Check ([bool]$nscPath) "network security config resource found ($nscPath)"
+$nscXml = @()
+if ($nscPath) { $nscXml = Invoke-Native { & $aapt2 dump xmltree $Apk --file $nscPath } }
 $cleartextDomains = @($nscXml | Where-Object { $_ -match 'T: ''' } | ForEach-Object { [regex]::Match($_, "T: '([^']+)'").Groups[1].Value } | Where-Object { $_ })
 if ($ExpectApiHost) {
     Check (($cleartextDomains.Count -eq 1) -and ($cleartextDomains[0] -eq $ExpectApiHost.Trim('[', ']'))) "cleartext allowed only for $ExpectApiHost (found: $($cleartextDomains -join ', '))"
