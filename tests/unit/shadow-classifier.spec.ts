@@ -4,7 +4,7 @@
  * so several tests build principals the loader would never produce (a legacy-sourced grant carrying extra capabilities, an
  * expired grant that slipped through) to prove the classifier does not take "has some grant" as an explanation.
  */
-import { classifyPermission, classifyScope, grantIsActive } from '@/domain/authorization/shadow-classifier';
+import { classifyPermission, classifyScope, epochMicros, grantIsActive } from '@/domain/authorization/shadow-classifier';
 import { GrantView, Principal } from '@/domain/authorization/capability-evaluator';
 import { PERMISSIONS } from '@/shared/constants/permissions.constant';
 import { SYSTEM_PROFILES } from '@/shared/constants/capabilities.constant';
@@ -145,5 +145,42 @@ describe('shadow classification (F11-04)', () => {
       const expired = staff([wm(W1, { validUntil: '2026-10-25T00:00:00Z' })]);
       expect(classifyScope({ principal: expired, requestCompanyId: COMPANY, legacy: [], scoped: [W1], now: NOW })).toMatchObject({ verdict: 'unexpected', reason: 'unjustified-expansion' });
     });
+  });
+});
+
+describe('Series 13: grant validity is judged at the DATABASE instant of the snapshot, exactly', () => {
+  it('reads PostgreSQL timestamptz text to the microsecond (offsets included)', () => {
+    expect(epochMicros('2026-10-25 22:41:59.076543+00')).toBe(Date.parse('2026-10-25T22:41:59.076Z') * 1000 + 543);
+    expect(epochMicros('2026-10-25 22:41:59+03')).toBe(Date.parse('2026-10-25T19:41:59Z') * 1000);
+    expect(epochMicros('2026-10-25 22:41:59.5+05:30')).toBe(Date.parse('2026-10-25T17:11:59.5Z') * 1000);
+    expect(epochMicros('2026-10-25T22:41:59.076Z')).toBe(Date.parse('2026-10-25T22:41:59.076Z') * 1000);
+    expect(epochMicros('2026-10-25 22:41:59.076543+00')).toBeLessThan(epochMicros('2026-10-25 22:41:59.076544+00')); // same millisecond
+    expect(Number.isNaN(epochMicros('not a time'))).toBe(true);
+  });
+
+  it('inside one millisecond: valid from 1 µs before the snapshot = active; 1 µs after = not yet; until 1 µs after = still active', () => {
+    const asOf = '2026-10-25 22:41:59.076543+00';
+    expect(grantIsActive(wm(W1, { validFrom: '2026-10-25 22:41:59.076542+00' }), asOf)).toBe(true);
+    expect(grantIsActive(wm(W1, { validFrom: '2026-10-25 22:41:59.076544+00' }), asOf)).toBe(false);
+    expect(grantIsActive(wm(W1, { validUntil: '2026-10-25 22:41:59.076544+00' }), asOf)).toBe(true);
+    expect(grantIsActive(wm(W1, { validUntil: asOf }), asOf)).toBe(false);
+  });
+
+  it('THE DEFECT: a grant created just before the snapshot, when the application clock lags the database, is EXPECTED (not unexpected)', () => {
+    // the database is ahead of this process's clock (Windows: 6–15 ms observed); use a margin no clock can lag by
+    const dbNow = new Date(Date.now() + 60_000);
+    const asOf = dbNow.toISOString().replace('T', ' ').replace('Z', '+00');
+    const justCreated = staff([op(W2), wm(W1, { validFrom: new Date(dbNow.getTime() - 5).toISOString() })], { asOf });
+    const withSnapshotTime = classifyPermission({ principal: justCreated, requestCompanyId: COMPANY, capabilities: [PERMISSIONS.STOCK_ADJUSTMENT], warehouseIds: [W1], legacyAllowed: false });
+    expect(withSnapshotTime).toMatchObject({ verdict: 'expected', reason: 'justified-by-grant' });
+    // the Series 11 behaviour (application clock) on the same principal: the grant "is not valid yet"
+    const { asOf: _drop, ...withoutAsOf } = justCreated;
+    expect(classifyPermission({ principal: withoutAsOf, requestCompanyId: COMPANY, capabilities: [PERMISSIONS.STOCK_ADJUSTMENT], warehouseIds: [W1], legacyAllowed: false }))
+      .toMatchObject({ verdict: 'unexpected', reason: 'unjustified-expansion' });
+  });
+
+  it('an explicit `now` still wins (the existing tests pin their clock that way)', () => {
+    const p = staff([op(W2), wm(W1, { validUntil: '2026-10-25T00:00:00Z' })], { asOf: '2026-10-24 00:00:00+00' });
+    expect(perm(p, [PERMISSIONS.STOCK_ADJUSTMENT], [W1], false)).toMatchObject({ verdict: 'unexpected' }); // NOW is after validUntil
   });
 });

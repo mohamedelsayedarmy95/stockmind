@@ -67,20 +67,22 @@ export async function loadPrincipalFrom(runner: Runner, userId: string, companyI
     );
     if (!u) return null;
 
-    const rows: Array<{ kind: string; warehouse_id: string | null; name: string | null; key: string | null; version: number | null; capabilities: string[] | null; valid_from: string | null; valid_until: string | null }> =
+    // `as_of`: the database's now() of THIS statement, i.e. the instant the validity filter below used (Series 13: the shadow
+    // classifier re-checks validity at that instant; the application clock can lag the database's by milliseconds).
+    const rows: Array<{ kind: string; warehouse_id: string | null; name: string | null; key: string | null; version: number | null; capabilities: string[] | null; valid_from: string | null; valid_until: string | null; as_of: string }> =
       await runner.query(
         `SELECT 'custom' AS kind, NULL::text AS warehouse_id, p.name AS name, NULL::text AS key, NULL::int AS version, NULL::text[] AS capabilities,
-                NULL::text AS valid_from, NULL::text AS valid_until
+                NULL::text AS valid_from, NULL::text AS valid_until, now()::text AS as_of
            FROM user_roles ur
            JOIN role_permissions rp ON rp.role_id = ur.role_id
            JOIN permissions p ON p.id = rp.permission_id
           WHERE ur.user_id = $1
          UNION ALL
-         SELECT 'legacy', wa.warehouse_id::text, NULL, NULL, NULL, NULL, NULL, NULL
+         SELECT 'legacy', wa.warehouse_id::text, NULL, NULL, NULL, NULL, NULL, NULL, now()::text
            FROM warehouse_access wa
           WHERE wa.user_id = $1 AND wa.company_id = $2
          UNION ALL
-         SELECT 'grant', g.scope_id::text, NULL, p.key, p.version, p.capabilities, g.valid_from::text, g.valid_until::text
+         SELECT 'grant', g.scope_id::text, NULL, p.key, p.version, p.capabilities, g.valid_from::text, g.valid_until::text, now()::text
            FROM access_grants g
            JOIN permission_profiles p ON p.id = g.profile_id
           WHERE g.user_id = $1 AND g.company_id = $2
@@ -105,5 +107,6 @@ export async function loadPrincipalFrom(runner: Runner, userId: string, companyI
         });
       }
     }
-    return { userId: u.id, companyId: u.company_id, role: u.role, status: u.status, isOwner: u.is_owner, customCapabilities, grants };
+    const asOf = rows[0]?.as_of;
+    return { userId: u.id, companyId: u.company_id, role: u.role, status: u.status, isOwner: u.is_owner, customCapabilities, grants, ...(asOf ? { asOf } : {}) };
 }

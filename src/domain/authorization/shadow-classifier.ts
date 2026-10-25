@@ -40,12 +40,33 @@ export interface ShadowClassification {
   unexplained: Unexplained[];
 }
 
-/** A grant that is usable right now (the loader already drops the others; this re-checks, so a stale principal cannot justify). */
-export function grantIsActive(g: GrantView, now: Date): boolean {
+/**
+ * Microseconds since the epoch of a PostgreSQL timestamptz text ("2026-10-25 22:41:59.076543+00") or an ISO string; NaN when
+ * unreadable. `Date` keeps milliseconds only, so comparing two database instants through it could reorder them inside one
+ * millisecond (Series 13).
+ */
+export function epochMicros(t: string): number {
+  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}(?::?\d{2})?)?$/.exec(t.trim());
+  if (!m) return new Date(t).getTime() * 1000;
+  let tz = m[4] ?? 'Z';
+  if (/^[+-]\d{2}$/.test(tz)) tz += ':00';
+  else if (/^[+-]\d{4}$/.test(tz)) tz = `${tz.slice(0, 3)}:${tz.slice(3)}`;
+  return new Date(`${m[1]}T${m[2]}${tz}`).getTime() * 1000 + Number((m[3] ?? '').padEnd(6, '0'));
+}
+
+const micros = (t: Date | string): number => (typeof t === 'string' ? epochMicros(t) : t.getTime() * 1000);
+
+/**
+ * A grant that is usable at `now` (the loader already drops the others; this re-checks, so a stale principal cannot justify).
+ * `now` should be the DATABASE instant the grants were read at (`Principal.asOf`): validity is decided by the database, and on
+ * the application clock a grant created a few milliseconds ago could look "not yet valid" (Series 13: a false UNEXPECTED,
+ * reproduced in 2 of 8 runs; the Windows application clock lagged the database's by 6–15 ms).
+ */
+export function grantIsActive(g: GrantView, now: Date | string): boolean {
   if (g.source !== 'access_grant') return false;
   if (g.revokedAt) return false;
-  if (g.validFrom && new Date(g.validFrom).getTime() > now.getTime()) return false;
-  if (g.validUntil && new Date(g.validUntil).getTime() <= now.getTime()) return false;
+  if (g.validFrom && micros(g.validFrom) > micros(now)) return false;
+  if (g.validUntil && micros(g.validUntil) <= micros(now)) return false;
   return true;
 }
 
@@ -54,7 +75,7 @@ const unexpected = (reason: ShadowReason, unexplained: Unexplained[] = []): Shad
   ({ verdict: 'unexpected', reason, justifiedBy: [], unexplained });
 
 /** The grant (if any) that gives exactly `capability` on exactly `warehouseId`. */
-function justifyingGrant(p: Principal, capability: string, warehouseId: string, now: Date): GrantView | undefined {
+function justifyingGrant(p: Principal, capability: string, warehouseId: string, now: Date | string): GrantView | undefined {
   if (!WAREHOUSE_SCOPED_CAPABILITIES.has(capability)) return undefined; // organization-level and financial capabilities never come from a grant
   return p.grants.find((g) => grantIsActive(g, now) && g.warehouseId === warehouseId && grantCapabilities(g).has(capability));
 }
@@ -74,7 +95,7 @@ export interface PermissionInput {
 
 export function classifyPermission(input: PermissionInput): ShadowClassification {
   const { principal, requestCompanyId, capabilities, warehouseIds, legacyAllowed } = input;
-  const now = input.now ?? new Date();
+  const now = input.now ?? input.principal.asOf ?? new Date(); // the database instant of the snapshot (Series 13)
   if (principal.companyId !== requestCompanyId) return unexpected('cross-tenant');
   if (capabilities.some((c) => !KNOWN_CAPABILITIES.has(c))) return unexpected('unknown-capability');
 
@@ -115,7 +136,7 @@ export interface ScopeInput {
 
 export function classifyScope(input: ScopeInput): ShadowClassification {
   const { principal, requestCompanyId, legacy, scoped } = input;
-  const now = input.now ?? new Date();
+  const now = input.now ?? input.principal.asOf ?? new Date(); // the database instant of the snapshot (Series 13)
   if (principal.companyId !== requestCompanyId) return unexpected('cross-tenant');
   const key = (s: readonly string[] | null) => (s === null ? '*' : [...new Set(s)].sort().join(','));
   if (key(legacy) === key(scoped)) return equal();

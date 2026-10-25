@@ -48,6 +48,11 @@ export interface Principal {
   customCapabilities: readonly string[];
   /** ACTIVE grants only (the loader drops revoked, not-yet-valid, expired and retired-profile ones). */
   grants: readonly GrantView[];
+  /**
+   * Series 13: the DATABASE time (timestamptz text) at which the grants were judged active. Validity is a database fact: the
+   * shadow classifier re-checks a grant at this instant, not on the application clock (which can lag the database's).
+   */
+  asOf?: string;
 }
 
 export interface Decision {
