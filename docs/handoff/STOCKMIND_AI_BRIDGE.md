@@ -6,9 +6,9 @@
 > التصنيفات: `VERIFIED / PARTIAL / UNVERIFIED / BLOCKED / FAILED / DEFERRED`.
 
 > ## ⚠ المكان الرسمي لهذا الملف (ACTIVE CANONICAL)
-> **الفرع:** `feature/series10-scoped-access` — **المسار:** `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\STOCKMIND_AI_BRIDGE.md`
-> **الفرع ده superset من `feature/series09-access-foundation` (= Series 08 تصميم + Series 09 S0/S1) + كود وتوثيق Series 10 (S2).**
-> **النسخ الأقدم غير سارية (stale):** على `feature/series09-access-foundation` (v1.5)، `design/series08-enterprise-blueprint` (v1.4)، `feature/series07-recovery-integrity` (v1.3)، `hardening/series06-release-safety` (v1.2)، `preflight/series05-rc-admission` (v1.1)، `integration/series04` (v1.0). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
+> **الفرع:** `hardening/series11-authorization-admission` — **المسار:** `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\STOCKMIND_AI_BRIDGE.md`
+> **الفرع ده superset من `feature/series10-scoped-access` (= Series 09 + Series 10) + تصليب Series 11 (أقفال السلطة، `CAPABILITY_MODE`، تصنيف shadow).**
+> **النسخ الأقدم غير سارية (stale):** على `feature/series10-scoped-access` (v1.6)، `feature/series09-access-foundation` (v1.5)، `design/series08-enterprise-blueprint` (v1.4)، `feature/series07-recovery-integrity` (v1.3)، `hardening/series06-release-safety` (v1.2)، `preflight/series05-rc-admission` (v1.1)، `integration/series04` (v1.0). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
 ---
 
 ## 00 — BRIDGE METADATA
@@ -16,19 +16,30 @@
 | البند | القيمة |
 |---|---|
 | المشروع | StockMind (inventory / WMS SaaS) |
-| إصدار الملف | **v1.6** (بعد Series 10 — S2 كود: قدرات + منح بنطاق + تنقل متكيّف + CP-4) |
+| إصدار الملف | **v1.7** (بعد Series 11 — تصليب تفويض السلطة قبل أي بروفة enforce) |
 | آخر تحديث | **2026-10-25 (التوقيت في الـ changelog قسم 11)** (Egypt Standard Time) |
 | الـ session | Claude Code Desktop، `claude-sonnet-5-5`. Series 07 وSeries 08 اتنفّذوا بتفويضين كاملين من الـ Director في رسائل مستقلة. مفيش identifiers حساسة. |
-| المرحلة الحالية | **Series 10 — Scoped Access (S2): مكتملة — ENGINEERING PASS، الجهاز DEFERRED (DIRECTOR PHYSICAL ACCESS REQUIRED).** `CAPABILITY_MODE` الافتراضي **shadow** (القديم هو اللي يقرر)؛ `enforce` مختبَر لكن غير مفعّل في أي مكان. قبلها: Series 09 (S0+S1)، Series 08 (تصميم)، Series 07. في انتظار قرارات الـ Director. |
+| المرحلة الحالية | **Series 11 — Authorization Enforcement Admission: مكتملة — PASS للنطاق، الحكم: READY FOR NON-PRODUCTION ENFORCE REHEARSAL (مش إذن تفعيل).** الجهاز DEFERRED. الافتراضي لسه `CAPABILITY_MODE=shadow`، و`enforce` غير مفعّل في أي مكان. قبلها: Series 10 (S2)، 09، 08، 07. Production NO-GO. في انتظار قرارات الـ Director. |
 | الحالة | ACTIVE |
-| Canonical | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `feature/series10-scoped-access` |
+| Canonical | `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `hardening/series11-authorization-admission` |
 | Desktop mirror | `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_BRIDGE.md` (مطابق بالـ SHA-256) |
-| **Verified baseline (مؤشر Git)** | **آخر commit كود:** backend `807676a` (core `5a24c17`) + mobile `a8a6ab3`؛ **آخر commit مختبَر: `2bb0053`** (إصلاح اقتباس في اختبار فقط) وعليه اشتغلت كل الـ gates؛ بعده `33c3039` ثم commits توثيق/أدلة فقط. للتأكد: `git -C D:\Projects\StockMind-wt\series10-scoped-access diff --name-only 2bb0053 HEAD` (لازم كلها تحت `docs/`). الفرع من `d24719d` (HEAD Series 09). الملف مبيقدرش يكتب hash الـ commit بتاعه. |
+| **Verified baseline (مؤشر Git)** | **آخر commit كود: `f0d9df1`** (F11-01/02/04/05..08 في `8f5bfe3`، اختبارات `399b91b`,`e17b6b8`,`b5251c4`، F11-09 في `f0d9df1`)، و**آخر commit مختبَر: `4547af9`** (= `f0d9df1` + أدلة فقط) وعليه اشتغلت كل الـ gates. أي commit بعده docs/evidence فقط — للتأكد: `git -C D:\Projects\StockMind-wt\series11-authorization-admission diff --name-only 4547af9 HEAD` (لازم كلها تحت `docs/`). الفرع من `7e695d8` (HEAD Series 10). الملف مبيقدرش يكتب hash الـ commit بتاعه. |
 ---
 
 ## 01 — EXECUTIVE PROJECT STATUS
 
-### Series 10 (S2، كود) — الجديد
+### Series 11 (تصليب تفويض السلطة، كود + اختبارات) — الجديد
+- **التقرير:** `docs/handoff/SERIES_11_AUTHORIZATION_HARDENING_REPORT.md`؛ **العقد:** `docs/handoff/SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md`؛ الأدلة: `docs/handoff/series11-evidence/` (إعادة إنتاج قبل الإصلاح، negative controls، أداء).
+- **F11-01 (مؤكَّد بإعادة إنتاج على كود Series 10):** منحة صلاحيات كانت بتعمل commit بعد ما سلطة الـ admin المانح اتسحبت بـ commit سابق (demote/suspend/remove + مسار legacy اللي مكانش بيعيد تفويض الـ actor أصلاً). **مصلّح:** بروتوكول أقفال عالمي (الـ actor shared + الهدف exclusive كمجموعة مرتبة بالـ id، company KEY SHARE، `lock_timeout` + `AUTHORITY_BUSY` 503)، الـ legacy وCP-4 بيعيدوا التفويض جوه الـ tx.
+- **اكتشافات إضافية مؤكدة:** F11-05 مفتاح القفل غير canonical (UUID كبير = قفل تاني)، F11-06 admin من شركة تانية بيتحبس خلف قفل عضو غريب، **F11-07 deadlock حقيقي بين كتابة مخزون وإجراء عضوية (500)**، F11-08 الـ legacy PUT كان بيسيب منح بنطاق بصمت (دلوقتي 409)، **F11-09 تجويع: suspend استنّى 9:45 د تحت كتابة متواصلة** (مصلّح: قفل عضوية عادل بدل `FOR UPDATE` على صف الشركة).
+- **F11-02:** `CAPABILITY_MODE` غلط **بيرفض الإقلاع** (مش بيتحول لـ off). الافتراضي لسه `shadow`. **F11-04:** فرق shadow "expected" فقط لو grant نشط على نفس المخزن بنفس الـ capability؛ غياب الأدلة = `incomplete`.
+- **F11-03:** suite كاملة تحت enforce (63 suite/552) ما عدا الـ fixture الإنتاجي المجمّد؛ بديله يحمل نفس العناوين الـ8 (مُلزَم باختبار) وهو نفسه بيفشل مغلقاً تحت enforce (6 رفض/2 عدّى).
+- **الرجوع:** enforce→off/shadow **بيضيّق فقط**؛ الـ grants بتفضل dormant (`effective:false`) وبترجع مع enforce — قرار مشغّل بأثر أمني، مفيش fallback تلقائي.
+- **الاختبارات:** Backend PG **×3 على قواعد جديدة: 64 suites + 4 skipped، 560 passed + 4 skipped في كل تشغيلة** (Series 10: 57/459) + enforce 63/552؛ build نضيف 12/12 migrations (**لا migration جديدة**)؛ Mobile `tsc` 0 وJest 20/308 (بدون تغيير). Negative controls 23 تعريف على 4 جولات (3 ما اتمسكوش في الجولة الأولى واتصلحوا؛ مكافئان بالتصميم موثّقان).
+- **الأداء (محلي):** shadow +2.19 ms (كان +3.09)، enforce +1.72 ms، منحة وسيط 10.96 ms وحدها و40 ms تحت 4 كتّاب متواصلين؛ **0 deadlock، 0 AUTHORITY_BUSY**.
+- **الجهاز:** **ما اتلمسش** (Huawei/adb). **Production: NO-GO.** سياسات R-18/R-19/R-20 سياسة غير منفَّذة (بدون تغيير).
+
+### Series 10 (S2، كود) — مرجع
 - **التقرير:** `docs/handoff/SERIES_10_SCOPED_ACCESS_REPORT.md`؛ **العقد:** `docs/handoff/SERIES_10_CAPABILITY_AUTHORIZATION_CONTRACT.md`؛ الأدلة: `docs/handoff/series10-evidence/`.
 - **النتيجة: ENGINEERING PASS — PHYSICAL DEVICE DEFERRED.** محرك قدرات (capability engine) default-deny بنظرتين (`legacy` = القرار قبل Series 10 حرفياً، `scoped` = الجديد)؛ `CAPABILITY_MODE=off|shadow|enforce` (الافتراضي **shadow**: القديم يقرر والجديد يُحسب ويُقارن)؛ profiles بإصدارات (`operator v1` = Staff الحالي بالظبط، `warehouse_manager v1` = operator + تسوية + تحويل + تعديل بيانات المخزن)؛ `access_grants` بنطاق مخزن مع أحداث append-only؛ `warehouse_access` القديم = grants `operator` ضمنية (dual-read بدون نسخ). **الـ Manager العالمي بدون تغيير (كل المخازن)؛ مدير المخزن المحدود = Staff + grant.**
 - **مفعول فقط تحت `enforce`:** نطاق المخزن الفعلي (خارج النطاق = 404 مطابق لمخزن غير موجود)، `GET /me/capabilities`، `PUT /team/members/:id/access` (بإصدار تفاؤلي، anti-escalation، لا تعديل ذاتي)، **CP-4** (مخزن جديد = لا أحد؛ `initialAccess` ذرّي اختياري)، تفويض داخل الـ transaction (مع قفل عضو عادل) — سحب منحة أو تغيير دور أثناء كتابة جارية بيرفض الكتابة بدون أثر في الـ ledger.
@@ -84,7 +95,9 @@
 
 ## 03 — CURRENT TASK
 
-- **المهمة المعتمدة (اكتملت): Series 10 — S2 فقط** (تفويض Director كامل في المحادثة): capability profiles + scoped grants + `/me/capabilities` + تنقل متكيّف + CP-4 فوق Series 09، مع الحفاظ على معنى Manager العالمي و`warehouse_manager` كـ profile بنطاق، وحماية Owner/Admin، ورفض مالي افتراضي، وسلامة المخزون والـ offline والتعويض. **لم يُنفَّذ (بقرار):** موافقات، dashboard حي، عهدة متقدمة، محاسبة مالية. **قيود:** ممنوع أي تفاعل مع جهاز Huawei/adb، Production/Neon، merge، AAB/Play، خدمات مدفوعة، موديل خارجي/Council. **الحالة:** مكتملة؛ STOP بعدها.
+- **المهمة المعتمدة (اكتملت): Series 11 — تصليب تفويض السلطة** (تفويض Director كامل في المحادثة): F11-01 إلغاء سلطة المانح، F11-02 تحقق `CAPABILITY_MODE`، F11-03 تغطية enforce، F11-04 دقة تصنيف shadow، والرجوع بين الأوضاع. **ممنوع كان:** Production/Neon، merge، AAB/Play، موديل خارجي/Council، أي تفاعل مع Huawei/adb، تفعيل enforce عالمياً، ميزات جديدة. **الحالة:** مكتملة؛ STOP بعدها (لا بروفة enforce ولا مرحلة تالية).
+- **المهمة السابقة (اكتملت): Series 10 — S2.**
+- (تفصيل) Series 10: **S2 فقط** (تفويض Director كامل في المحادثة): capability profiles + scoped grants + `/me/capabilities` + تنقل متكيّف + CP-4 فوق Series 09، مع الحفاظ على معنى Manager العالمي و`warehouse_manager` كـ profile بنطاق، وحماية Owner/Admin، ورفض مالي افتراضي، وسلامة المخزون والـ offline والتعويض. **لم يُنفَّذ (بقرار):** موافقات، dashboard حي، عهدة متقدمة، محاسبة مالية. **قيود:** ممنوع أي تفاعل مع جهاز Huawei/adb، Production/Neon، merge، AAB/Play، خدمات مدفوعة، موديل خارجي/Council. **الحالة:** مكتملة؛ STOP بعدها.
 - **المهمة السابقة (اكتملت): Series 09 — S0 + S1 فقط.**
 - (تفصيل) Series 09: التفويض كان رسالة Director كاملة في المحادثة: إثبات الاستغلال أولاً، `item.view_cost` وDTOs، دورة حياة الأعضاء والإبطال الفوري، Team screen، سلوك الـ outbox عند الإبطال، اختبارات سلبية، gates، تقارير. **قيود الأمان:** ممنوع أي تفاعل مع جهاز Huawei (قفل/إعادة تشغيل/مسح بيانات/إلخ)، ممنوع Production/Neon/merge/AAB/خدمات مدفوعة/موديل خارجي. قرارات Q-01..Q-18 اتعتمدت كاتجاه (انظر `STOCKMIND_ARCHITECTURE_DECISIONS.md` آخر جدول). **الحالة:** مكتملة.
 - **المهمة السابقة (اكتملت): Series 08 — تصميم وأدلة فقط.** التفويض كان رسالة Director كاملة (موجودة في المحادثة): جرد الكود مقابل الرؤية المجمّعة من 5 نماذج + Product Bible v1.0، وكتابة حزمة معمارية/صلاحيات/حركات/UX/ADR/roadmap، بدون أي تنفيذ. الفرع `design/series08-enterprise-blueprint` من `dc4ff4d`. **ممنوع كان:** كود، migrations، اعتماديات، Production/Neon، Council/موديل خارجي، merge، AAB/Play. **الحالة:** مكتملة؛ الحكم المقترح PASS لنطاقها. بوابات القبول §12 في التفويض: مفيش كود اتغيّر (يتحقق بـ `git diff`)، كل مقترح Bible ليه disposition، الـ 12 workflow مغطّاة، الصلاحيات والخصوصية محدّدة، دلالات الـ feed صادقة، عوائق Production محفوظة، شرائح بمعايير قبول قابلة للاختبار.
@@ -96,6 +109,8 @@
 ---
 
 ## 04 — CHANGES MADE
+
+**Series 11:** `8f5bfe3` fix(authz): `member-lock.ts` (lockMembers مرتبة، canonical، lockForAuthorityChange، authorityTransaction + AUTHORITY_BUSY)، `access-grant.service` / `team.service` (legacy) / `warehouse.service` (CP-4) / `membership.service`، `stock.service` (company key-share قبل قفل العضو)، `capabilities.constant` (CapabilityModeError + parse/validate)، `app.module` (+import-time check + ConfigModule validate)، `main.ts`، `shadow-classifier.ts` (جديد)، `capability.service` (CapabilityShadowService: observePermission/observeScope/incomplete)، `permissions.guard`، `warehouse-access.service`. `399b91b`,`e17b6b8`,`b5251c4` اختبارات (authority-linearization 27، classifier 17، mode 23، shadow.service 13، enforce-coverage 10، member-lock 8، lock-order 2، + rollback في capability-shadow.pg). `f0d9df1` fix F11-09 (قفل عضوية عادل) + `authority-lock-perf`. `4547af9` أدلة. ثم التقرير والعقد والـ handoff. **migrations: صفر (12 إجمالاً)، اعتماديات: صفر، mobile: صفر.** تغييرات سلوك ظاهرة: invalid `CAPABILITY_MODE` = رفض إقلاع؛ 503 `AUTHORITY_BUSY` بدل 500 عند تعارض أقفال؛ legacy PUT بيرفض بـ 409 `SCOPED_GRANTS_PRESENT`؛ `GET /team/members/:id/access` بيرجّع `effective` لكل تعيين.
 
 **Series 10:** `5a24c17` feat(access) backend core (migration `1792610000000-ScopedAccess`، `capabilities.constant`، `capability-evaluator`، `CapabilityService`/`CapabilityShadowService`، `member-lock`، `actor-guard.assertActorAuthorized`، `AccessGrantService`، `MeController`، تعديل guards/warehouse-access/team/membership/warehouse/DTOs). `807676a` tests + قفل العضو العادل (stock/replacement/history-generation). `a8a6ab3` feat(mobile) (`capabilities.ts`، `capability-signal.ts`، store، hooks، `team-access.tsx`، CP-4 في `warehouse/new.tsx`، تنقل/أزرار، i18n ar/en). `d33b2f6` العقد + docs المنتج + negative controls. `2bb0053` إصلاح اقتباس في اختبار. `33c3039` ملخص gates + أداء. ثم التقرير والـ bridge والـ master. **migration جديدة واحدة (12 إجمالاً)، اعتماديات: صفر.** تغييرات سلوك (الافتراضي shadow = لا تغيير في القرارات): لا شيء ظاهر للمستخدم تحت shadow غير `GET /me/capabilities` وواجهة الصلاحيات؛ تحت `enforce` نطاق المخازن للـ grants. `item.set_cost`: موثّق فقط.
 
@@ -117,6 +132,23 @@
 ---
 
 ## 05 — TESTS & VERIFICATION
+
+**Series 11 (كود: آخر commit مختبَر `4547af9`، PostgreSQL 15.19 مؤقتة على 127.0.0.1:55433، بيانات synthetic):**
+
+| الفحص | النتيجة |
+|---|---|
+| Backend `tsc` / build نضيف | exit 0 / exit 0، `dist/main.js` ✓، **12/12 migrations** |
+| **Backend PG كامل ×3 (shadow الافتراضي، DB جديدة)** | **64 suites + 4 skipped · 560 passed + 4 skipped · exit 0 ×3** |
+| تشغيلة enforce كاملة | 63 suites + 4 skipped · 552 passed · exit 0 (الـ fixture المجمّد `movement-history.security` الإنتاجي مُستثنى ومبرَّر) |
+| الـ fixture المجمّد تحت enforce | 6 رفض / 2 عدّى = fail closed |
+| Mobile `tsc` + Jest | exit 0 · 20 suites، 308 tests (بدون تغيير) |
+| Negative controls | 23 تعريف: الكل أحمر ما عدا N4a/N4b (طبقتين متكافئتين؛ N4c أحمر) وN6c (defence-in-depth) — وثلاثة ما اتمسكوا من أول مرة (N1,N4,N6) واتصلحوا |
+| Skipped الأربعة (شرطية) | `capability-perf` و`authority-lock-perf` اتشغّلوا صراحةً (نجحوا)؛ `s0-cost-exposure.repro` و`auth-lookup.perf` **ما اتشغّلوش** |
+| الجهاز | **لم يُجرَّب** (DEFERRED — DIRECTOR PHYSICAL ACCESS REQUIRED) |
+
+**ما لم يُختبر في Series 11:** بيانات حقيقية (حتى غير إنتاجية)، قاعدة بعيدة، جهاز/RTL، Neon/Production، جهازين، مراجعة خارجية.
+
+**(الجداول التالية تخص كود Series 10 والأقدم فقط.)**
 
 **Series 10 (كود: آخر commit مختبَر `2bb0053`، PostgreSQL 15.19 مؤقتة على 127.0.0.1:55433، بيانات synthetic):**
 
@@ -173,6 +205,7 @@
 
 ## 06 — GIT & ENVIRONMENT STATE
 
+- **Series 11:** الفرع `hardening/series11-authorization-admission` (worktree `D:\Projects\StockMind-wt\series11-authorization-admission`) من `7e695d8`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin hardening/series11-authorization-admission`). `node_modules` junctions (backend على `shared-warehouse`، mobile على `series04-integration`). PostgreSQL المؤقت (55433) لسه شغّال بقواعد scratch `stockmind_gate_s11_*`. Huawei/adb: **ما اتلمسوا**. `freellmapi` ECONNREFUSED (ما استُخدم). ما اتعدّلش أي worktree تاني (نسخة اختبار مؤقتة اتحطت في worktree Series 10 واتمسحت؛ نضيف).
 - **Series 10:** الفرع `feature/series10-scoped-access` (worktree `D:\Projects\StockMind-wt\series10-scoped-access`) من `d24719d`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin feature/series10-scoped-access`). PostgreSQL المؤقت (55433) لسه شغّال بقواعد scratch `stockmind_gate_s10_*`. Huawei/adb: **ما اتلمسوا**. `freellmapi` ECONNREFUSED (ما استُخدم).
 - **Series 09:** الفرع `feature/series09-access-foundation` (worktree `D:\Projects\StockMind-wt\series09-access-foundation`) من `af7f61f`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin feature/series09-access-foundation`). `node_modules` junctions على `shared-warehouse` (mobile: نفس الفكرة؛ كفاية لـ tsc/Jest، مش لـ Metro). PostgreSQL المؤقت (55433) **لسه شغّال** بقواعد scratch `stockmind_gate_s09_*`. Huawei: **ما اتلمسش**.
 
@@ -189,7 +222,21 @@
 
 ---
 
-## 07 — RISKS, BUGS & DEFERRED WORK  (التفاصيل: تقرير Series 10 §10، عقد Series 10 §12)
+## 07 — RISKS, BUGS & DEFERRED WORK  (Series 11: التقرير §13–14؛ Series 10: تقريره §10)
+
+**مخاطر Series 11 المتبقية:**
+
+| # | الخطورة | الوصف | الإجراء |
+|---|---|---|---|
+| R-28 | عالية قبل أي إنتاج | `enforce` لسه ما اتجرّبش على بيانات حقيقية (حتى غير إنتاجية)؛ الأدلة synthetic | بروفة شروطها في تقرير Series 11 §15 (بتفويض منك) |
+| R-29 | متوسطة | تليمتري shadow في الذاكرة فقط (per-process، بتتصفّر، بلا aggregation/alerting) | كفاية لبروفة محكومة؛ مش لقرار إنتاج |
+| R-30 | متوسطة | `FOR UPDATE` على صف الشركة لسه في تدوير الـ generation وقبول الدعوة وإعادة تفعيل محذوف (مش سحب سلطة، لكن ممكن تتجوّع تحت كتابة متواصلة؛ بعضها بلا مهلة) | موثّق؛ قرار لاحق |
+| R-31 | متوسطة (UNVERIFIED) | قياس الأداء محلي فقط؛ على قاعدة بعيدة أعلى | قياس ضمن البروفة |
+| R-32 | منخفضة-متوسطة (UNVERIFIED) | سباق migrations لو نسختين أقلعوا معاً على نفس القاعدة (`migrationsRun:true`) — لوحظ في الـ harness | خارج النطاق؛ يتفحص قبل نشر متعدد النسخ |
+| R-33 | منخفضة | `AUTHORITY_LOCK_TIMEOUT_MS` الافتراضي 10s قرار منتج لم يُراجَع؛ الواجهة ما بتعالج 503 `AUTHORITY_BUSY` بشكل خاص | قرار + اختبار جهاز |
+| F11-closed | اتقفلت | F11-01/01b/05/06/07/08/09/02/04 | انظر القسم 01 |
+
+**سياسات Director بعد Series 09 (POLICY ≠ IMPLEMENTED) — بدون تغيير:**
 
 **حالة بعد Series 10 — سياسات Director بعد Series 09 (POLICY ≠ IMPLEMENTED):**
 
@@ -255,6 +302,8 @@
 
 ## 08 — DIRECTOR APPROVALS REQUIRED
 
+**أولاً — بعد Series 11:** (1) مراجعة نتيجة Series 11 وحكم القبول؛ (2) هل تفوّض **بروفة shadow ثم enforce على نسخة بيانات غير إنتاجية** وفق §15 من التقرير (لا Neon/Production)؟ (3) قيمة `AUTHORITY_LOCK_TIMEOUT_MS`؛ (4) **اختبار جهاز** لـ Series 09–11 بحضورك؛ (5) تنفيذ R-18/R-19 (محجوبين على Production)؛ (6) قرار `item.set_cost`. **مفيش حاجة من دي بتفعّل enforce.**
+
 **أولاً — بعد Series 10:** (1) مراجعة نتيجة Series 10 وتحديد التالي (قسم 09)؛ (2) **تفويض اختبار جهاز** لـ Series 09 + 10 (بحضورك فيزيائياً)؛ (3) **تفويض بروفة shadow** على نسخة بيانات **غير إنتاجية** قبل أي قرار `enforce`؛ (4) قرار تفعيل `enforce` (لم يُطلب)؛ (5) تنفيذ R-18/R-19 (محجوبين على Production)؛ (6) تقييم `item.set_cost` وصلاحية مالية بنطاق مخزن (قرار منتج).
 
 **أولاً — بعد Series 09:** (1) مراجعة نتيجة Series 09 وتحديد التالي (قسم 09)؛ (2) **تفويض اختبار جهاز** لـ Team screen وسحب الصلاحية أثناء جلسة (محتاج حضورك فيزيائياً للبصمة)؛ (3) **قرار تنظيف `audit_logs` القديمة** (R-18) وتفويضه؛ (4) **قرار شركات بدون owner** (R-19): مين يحدد الـ owner ومن أي دليل؛ (5) إبلاغ العملاء بتغيير رؤية التكلفة للـ Manager؛ (6) هل `item.view_cost` يتمنح للـ Manager افتراضياً (حالياً لا)؟ (7) سياسة إعادة دعوة إيميل عضو محذوف.
@@ -278,7 +327,13 @@
 
 ## 09 — NEXT RECOMMENDED ENGINEERING TASK  (توصية فقط — مش مُصرَّح بها)
 
-### التوصية الحالية (بعد Series 10): **بروفة shadow على بيانات غير إنتاجية + اختبار جهاز لـ Series 09/10 بحضورك — قبل أي تفعيل `enforce`**
+### التوصية الحالية (بعد Series 11): **بروفة shadow ثم enforce على نسخة بيانات غير إنتاجية (بتفويضك) + اختبار جهاز لـ Series 09–11 بحضورك**
+- الشروط والبوابات: تقرير Series 11 §15 (0 unexpected / 0 errors / 0 incomplete في shadow، قياس زمن على قاعدة بعيدة، تمرين رجوع، سحب تحت حمل).
+- **مش مُصرَّح؛ محتاج أمرك.** لا Production/Neon/AAB/merge.
+- بديل ميزة: S3 (بيانات المساءلة + `domain_events`) — لكن بعد البروفة أنسب.
+
+### توصية سابقة (بعد Series 10) — **اتنفّذت كتصليب Series 11**
+- (الأصل) **بروفة shadow على بيانات غير إنتاجية + اختبار جهاز لـ Series 09/10 بحضورك — قبل أي تفعيل `enforce`**
 - ليه: كل ضمانات S2 مثبتة على بيانات synthetic؛ اللي ناقص دليل على بيانات حقيقية وعلى الجهاز.
 - **بديل لو عاوز شريحة ميزة:** S3 (بيانات المساءلة + `domain_events` + feed) — بتعتمد على الهوية والصلاحيات الموجودة.
 - **مش مُصرَّح؛ محتاج أمرك.** ولا حاجة من Production/Neon/AAB/merge.
@@ -309,7 +364,25 @@
 
 ## 10 — MESSAGE FOR CHATGPT
 
-### رسالة Series 10 (الحالية)
+### رسالة Series 11 (الحالية)
+
+**اللي حصل:** مراجعتك لـ Series 10 كانت صح: **F11-01 اتأكد** بإعادة إنتاج حتمية على الكود القديم (منحة بتعمل commit بعد سحب سلطة المانح، وفي الـ legacy حتى من غير فحص actor). اتصلح ببروتوكول أقفال مرتب (actor shared + target exclusive، ترتيب id، company key-share، مهلة + `AUTHORITY_BUSY`). كمان القياس كشف **تجويع** (suspend استنّى ~10 دقايق تحت كتابة متواصلة) و**deadlock** كتابة/عضوية — الاتنين اتصلحوا. `CAPABILITY_MODE` غلط = رفض إقلاع. shadow بيصنّف expected بدقة (grant نشط على نفس المخزن والـ capability). تغطية enforce كاملة ما عدا fixture إنتاجي مجمّد بديله مُلزَم بعناوينه. Backend ×3: 64/560؛ enforce: 63/552؛ mobile 308.
+
+**نقاط ضعف للمراجعة (اختبرها ضد الكود):**
+1. **الاختبارات الحتمية بتتحكم في الترتيب بأقفال/صفوف بيمسكها الاختبار** مش بنقاط توقف في الكود؛ مفيش ادّعاء بتغطية كل تداخل.
+2. **3 negative controls ما اتمسكوا من أول مرة** (حماية مكرّرة + اختبار أعمى)؛ اتصلحوا، ومكافئان بالتصميم باقيان (N4a/b، N6c).
+3. **`FOR UPDATE` على صف الشركة باقي** في rotation وقبول الدعوة وإعادة تفعيل المحذوف (مش سحب سلطة).
+4. **التليمتري في الذاكرة فقط.** كافية لبروفة، مش لإنتاج.
+5. **الأداء محلي.** منحة أبطأ ~6.5 ms من Series 10 (أقفال إضافية).
+6. **`AUTHORITY_LOCK_TIMEOUT_MS` = 10s** قرار منتج.
+7. سباق migrations متعدد النسخ لوحظ في الـ harness ومش مصلّح.
+8. لا جهاز، لا بيانات حقيقية، لا مراجعة خارجية.
+
+**أسئلة تحسمها:** هل شروط §15 كافية لبروفة؟ هل نبدأ بـ shadow فقط على نسخة بيانات؟ هل نقلّل/نزوّد المهلة؟ هل نصلّح `FOR UPDATE` الباقي قبل البروفة؟
+
+**في الـ prompt التنفيذي القادم ضمّن:** الفرع الأساسي `hardening/series11-authorization-admission`، الموافقات (بيئة غير إنتاجية بالاسم)، وقاعدة الجهاز.
+
+### رسالة Series 10 (للمرجع)
 
 **اللي حصل:** نفّذنا S2: محرك قدرات default-deny، profiles بإصدارات، `access_grants` بنطاق مخزن، `/me/capabilities`، CP-4، تنقل متكيّف، وتفويض داخل الـ transaction مع قفل عضو عادل. **الافتراضي shadow** (القديم يقرر)؛ `enforce` مختبَر فقط. Backend PG ×3: 57 suites/459؛ enforce: 438؛ mobile 308؛ 14+8 negative controls.
 
@@ -402,6 +475,8 @@
 
 - **2026-10-25 (بعد v1.5) — v1.6:** نهاية Series 10 (S2، كود). نقل المكان الرسمي إلى `feature/series10-scoped-access` (كود backend `807676a`/core `5a24c17`، mobile `a8a6ab3`، آخر مختبَر `2bb0053`). محرك قدرات (shadow افتراضي، enforce مختبَر)، profiles، grants بنطاق مخزن، CP-4، `/me/capabilities`، تنقل متكيّف؛ Backend PG ×3 = 57/459، mobile 308؛ جهاز DEFERRED. تسجيل سياسات R-18/R-19/R-20 كـ POLICY (غير منفَّذة). النسخ على فروع Series 09 وأقدم stale. Production NO-GO.
 
+- **2026-10-25 (بعد v1.6) — v1.7:** نهاية Series 11 (تصليب تفويض السلطة). نقل المكان الرسمي إلى `hardening/series11-authorization-admission` (كود `f0d9df1`، آخر مختبَر `4547af9`). F11-01 (+ legacy) مؤكَّد ومصلّح، F11-05..09 اكتشافات إضافية مصلّحة (منها deadlock وتجويع حقيقيين)، `CAPABILITY_MODE` غلط = رفض إقلاع، تصنيف shadow دقيق، تغطية enforce (63/552 + fixture مجمّد مُبرَّر)، الرجوع بين الأوضاع موثّق ومُختبَر. Backend PG ×3 = 64/560؛ mobile 308؛ negative controls 23؛ لا migration. الحكم: READY FOR NON-PRODUCTION ENFORCE REHEARSAL (مش إذن). النسخ على فروع Series 10 وأقدم stale. Production NO-GO. جهاز DEFERRED.
+
 ---
 
 ## 12 — SOURCE-OF-TRUTH REFERENCES
@@ -410,10 +485,11 @@
 
 | الموضوع | المسار |
 |---|---|
-| **Series 10 — تقرير / عقد / أدلة** | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\SERIES_10_SCOPED_ACCESS_REPORT.md` · `SERIES_10_CAPABILITY_AUTHORIZATION_CONTRACT.md` · `series10-evidence\` (negative controls، perf، gate summary) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s10_*.log` |
+| **Series 11 — تقرير / عقد / أدلة** | `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\SERIES_11_AUTHORIZATION_HARDENING_REPORT.md` · `SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md` · `series11-evidence\` (before-fix-reproduction، negative-controls، authority-lock-perf.json، s2-perf-rerun.json) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s11_*.log` |
+| Series 10 — تقرير / عقد / أدلة (مرجع) | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\SERIES_10_SCOPED_ACCESS_REPORT.md` · `SERIES_10_CAPABILITY_AUTHORIZATION_CONTRACT.md` · `series10-evidence\` (negative controls، perf، gate summary) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s10_*.log` |
 | Series 09 — تقرير / عقد / أدلة (مرجع) | `D:\Projects\StockMind-wt\series09-access-foundation\docs\handoff\SERIES_09_ACCESS_FOUNDATION_REPORT.md` · `SERIES_09_AUTHORIZATION_AND_PRIVACY_CONTRACT.md` · `series09-evidence\` (before/after، negative controls، gate summary، perf) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s09_*.log` |
-| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
-| تعليمات الـ agents | `D:\Projects\StockMind-wt\series10-scoped-access\AGENTS.md` |
+| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
+| تعليمات الـ agents | `D:\Projects\StockMind-wt\series11-authorization-admission\AGENTS.md` |
 | تقرير Series 07 | `...\series07-recovery-integrity\docs\handoff\SERIES_07_RECOVERY_INTEGRITY_REPORT.md` |
 | عقد Series 07 (API، transaction، ضمانات، trust model) | `...\docs\handoff\SERIES_07_RECOVERY_CONTRACT.md` |
 | أدلة Series 07 (جهاز، gates، negative controls) | `...\docs\handoff\series07-evidence\` · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s07_*.log` · لقطات كاملة: `_local-tools\evidence-s07\` |
