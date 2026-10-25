@@ -2,6 +2,7 @@
 
 > **الحالة:** تصميم مقترح (Series 08). **مفيش حاجة هنا منفّذة.** كل بند ليه عمود "الوضع الحالي" بيشاور على `STOCKMIND_CODE_TO_CAPABILITY_GAP_MATRIX.md` (يُرمز له بـ **GM:<id>**).
 > القرارات المعمارية والبدائل: `STOCKMIND_ARCHITECTURE_DECISIONS.md` (ADR A, B). التدفقات والحالات: `STOCKMIND_MOVEMENT_GOVERNANCE_SPEC.md`.
+> **حالة التنفيذ بعد Series 10 (S2):** نُفّذ جزء من هذا التصميم: `item.view_cost` (Series 09)، `is_owner` وحالة العضو والإبطال (Series 09)، profiles `operator`/`warehouse_manager` وgrants بنطاق مخزن و`GET /me/capabilities` وCP-4 والتنقل المتكيّف (Series 10، التفعيل تحت `CAPABILITY_MODE=enforce` فقط، الافتراضي shadow). **لم يُنفَّذ:** profiles أخرى (supervisor, auditor, finance_viewer)، منح مؤقت بواجهة، locations، موافقات، `item.set_cost`، صلاحية مالية بنطاق مخزن، 2FA step-up. العقد التقني: `docs/handoff/SERIES_10_CAPABILITY_AUTHORIZATION_CONTRACT.md`. نتايج الـ NT المقصودة: NT-04/05 (قوائم ومعرّفات مخازن)، NT-12، NT-32، NT-34 (لا تصعيد)، NT-35/36/37، NT-39 (مخزن جديد غير ظاهر)، NT-40/41 — مغطّاة في `scoped-access.pg.spec.ts` و`access-lifecycle.pg.spec.ts`.
 > **قاعدة حاكمة:** كل عنصر UI مرتبط بعملية مدعومة ومصرّح بها ومختبَرة. مفيش صلاحية بتتعرض وهي مش ممكنة، ومفيش صلاحية بتتفرض بالـ UI بس.
 
 ---

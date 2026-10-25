@@ -125,3 +125,21 @@
 ## 4. ملحق B — الاختبارات المرجعية (Series 07، `b3d824f`)
 
 Backend PG ×3: **51/51 suites، 347/347**؛ Mobile Jest **16/16، 252/252**؛ جهاز واحد (تدفق S1/S2 PARTIAL). لا تُنسب هذه النتايج لأي كود بعد `b3d824f`، ولا لـ Series 08 (توثيق فقط).
+
+---
+
+## 4. تحديث حالة الصفوف بعد Series 09 و10 (الكود هو المرجع؛ هذا ملخص)
+
+| الصف | الحالة الجديدة | الدليل |
+|---|---|---|
+| C3 Owner منفصل عن Admin | **IMPLEMENTED_AND_TESTED** (Series 09): `users.is_owner`، backfill بدليل "Admin واحد"، trigger آخر owner، سياسة owner-only على Admins | `1792600000000`، `membership-policy.ts`، `access-lifecycle.pg.spec.ts` |
+| C6 Manager مقيّد بمخازن | **حُلّ بإضافة لا بتغيير** (Series 10): `Manager` يفضل شركة-كلها؛ **`warehouse_manager`** = Staff + grant بنطاق مخازن، تحت `CAPABILITY_MODE=enforce` فقط | `capability-evaluator.ts`، `scoped-access.pg.spec.ts` |
+| C7 منح مخازن | **IMPLEMENTED_AND_TESTED** + profiles: `operator` (= القديم حرفياً، parity مُثبت) و`warehouse_manager`؛ الإدارة عبر `PUT /team/members/:id/access` بإصدار تفاؤلي، anti-escalation، أحداث | `access-grant.service.ts` |
+| C8 تحويل: تفويض الطرفين | يفضل، وبقى **داخل الـ transaction** كمان وللـ scoped manager (المصدر والوجهة الاتنين) | `actor-guard.ts`، A6 |
+| C9 CP-4 | **IMPLEMENTED (backend + mobile)**: لا منح تلقائي؛ `initialAccess` ذرّي عند الإنشاء؛ غير المخوّل = 403 والمخزن لا يُنشأ؛ إرشاد في الواجهة | `warehouse.service.ts`، `warehouse/new.tsx` |
+| C11 إدارة الفريق على الموبايل | **IMPLEMENTED (منطق + شاشات، بدون جهاز)**: قائمة، إجراءات العضو، شاشة صلاحيات المخازن | `team.tsx`، `team-access.tsx` |
+| C12 offboarding / تغيير دور | **IMPLEMENTED_AND_TESTED** (Series 09) | `membership.service.ts` |
+| A4 الدور من الـ claim | **اتقفل** (Series 09): الدور والحالة من الـ DB كل طلب | `jwt.strategy.ts` |
+| M1 تنقل ثابت | **متكيّف** (Series 10) أونلاين: tabs/أزرار حسب `GET /me/capabilities`؛ أوفلاين كامل (بيانات العضو نفسه) | `useCapabilities.ts`، `capabilities.ts` |
+| P2 التكلفة | **اتقفل** (Series 09)؛ `item.set_cost` **موثّق وغير منفَّذ** (Series 10 contract §10) | — |
+| **D11 (جديد، Series 10)** | عكس ترتيب أقفال بين **التعويض** (عضو ثم company) و**تغيير العضوية** (company ثم عضو) كان كامناً من Series 09 (deadlock نادر)؛ ثم تجويع `FOR UPDATE` خلف `FOR SHARE` متداخل ظهر في اختبار الضغط | اتقفلا بقفل العضو العادل والترتيب الموحّد (contract §9) |

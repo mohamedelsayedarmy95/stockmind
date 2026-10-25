@@ -1,0 +1,9 @@
+Series 10 mobile negative controls: each run disables ONE protection (restored with git checkout) and runs the full mobile Jest suite (308 tests). Every control must turn tests RED.
+MM1 the app ignores the warehouse when deciding what to show (held anywhere = held everywhere) -> Tests: 1 failed, 307 passed, 308 total
+MM2 Team is shown to everyone                                                                    -> Tests: 2 failed, 306 passed, 308 total
+MM3 warehouse management implies cost visibility                                                -> Tests: 2 failed, 306 passed, 308 total
+MM4 a no-access row is sent as an assignment                                                    -> Tests: 1 failed, 307 passed, 308 total
+MM5 a profile the server will not enforce can be chosen                                         -> Tests: 1 failed, 307 passed, 308 total
+MM6 a conflict message is missing in English                                                    -> Tests: 1 failed, 307 passed, 308 total
+MM7 a screen gates on a capability that does not exist                                          -> Tests: 1 failed, 307 passed, 308 total
+MM8 the stale snapshot lives forever                                                            -> Tests: 2 failed, 306 passed, 308 total

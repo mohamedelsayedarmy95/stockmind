@@ -1,0 +1,30 @@
+Series 10 negative controls. Each run disables ONE protection in the working tree (restored with git checkout afterwards) and runs the matching specs on a fresh disposable PostgreSQL database. Every control must turn tests RED (or hang them: see N6).
+
+BACKEND (first run, commit 807676a + later tests)
+N1  a scoped grant is not limited to its warehouse (scope check removed)            -> Tests: 6 failed, 51 passed, 57 total   (capability-evaluator, scoped-access, capability-shadow)
+N2  a stored profile may carry organization/financial capabilities                  -> Tests: 1 failed, 26 passed, 27 total   (capability-evaluator)
+N3  anti-escalation removed (any grantor may grant any profile)                     -> Tests: 2 failed, 55 passed, 57 total
+N4  default deny for unknown capabilities removed                                   -> Tests: 1 failed, 26 passed, 27 total
+N5  in-transaction check ignores the capability (status only)                       -> Tests: 2 failed, 22 passed, 24 total   (scoped-access: A6 role-change and grant-revocation races)
+N7  scope ignores scoped grants in enforce mode                                     -> Tests: 8 failed, 22 passed, 30 total
+N8  operator profile quietly gains adjustment (legacy parity broken)               -> Tests: 6 failed, 50 passed, 56 total   (capability-evaluator parity + migration drift guard)
+N9  /me/capabilities reports the new model even when the engine does not enforce    -> Tests: 1 failed, 5 passed, 6 total
+N10 role changes leave scoped grants alive                                          -> Tests: 1 failed, 37 passed, 38 total
+N11 a profile that would do nothing can be assigned                                 -> Tests: 1 failed, 5 passed, 6 total
+N12 CP-4: anyone may assign access at warehouse creation                            -> Tests: 1 failed, 23 passed, 24 total
+N13 expired grants still authorize                                                  -> Tests: 1 failed, 23 passed, 24 total
+
+TWO CONTROLS WERE NOT CAUGHT THE FIRST TIME (kept here on purpose)
+N6  (first form) removing the advisory lock only inside the capability loader: 24 passed. An equivalent mutant: the write path also
+    takes the member lock at the start of its transaction. Replaced by the stronger form below.
+N14 enforce mode treating "no standing found" as allowed: 30 passed. The warehouse guard behind it still refused, so every endpoint
+    that names a warehouse stayed safe; only an endpoint with NO warehouse (GET /products) exposed it. A test for exactly that
+    was added; the control then failed (1 failed, 30 passed, 31 total).
+
+N6  (final form) the member authority lock does nothing (writes are not ordered behind pending authority changes)
+                                                                                    -> RED and HUNG: 3 tests failed on timeout
+    ("a pending authority change is ordered ahead of later writes", "writes in flight finish before a revocation ... (stress)",
+    "an operation queued earlier is judged by the server"); the run did not finish on its own and was killed after 29 minutes.
+    This is also the starvation the fair lock was introduced to remove (see the contract, section 9).
+
+MOBILE (8 controls, all red)  -> see negative-controls-mobile.txt
