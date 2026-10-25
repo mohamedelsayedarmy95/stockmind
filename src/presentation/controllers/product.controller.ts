@@ -17,6 +17,9 @@ import { RequirePermissions } from '../decorators/require-permissions.decorator'
 import { PermissionsGuard } from '../guards/permissions.guard';
 import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 import { FILE_STORAGE_TOKEN, IFileStorageService } from '../../domain/services/file-storage.interface';
+import { Product } from '../../domain/entities/product.entity';
+import { PermissionService } from '../../infrastructure/repositories/permission.service';
+import { toProductResponse } from '../../application/dtos/product/product-response.dto';
 
 @ApiTags('Product')
 @ApiBearerAuth()
@@ -28,7 +31,16 @@ export class ProductController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     @Inject(FILE_STORAGE_TOKEN) private readonly storage: IFileStorageService,
+    private readonly permissions: PermissionService,
   ) {}
+
+  /**
+   * Every product leaves the API through this method: an allowlisted shape, with the cost price only for a caller holding
+   * `item.view_cost` (key absent otherwise). Resolved per request from the caller's current permissions.
+   */
+  private async present(user: JwtPayload, product: Product) {
+    return toProductResponse(product, { includeCost: await this.permissions.userHas(user, PERMISSIONS.VIEW_COST) });
+  }
 
   private corr(req: Request): string | undefined {
     const id = req.headers['x-correlation-id'] ?? (req as unknown as { id?: string }).id;
@@ -41,30 +53,36 @@ export class ProductController {
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateProductDto, @Req() req: Request) {
-    return this.commandBus.execute(
+  async create(@CurrentUser() user: JwtPayload, @Body() dto: CreateProductDto, @Req() req: Request) {
+    const product: Product = await this.commandBus.execute(
       new CreateProductCommand(user.sub, user.companyId, dto, this.corr(req)),
     );
+    return this.present(user, product);
   }
 
   @Get()
   @RequirePermissions(PERMISSIONS.VIEW_PRODUCT)
   @Header('Cache-Control', 'private, max-age=60')
+  // The body depends on the caller's permissions (cost price), so a shared cache must never reuse it across callers.
+  @Header('Vary', 'Authorization')
   @ApiOperation({ summary: 'Get list of products for the company' })
   @ApiResponse({ status: 200, description: 'Returns paginated product list' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  findAll(@CurrentUser() user: JwtPayload) {
-    return this.queryBus.execute(new GetProductListQuery(user.companyId));
+  async findAll(@CurrentUser() user: JwtPayload) {
+    const products: Product[] = await this.queryBus.execute(new GetProductListQuery(user.companyId));
+    const includeCost = await this.permissions.userHas(user, PERMISSIONS.VIEW_COST);
+    return products.map((p) => toProductResponse(p, { includeCost }));
   }
 
   @Get(':id')
   @RequirePermissions(PERMISSIONS.VIEW_PRODUCT)
+  @Header('Vary', 'Authorization')
   @ApiOperation({ summary: 'Get product by ID' })
   @ApiResponse({ status: 200, description: 'Returns the product' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.service.findOne(user.companyId, id);
+  async findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.present(user, await this.service.findOne(user.companyId, id));
   }
 
   @Patch(':id')
@@ -74,12 +92,12 @@ export class ProductController {
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  update(
+  async update(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
     @Body() dto: UpdateProductDto,
   ) {
-    return this.service.update(user.companyId, id, dto);
+    return this.present(user, await this.service.update(user.companyId, id, dto));
   }
 
   @Delete(':id')
@@ -131,7 +149,7 @@ export class ProductController {
       },
       `products/${user.companyId}`,
     );
-    return this.service.uploadImage(user.companyId, id, uploaded.url);
+    return this.present(user, await this.service.uploadImage(user.companyId, id, uploaded.url));
   }
 
   @Post('categories')

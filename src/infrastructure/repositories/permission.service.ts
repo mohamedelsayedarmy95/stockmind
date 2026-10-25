@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { UserRoleLink } from '../../domain/entities/user-role.entity';
 import { RolePermission } from '../../domain/entities/role-permission.entity';
 import { Permission } from '../../domain/entities/permission.entity';
+import { DEFAULT_ROLE_PERMISSIONS, Permission as PermissionName } from '../../shared/constants/permissions.constant';
 
 @Injectable()
 export class PermissionService {
@@ -23,6 +24,12 @@ export class PermissionService {
       .getRawMany();
 
     return new Set(rows.map((r) => r.name));
+  }
+
+  /** One permission for a caller: the role's defaults first (same fallback as PermissionsGuard), then explicit role grants. */
+  async userHas(user: { sub: string; role: string }, permission: PermissionName): Promise<boolean> {
+    if ((DEFAULT_ROLE_PERMISSIONS[user.role] ?? []).includes(permission)) return true;
+    return this.hasAll(user.sub, [permission]);
   }
 
   async hasAll(userId: string, required: string[]): Promise<boolean> {

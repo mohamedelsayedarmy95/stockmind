@@ -26,6 +26,10 @@ export const PERMISSIONS = {
   // Audit
   VIEW_AUDIT_LOG: 'VIEW_AUDIT_LOG',
 
+  // Financial privacy (Series 09 / S0): the purchase cost of an item. Admin by default (ALL_PERMISSIONS); Manager and Staff
+  // do not get it automatically. First permission of the dotted namespace used by the enterprise RBAC spec.
+  VIEW_COST: 'item.view_cost',
+
   // Recovery operations (Admin only): record a restore by rotating the history generation. Not in any other default role.
   MANAGE_RECOVERY: 'MANAGE_RECOVERY',
 } as const;

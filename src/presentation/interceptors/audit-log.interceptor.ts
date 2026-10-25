@@ -17,7 +17,10 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // id_token, temp_token, REFRESH_TOKEN, otpauthUrl, qrCodeDataUrl...). A fixed list of camelCase names let the Google
 // ID token, the 2FA temp_token and the TOTP seed (otpauthUrl, QR code) reach audit_logs. Over-redacting an audit
 // field is acceptable; storing a credential is not.
-const SENSITIVE_KEY = /password|token|secret|otp|backupcode|qrcode|authorization|cookie|apikey/;
+// Financial fields (Series 09 / S0): the cost price is encrypted at rest and gated by `item.view_cost`; the audit trail is
+// readable by roles without that permission, so a plaintext copy there would bypass both. The key is kept (value
+// "[REDACTED]") so the trail still shows that a cost was supplied.
+const SENSITIVE_KEY = /password|token|secret|otp|backupcode|qrcode|authorization|cookie|apikey|costprice|unitcost|purchaseprice/;
 
 function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY.test(key.toLowerCase().replace(/[^a-z0-9]/g, ''));

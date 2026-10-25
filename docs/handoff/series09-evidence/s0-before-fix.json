@@ -1,0 +1,369 @@
+{
+  "tag": "a284ec60",
+  "syntheticCost": "7351.25",
+  "generatedAt": "2026-10-25T05:13:06.564Z",
+  "POST /products (as Admin) response": {
+    "status": 201,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "POST /products (as Manager) response": {
+    "status": 201,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "POST /products (as Staff) response": {
+    "status": 403
+  },
+  "GET /products (Admin)": {
+    "status": 200,
+    "cacheControl": "private, max-age=60",
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "GET /products/:id (Admin)": {
+    "status": 200,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "GET /products (Manager)": {
+    "status": 200,
+    "cacheControl": "private, max-age=60",
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "GET /products/:id (Manager)": {
+    "status": 200,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "GET /products (Staff)": {
+    "status": 200,
+    "cacheControl": "private, max-age=60",
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "GET /products/:id (Staff)": {
+    "status": 200,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "GET /products (OtherCompanyAdmin)": {
+    "status": 200,
+    "cacheControl": "private, max-age=60",
+    "vary": null,
+    "containsSyntheticCost": false,
+    "costPriceKeyPresent": false,
+    "topLevelKeys": []
+  },
+  "GET /products/:id (OtherCompanyAdmin)": {
+    "status": 404,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": false,
+    "costPriceKeyPresent": false,
+    "topLevelKeys": [
+      "message",
+      "statusCode",
+      "timestamp"
+    ]
+  },
+  "PATCH /products/:id (as Admin, name only) response": {
+    "status": 200,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "PATCH /products/:id (as Admin, costPrice) response": {
+    "status": 400,
+    "note": "UpdateProductDto has no costPrice; forbidNonWhitelisted rejects it"
+  },
+  "POST /products/:id/image (as Admin) response": {
+    "status": 201,
+    "cacheControl": null,
+    "vary": null,
+    "containsSyntheticCost": true,
+    "costPriceKeyPresent": true,
+    "costPriceValue": "7351.25",
+    "topLevelKeys": [
+      "barcode",
+      "category",
+      "categoryId",
+      "companyId",
+      "costPrice",
+      "createdAt",
+      "deletedAt",
+      "deletedBy",
+      "expiryDate",
+      "id",
+      "imageUrl",
+      "name",
+      "publicId",
+      "sku",
+      "unitsOfMeasure",
+      "version",
+      "volume",
+      "weight"
+    ]
+  },
+  "POST /products/:id/image (as Staff) response": {
+    "status": 403
+  },
+  "cache-poisoning note": {
+    "listCacheControl": "private, max-age=60",
+    "listVary": null
+  },
+  "audit_logs": {
+    "rows": 13,
+    "rowsContainingSyntheticCost": 4,
+    "leakingRows": [
+      {
+        "action": "CREATE",
+        "entityType": "products",
+        "method": "POST",
+        "path": "/api/v1/products",
+        "newValueKeys": [
+          "request",
+          "response"
+        ]
+      },
+      {
+        "action": "CREATE",
+        "entityType": "products",
+        "method": "POST",
+        "path": "/api/v1/products",
+        "newValueKeys": [
+          "request",
+          "response"
+        ]
+      },
+      {
+        "action": "UPDATE",
+        "entityType": "products",
+        "method": "PATCH",
+        "path": "/api/v1/products/:id",
+        "newValueKeys": [
+          "request",
+          "response"
+        ]
+      },
+      {
+        "action": "CREATE",
+        "entityType": "products",
+        "method": "POST",
+        "path": "/api/v1/products/:id/image",
+        "newValueKeys": [
+          "request",
+          "response"
+        ]
+      }
+    ]
+  },
+  "database column": {
+    "equalsPlaintext": false,
+    "looksEncrypted": true
+  }
+}
