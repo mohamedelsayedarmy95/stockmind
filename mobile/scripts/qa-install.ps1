@@ -24,12 +24,39 @@ if (-not $Apk) {
 if (-not (Test-Path $Apk)) { Fail "APK not found: $Apk" }
 
 Write-Host '-- checking the APK before it goes anywhere near the phone'
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'qa-inspect-apk.ps1') -Apk $Apk
+# The build record next to the APK (written by qa-build.ps1) says whether it was built with a local backend.
+$recordFile = [IO.Path]::ChangeExtension($Apk, '.json')
+$expectHost = $null
+if (Test-Path $recordFile) {
+    $record = Get-Content $recordFile -Raw | ConvertFrom-Json
+    if ($record.online) { $expectHost = Get-UrlHost $record.apiBaseUrl }
+}
+$inspect = Join-Path $PSScriptRoot 'qa-inspect-apk.ps1'
+if ($expectHost) { & powershell -NoProfile -ExecutionPolicy Bypass -File $inspect -Apk $Apk -ExpectApiHost $expectHost }
+else { & powershell -NoProfile -ExecutionPolicy Bypass -File $inspect -Apk $Apk }
 if ($LASTEXITCODE -ne 0) { Fail 'The APK did not pass inspection. Nothing was installed.' }
 
 $adb = Get-Adb
 $state = (Invoke-Native { & $adb -s $Serial get-state }) -join ''
 if ($state.Trim() -ne 'device') { Fail "Device $Serial is not ready (state: $state). Unlock it and allow USB debugging yourself." }
+
+# Android loads native code from the first ABI in the device's list that the APK contains. Prebuilt libraries ship every
+# ABI but the ones compiled from source only exist for the ABIs the QA build asked for (qa-build.ps1 -Abis), so a device
+# whose first match is one of the partial ABIs would crash at start. Refuse instead (read-only check).
+$abiList = ((Invoke-Native { & $adb -s $Serial shell getprop ro.product.cpu.abilist }) -join '').Trim().Split(',') | Where-Object { $_ }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $Apk).Path)
+try {
+    $libCounts = @{}
+    $zip.Entries | Where-Object { $_.FullName -like 'lib/*/*.so' } | ForEach-Object { $a = ($_.FullName -split '/')[1]; $libCounts[$a] = 1 + [int]$libCounts[$a] }
+} finally { $zip.Dispose() }
+$fullCount = ($libCounts.Values | Measure-Object -Maximum).Maximum
+$chosenAbi = $abiList | Where-Object { $libCounts.ContainsKey($_) } | Select-Object -First 1
+Write-Host "  device ABIs: $($abiList -join ', '); APK libs per ABI: $(($libCounts.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' ')"
+if (-not $chosenAbi) { Fail 'This APK has no native code for this device. Nothing was installed.' }
+if ($libCounts[$chosenAbi] -ne $fullCount) {
+    Fail "The device would load '$chosenAbi', which this APK contains only partially ($($libCounts[$chosenAbi])/$fullCount libraries). Rebuild with qa-build.ps1 -Abis including $chosenAbi. Nothing was installed."
+}
 
 $before = (Invoke-Native { & $adb -s $Serial shell pm list packages io.stockmind.app }) | Where-Object { $_ -like 'package:*' }
 Write-Host "  packages before: $($before -join ', ')"
