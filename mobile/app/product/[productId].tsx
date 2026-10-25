@@ -36,6 +36,9 @@ import {
 } from '@/query/useReservations';
 import { Batch, Serial, Reservation as StockReservation } from '@/data/repositories';
 import { STATUS } from '@/theme/colors';
+import { balanceLine, knownQuantity, resolveBalance } from '@/domain/balance-truth';
+import { httpStatusOf } from '@/domain/auth-flow';
+import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
 
 const REMINDER_PRESETS = [
   { key: '1h', hours: 1 },
@@ -71,7 +74,9 @@ export default function ProductDetailScreen() {
   const { data: warehouses } = useWarehouses();
   const warehouseOptions = warehouses ?? [];
   const otherWarehouses = warehouseOptions.filter((w: Warehouse) => w.id !== defaultWarehouseId);
-  const { data: balance } = useBalance(productId, defaultWarehouseId ?? undefined);
+  const balanceQuery = useBalance(productId, defaultWarehouseId ?? undefined);
+  const online = activeSource() === 'online';
+  const syncEntry = useWarehouseSyncStore((s) => (online && defaultWarehouseId ? s.entries[defaultWarehouseId] : undefined));
   const { data: breakdown } = useStoreBreakdown(productId, defaultWarehouseId ?? undefined);
   const { data: sourceStores } = useStores(defaultWarehouseId ?? undefined);
   const transfer = useStockTransfer();
@@ -133,7 +138,16 @@ export default function ProductDetailScreen() {
     targetWarehouseId === defaultWarehouseId && (fromStoreId ?? null) === (toStoreId ?? null);
   const canShowTransfer = otherWarehouses.length > 0 || (sourceStores?.length ?? 0) >= 2;
 
-  const available = balance ? Math.floor(Number(balance.baseQuantity)) : 0;
+  // Series 13 / R-37: an unknown balance is shown as unknown (and allows no transfer), never as 0.
+  const balanceTruth = resolveBalance({
+    online,
+    productId,
+    warehouseId: defaultWarehouseId,
+    sync: syncEntry ? { ...syncEntry.sync, lastError: syncEntry.lastError, lastSuccessAt: syncEntry.lastSuccessAt } : null,
+    query: { status: balanceQuery.status, data: balanceQuery.data, errorStatus: httpStatusOf(balanceQuery.error) },
+  });
+  const balanceText = balanceLine(balanceTruth, (ms) => new Date(ms).toLocaleTimeString());
+  const available = knownQuantity(balanceTruth) ?? 0;
 
   const field = {
     color: t.textPrimary,
@@ -338,8 +352,11 @@ export default function ProductDetailScreen() {
             <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 6 }}>
               {tr('product.transferTitle')}
             </Text>
-            <Text style={{ color: t.textMuted, fontSize: 12, marginBottom: 16 }}>
-              {tr('common.currentBalance')}: {available}
+            <Text
+              testID={`product-balance-${balanceTruth.state}`}
+              style={{ color: balanceTruth.state === 'unknown' ? STATUS.warning : t.textMuted, fontSize: 12, marginBottom: 16 }}
+            >
+              {tr(balanceText.key, balanceText.params)}
             </Text>
 
             {!canShowTransfer ? (

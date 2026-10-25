@@ -90,6 +90,9 @@ const ERROR_KEYS: Record<string, string> = {
   TARGET_NOT_ACTIVE: 'team.error.TARGET_NOT_ACTIVE',
   ROLE_REQUIRED: 'team.error.generic',
   ACCESS_REVOKED: 'team.error.ACTOR_NOT_ACTIVE',
+  // Series 13 (N-3): shared with the access screens (domain/admin-errors.ts): temporary contention vs a real grant conflict.
+  AUTHORITY_BUSY: 'admin.error.authorityBusy',
+  SCOPED_GRANTS_PRESENT: 'admin.error.scopedGrantsPresent',
 };
 export const TEAM_ERROR_CODES = Object.keys(ERROR_KEYS);
 

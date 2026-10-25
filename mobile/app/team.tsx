@@ -14,9 +14,11 @@ import { errorCodeOf, httpStatusOf } from '@/domain/auth-flow';
 import {
   activeOwnerCount, availableActions, MemberRole, roleChoices, TeamAction, TeamMember, teamErrorKey, visibleMembers,
 } from '@/domain/team-actions';
+import { adminFailure } from '@/domain/admin-errors';
 import { haptics } from '@/lib/haptics';
 
 const STATUS_COLOR = { active: STATUS.success, suspended: STATUS.warning, removed: STATUS.error } as const;
+const NOTICE_COLOR = { ok: STATUS.success, warning: STATUS.warning, error: STATUS.error } as const;
 
 /**
  * Team (Admin only): who has access to the company, and the calm, explicit controls to change it. Suspending or removing a
@@ -31,7 +33,7 @@ export default function TeamScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useTeamMembers();
   const act = useMembershipAction();
   const [showRemoved, setShowRemoved] = useState(false);
-  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'warning' | 'error'; text: string } | null>(null);
 
   const members: TeamMember[] = data ?? [];
   const viewer = useMemo(() => {
@@ -52,7 +54,10 @@ export default function TeamScreen() {
         },
         onError: (err) => {
           void haptics.error();
-          setNotice({ kind: 'error', text: tr(teamErrorKey(httpStatusOf(err), errorCodeOf(err))) });
+          // A temporary AUTHORITY_BUSY is a warning ("nothing was changed, try again"); the list is re-read either way (the
+          // mutation invalidates it when it settles) and the person, not the app, decides whether to try again.
+          const failure = adminFailure(httpStatusOf(err), errorCodeOf(err), teamErrorKey);
+          setNotice({ kind: failure.tone, text: tr(failure.messageKey) });
         },
       },
     );
@@ -167,7 +172,7 @@ export default function TeamScreen() {
         {notice ? (
           <Text
             testID="team-notice"
-            style={{ color: notice.kind === 'ok' ? STATUS.success : STATUS.error, paddingHorizontal: 20, paddingBottom: 8, fontSize: 13 }}
+            style={{ color: NOTICE_COLOR[notice.kind], paddingHorizontal: 20, paddingBottom: 8, fontSize: 13 }}
           >
             {notice.text}
           </Text>

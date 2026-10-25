@@ -158,6 +158,9 @@ const ACCESS_ERRORS: Record<string, string> = {
   CANNOT_MODIFY_SELF: 'access.error.self',
   DUPLICATE_WAREHOUSE: 'access.error.generic',
   UNKNOWN_PROFILE: 'access.error.generic',
+  // Series 13 (N-3): shared with the Team screen (domain/admin-errors.ts).
+  AUTHORITY_BUSY: 'admin.error.authorityBusy',
+  SCOPED_GRANTS_PRESENT: 'admin.error.scopedGrantsPresent',
 };
 export const ACCESS_ERROR_CODES = Object.keys(ACCESS_ERRORS);
 

@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { dismissRejection, useWarehouseSync } from '@/sync/warehouse-sync';
 import { ServerBalance } from '@/domain/stock-sync';
 import { pendingEffects } from '@/domain/outbox';
+import { warehouseListState } from '@/domain/balance-truth';
 import { Product } from '@/api/types';
 import { OutboxBanner } from '@/components/OutboxBanner';
 import { useCurrentScopeKey } from '@/sync/account-scope';
@@ -18,6 +19,13 @@ import { useOutboxStore } from '@/sync/outbox-store';
 
 /** Server decimals ("93.000000") shown without trailing zeros. */
 const qty = (value: string) => String(Number(value));
+
+const LIST_STATE_KEY: Partial<Record<ReturnType<typeof warehouseListState>, string>> = {
+  loading: 'common.loading',
+  unreachable: 'online.stockUnreachable',
+  empty: 'online.stockEmpty',
+  'empty-last-known': 'online.stockEmptyLastKnown',
+};
 
 /**
  * Online stock of one warehouse, straight from the reconciled sync state: the balances are the server's, replaced on
@@ -41,6 +49,7 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
   const effects = scope ? pendingEffects(intents, scope, warehouseId, entry?.sync.revision ?? null) : {};
   const signedQty = (q: number) => `${q > 0 ? '+' : ''}${q}`;
   const balances: ServerBalance[] = entry ? Object.values(entry.sync.balances) : [];
+  const listState = warehouseListState(entry ? { ...entry.sync, lastError: entry.lastError, lastSuccessAt: entry.lastSuccessAt } : null);
   balances.sort((a, b) => (names.get(a.productId) ?? a.productId).localeCompare(names.get(b.productId) ?? b.productId));
   const recent = entry ? [...entry.sync.recent].reverse().slice(0, 6) : [];
 
@@ -75,8 +84,10 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
         <Text style={{ color: t.textSecondary, fontWeight: '700' }}>{tr('online.stockTitle')}</Text>
       )}
       {status?.reason === 'no-access' ? null : balances.length === 0 ? (
-        <Text style={{ color: t.textMuted }}>
-          {entry?.sync.revision === null ? tr('common.loading') : tr('online.stockEmpty')}
+        // Series 13 / R-37: "loading" only while nothing failed, "unknown" when the first sync failed, "empty" only after the
+        // server said so (and, when that was a while ago, said with the qualifier).
+        <Text testID={`online-stock-${listState}`} style={{ color: listState === 'unreachable' ? STATUS.warning : t.textMuted }}>
+          {tr(LIST_STATE_KEY[listState] ?? 'common.loading')}
         </Text>
       ) : (
         balances.map((b) => (

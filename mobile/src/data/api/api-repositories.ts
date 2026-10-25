@@ -181,7 +181,9 @@ class ApiStockRepository implements StockRepository {
   // reduces to plain on-hand from the server's balance endpoint.
   async availability(productId: string, warehouseId: string): Promise<AvailabilitySnapshot> {
     const balance = await this.balance(productId, warehouseId);
-    const onHand = Number(balance.baseQuantity) || 0;
+    const onHand = Number(balance.baseQuantity);
+    // Series 13 / R-37: an unreadable figure is a failed request (the screen says "unknown"), never a zero.
+    if (balance.baseQuantity === '' || !Number.isFinite(onHand)) throw new Error('INVALID_BALANCE');
     return { onHand, reserved: 0, available: onHand };
   }
 }

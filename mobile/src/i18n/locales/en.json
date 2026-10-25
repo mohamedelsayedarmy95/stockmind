@@ -550,7 +550,9 @@
         "acknowledge": "Do not replace · dismiss",
         "acknowledgeNote": "Dismissing only removes this reminder on this device. Stock does not change."
       }
-    }
+    },
+    "stockUnreachable": "Stock unknown: the server can't be reached and this warehouse has not been synced yet.",
+    "stockEmptyLastKnown": "No stock at the last sync (not confirmed since)."
   },
   "team": {
     "title": "Team",
@@ -678,5 +680,26 @@
       "notFound": "That member or warehouse was not found.",
       "generic": "Something went wrong. Nothing was changed."
     }
+  },
+  "admin": {
+    "error": {
+      "authorityBusy": "Another change to this access is in progress. Nothing was changed — try again in a moment.",
+      "scopedGrantsPresent": "This member also has warehouse-manager access that this change does not cover. Nothing was changed — open the member's Warehouse access to change both together.",
+      "unavailable": "The server is not available right now. Nothing was changed — try again shortly."
+    }
+  },
+  "balance": {
+    "confirmed": "Current balance: {{qty}}",
+    "lastKnown": "Last known balance: {{qty}} · not confirmed",
+    "lastKnownAt": "Last known balance: {{qty}} · last confirmed {{time}}",
+    "loading": "Current balance: loading…",
+    "unknown": {
+      "unreachable": "Current balance: unknown — the server can't be reached",
+      "no-access": "Current balance: not available for this warehouse",
+      "mismatch": "Current balance: unknown",
+      "invalid": "Current balance: unknown",
+      "no-warehouse": "Current balance: choose a warehouse first"
+    },
+    "dispatchNeedsBalance": "Dispatch needs a known balance. Reconnect to the server and try again."
   }
 }

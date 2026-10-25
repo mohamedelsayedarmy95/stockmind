@@ -6,7 +6,7 @@ import {
   canDiscard, createIntent, holdQueueAfterRevocation, nextToSend, retryNow, settle, StockIntent,
 } from './outbox';
 import { ACCESS_REVOKED_CODE, errorCodeOf, isAccessRevoked, loginFailure } from './auth-flow';
-import { TEAM_ERROR_CODES } from './team-actions';
+import { TEAM_ERROR_CODES, teamErrorKey } from './team-actions';
 
 const SCOPE = 'srv|co|user';
 const KEY = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -80,9 +80,11 @@ describe('copy', () => {
     expect(typeof ar.online.outbox.reason['access-revoked']).toBe('string');
   });
   it('every refusal code the server can send has a message in both languages', () => {
+    // Series 13: checks the key each code actually resolves to (shared admin.error.* copy included), not an assumed path.
+    const at = (tree: any, key: string) => key.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), tree);
     for (const code of TEAM_ERROR_CODES) {
-      const key = code === 'ACCESS_REVOKED' || code === 'ROLE_REQUIRED' ? null : code;
-      if (key) for (const lang of [en, ar]) expect(lang.team.error[key]).toBeTruthy();
+      const key = teamErrorKey(403, code);
+      for (const lang of [en, ar]) expect({ code, key, text: Boolean(at(lang, key)) }).toEqual({ code, key, text: true });
     }
     for (const lang of [en, ar]) for (const k of ['network', 'forbidden', 'notFound', 'generic']) expect(lang.team.error[k]).toBeTruthy();
   });

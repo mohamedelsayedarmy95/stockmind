@@ -28,6 +28,7 @@ import { writeRejectionOf } from '@/domain/idempotent-write';
 import { useActionKey } from '@/lib/action-key';
 import { IntentRefusedError } from '@/data/api/api-repositories';
 import { pendingEffects } from '@/domain/outbox';
+import { balanceLine, issuableOnline, knownQuantity, resolveBalance } from '@/domain/balance-truth';
 import { useCurrentScopeKey } from '@/sync/account-scope';
 import { useOutboxStore } from '@/sync/outbox-store';
 import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
@@ -49,7 +50,7 @@ export default function MovementScreen() {
   const warehouseId = params.warehouseId ?? defaultWarehouseId;
   const { data: products } = useProducts();
   const product = products?.find((p: Product) => p.id === params.productId);
-  const { data: balance } = useBalance(params.productId, warehouseId ?? undefined);
+  const balanceQuery = useBalance(params.productId, warehouseId ?? undefined);
   const { data: availability } = useAvailability(params.productId, warehouseId ?? undefined);
   const { data: stores } = useStores(warehouseId ?? undefined);
   const movement = useStockMovement();
@@ -76,24 +77,29 @@ export default function MovementScreen() {
   const syncEntry = useWarehouseSyncStore((s) => (online && warehouseId ? s.entries[warehouseId] : undefined));
   const scope = useCurrentScopeKey();
   const intents = useOutboxStore((s) => s.intents);
-  const syncedBalance = syncEntry?.sync.balances[params.productId]?.baseQuantity;
   const pending =
     online && scope && warehouseId
       ? pendingEffects(intents, scope, warehouseId, syncEntry?.sync.revision ?? null)[params.productId]?.pending ?? 0
       : 0;
 
-  // Outbound may only consume what isn't already promised to someone else.
-  const onHand =
-    syncedBalance !== undefined
-      ? Math.floor(Number(syncedBalance))
-      : balance
-        ? Math.floor(Number(balance.baseQuantity))
-        : 0;
+  // Series 13 / R-37: what is known about the balance (confirmed, last known, loading or unknown). An unknown balance is
+  // shown as unknown and never as 0; a queued receipt is never added into it (the pending line says so separately).
+  const balanceTruth = resolveBalance({
+    online,
+    productId: params.productId,
+    warehouseId,
+    sync: syncEntry ? { ...syncEntry.sync, lastError: syncEntry.lastError, lastSuccessAt: syncEntry.lastSuccessAt } : null,
+    query: { status: balanceQuery.status, data: balanceQuery.data, errorStatus: httpStatusOf(balanceQuery.error) },
+  });
+  const balanceText = balanceLine(balanceTruth, (ms) => new Date(ms).toLocaleTimeString());
+  const knownOnHand = knownQuantity(balanceTruth);
+
+  // Outbound may only consume what isn't already promised to someone else, and never more than a KNOWN balance allows.
   const issuable = online
-    ? Math.max(0, onHand + Math.min(0, pending))
+    ? issuableOnline(balanceTruth, pending)
     : availability
       ? Math.floor(availability.available)
-      : onHand;
+      : knownOnHand ?? 0;
   const qtyLimit = kind === 'outbound' ? issuable : MAX_MOVEMENT_QUANTITY;
   const typedQty = parseQuantityInput(qtyText, qtyLimit);
   // The slider covers everyday amounts; a larger typed receipt moves its knob to the end.
@@ -268,8 +274,11 @@ export default function MovementScreen() {
                 {product?.name ?? '—'}
               </Text>
               <View style={{ flexDirection: 'row', gap: 16 }}>
-                <Text style={{ color: t.textMuted, fontSize: 13 }}>
-                  {tr('common.currentBalance')}: {onHand}
+                <Text
+                  testID={`movement-balance-${balanceTruth.state}`}
+                  style={{ color: balanceTruth.state === 'unknown' ? STATUS.warning : t.textMuted, fontSize: 13 }}
+                >
+                  {tr(balanceText.key, balanceText.params)}
                 </Text>
                 {pending ? (
                   <Text style={{ color: STATUS.warning, fontSize: 13, fontWeight: '600' }}>
@@ -440,8 +449,10 @@ export default function MovementScreen() {
                 typedQty === null ? { borderColor: STATUS.error } : null]}
             />
             {typedQty === null ? (
-              <Text style={{ color: STATUS.error, fontSize: 12 }}>
-                {tr('movement.quantityInvalid', { max: qtyLimit })}
+              <Text testID="movement-quantity-hint" style={{ color: STATUS.error, fontSize: 12 }}>
+                {kind === 'outbound' && knownOnHand === null
+                  ? tr('balance.dispatchNeedsBalance') // not "1 to 0": the limit is unknown, not zero
+                  : tr('movement.quantityInvalid', { max: qtyLimit })}
               </Text>
             ) : null}
           </View>

@@ -16,7 +16,10 @@ import {
   AccessProfileInfo, accessErrorKey, Choice, diffAssignments, offeredChoices, profileEffectKeys, toAssignments,
 } from '@/domain/capabilities';
 import { errorCodeOf, httpStatusOf } from '@/domain/auth-flow';
+import { adminFailure } from '@/domain/admin-errors';
 import { haptics } from '@/lib/haptics';
+
+const NOTICE_COLOR = { ok: STATUS.success, warning: STATUS.warning, error: STATUS.error } as const;
 
 /**
  * A Staff member's warehouse access (Admin / owner). One row per warehouse: no access, or a profile. Before saving, the screen
@@ -34,7 +37,7 @@ export default function TeamAccessScreen() {
   const warehouses: Warehouse[] = warehouseData ?? [];
   const save = useSetMemberAccess();
   const [desired, setDesired] = useState<Record<string, Choice>>({});
-  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'warning' | 'error'; text: string } | null>(null);
 
   // A fresh server state replaces any local draft (after a save, or after a conflict).
   useEffect(() => setDesired({}), [access?.version]);
@@ -56,7 +59,10 @@ export default function TeamAccessScreen() {
         },
         onError: (err) => {
           void haptics.error();
-          setNotice({ kind: 'error', text: tr(accessErrorKey(httpStatusOf(err), errorCodeOf(err))) });
+          // AUTHORITY_BUSY: nothing was saved and the draft is kept, so the same Save can be pressed again once the other change
+          // is done (the access is re-read when the mutation settles; a newer version replaces the draft).
+          const failure = adminFailure(httpStatusOf(err), errorCodeOf(err), accessErrorKey);
+          setNotice({ kind: failure.tone, text: tr(failure.messageKey) });
         },
       },
     );
@@ -100,7 +106,7 @@ export default function TeamAccessScreen() {
         ) : (
           <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 12 }}>
             {notice ? (
-              <Text testID="access-notice" style={{ color: notice.kind === 'ok' ? STATUS.success : STATUS.error, fontSize: 13 }}>
+              <Text testID="access-notice" style={{ color: NOTICE_COLOR[notice.kind], fontSize: 13 }}>
                 {notice.text}
               </Text>
             ) : null}

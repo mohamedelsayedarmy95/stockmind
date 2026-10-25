@@ -14,6 +14,7 @@ import { useCan } from '@/query/useCapabilities';
 import { useAccessProfiles, useTeamMembers } from '@/query/useTeam';
 import { CAP, Choice, offeredChoices, accessErrorKey } from '@/domain/capabilities';
 import { errorCodeOf, httpStatusOf } from '@/domain/auth-flow';
+import { adminFailure } from '@/domain/admin-errors';
 import { TeamMember } from '@/domain/team-actions';
 
 /** Add a warehouse to the local (offline) inventory. */
@@ -28,11 +29,11 @@ export default function NewWarehouseScreen() {
   const online = activeSource() === 'online';
   const can = useCan();
   const mayAssign = online && can(CAP.MANAGE_USERS);
-  const { data: memberData } = useTeamMembers(mayAssign);
+  const { data: memberData, refetch: refetchMembers } = useTeamMembers(mayAssign);
   const members: TeamMember[] = memberData ?? [];
-  const { data: profileData } = useAccessProfiles(mayAssign);
+  const { data: profileData, refetch: refetchProfiles } = useAccessProfiles(mayAssign);
   const [picked, setPicked] = useState<Record<string, Choice>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ tone: 'warning' | 'error'; text: string } | null>(null);
   const staff = members.filter((m) => m.role === 'Staff' && m.status === 'active');
 
   const submit = () => {
@@ -49,7 +50,14 @@ export default function NewWarehouseScreen() {
         },
         onError: (err) => {
           void haptics.error();
-          setError(tr(accessErrorKey(httpStatusOf(err), errorCodeOf(err))));
+          // A busy refusal created nothing: the form keeps what was typed and chosen; the member list is re-read so a second
+          // press decides on current data. The app never sends the creation again by itself.
+          const failure = adminFailure(httpStatusOf(err), errorCodeOf(err), accessErrorKey);
+          setError({ tone: failure.tone, text: tr(failure.messageKey) });
+          if (failure.refresh && mayAssign) {
+            void refetchMembers();
+            void refetchProfiles();
+          }
         },
       },
     );
@@ -120,7 +128,9 @@ export default function NewWarehouseScreen() {
                 ))}
               </View>
             ) : null}
-            {error ? <Text testID="warehouse-error" style={{ color: '#EF4444', fontSize: 13 }}>{error}</Text> : null}
+            {error ? (
+              <Text testID="warehouse-error" style={{ color: error.tone === 'warning' ? '#F59E0B' : '#EF4444', fontSize: 13 }}>{error.text}</Text>
+            ) : null}
             <PremiumButton
               label={tr('warehouse.save')}
               onPress={submit}

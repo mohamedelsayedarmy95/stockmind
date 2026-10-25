@@ -67,7 +67,8 @@ describe('Role choices', () => {
 
 describe('Errors and list', () => {
   it('every server refusal code maps to a copy key; unknown codes fall back by status', () => {
-    for (const code of TEAM_ERROR_CODES) expect(teamErrorKey(403, code)).toMatch(/^team\.error\./);
+    // Series 13: AUTHORITY_BUSY and SCOPED_GRANTS_PRESENT share one copy across the administrative screens (admin.error.*)
+    for (const code of TEAM_ERROR_CODES) expect(teamErrorKey(403, code)).toMatch(/^(team|admin)\.error\./);
     expect(teamErrorKey(undefined, undefined)).toBe('team.error.network');
     expect(teamErrorKey(403, 'SOMETHING_NEW')).toBe('team.error.forbidden');
     expect(teamErrorKey(404, undefined)).toBe('team.error.notFound');

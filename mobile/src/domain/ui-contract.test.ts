@@ -11,6 +11,8 @@ const root = path.join(__dirname, '..', '..');
 const SCREENS = [
   'app/team.tsx', 'app/team-access.tsx', 'app/warehouse/new.tsx', 'app/(tabs)/warehouses.tsx', 'app/(tabs)/_layout.tsx',
   'app/(tabs)/settings.tsx', 'app/products.tsx', 'app/product/[productId].tsx',
+  // Series 13: the stock-entry surfaces whose balance line is no longer a bare number
+  'app/movement/[productId].tsx', 'src/components/OnlineWarehouseStock.tsx',
 ];
 const read = (rel: string) => fs.readFileSync(path.join(root, rel), 'utf8');
 const en = JSON.parse(read('src/i18n/locales/en.json'));

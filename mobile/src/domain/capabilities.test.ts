@@ -114,7 +114,8 @@ describe('profile explanations and errors', () => {
     expect(profileEffectKeys([])).toEqual([]);
   });
   it('every refusal code the access endpoints can send maps to a message key', () => {
-    for (const code of ACCESS_ERROR_CODES) expect(accessErrorKey(409, code)).toMatch(/^access\.error\./);
+    // Series 13: AUTHORITY_BUSY and SCOPED_GRANTS_PRESENT share one copy across the administrative screens (admin.error.*)
+    for (const code of ACCESS_ERROR_CODES) expect(accessErrorKey(409, code)).toMatch(/^(access|admin)\.error\./);
     expect(accessErrorKey(undefined, undefined)).toBe('access.error.network');
     expect(accessErrorKey(403, 'NEW_CODE')).toBe('access.error.forbidden');
     expect(accessErrorKey(404, undefined)).toBe('access.error.notFound');
