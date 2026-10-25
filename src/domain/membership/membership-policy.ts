@@ -68,6 +68,8 @@ export interface MembershipEffects {
   /** Deletes the member's warehouse grants (Staff) and custom role links. */
   clearWarehouseGrants: boolean;
   clearCustomRoles: boolean;
+  /** Series 10: ends the member's scoped (access_grants) assignments, with evidence, in the same transaction. */
+  revokeScopedGrants: boolean;
 }
 
 const ROLES = new Set<string>(Object.values(UserRole));
@@ -106,6 +108,7 @@ export function decideMembershipAction(
     clearRefreshToken: false,
     clearWarehouseGrants: false,
     clearCustomRoles: false,
+    revokeScopedGrants: false,
   };
   const losesOwnerSeat = target.isOwner && target.status === MemberStatus.ACTIVE;
   const assertNotLastOwner = () => {
@@ -132,7 +135,7 @@ export function decideMembershipAction(
       assertNotLastOwner();
       return {
         ...base, toStatus: MemberStatus.REMOVED, bumpTokenVersion: true, clearRefreshToken: true,
-        clearWarehouseGrants: true, clearCustomRoles: true,
+        clearWarehouseGrants: true, clearCustomRoles: true, revokeScopedGrants: true,
       };
     }
     case 'reactivate': {
@@ -178,6 +181,8 @@ export function decideMembershipAction(
         bumpTokenVersion: true,
         // A Staff member starts with no grants (never the leftovers of an earlier role): the Admin grants explicitly.
         clearWarehouseGrants: input.newRole === UserRole.STAFF,
+        // A scoped grant belongs to the role it was given under: it must not survive into, or resurface after, another role.
+        revokeScopedGrants: true,
       };
     }
   }

@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 import { WarehouseAccessService } from '../../src/infrastructure/security/warehouse-access.service';
+import { CapabilityService, CapabilityShadowService } from '../../src/infrastructure/security/capability.service';
+import { AccessGrantService } from '../../src/infrastructure/repositories/access-grant.service';
 import { EntitlementsService } from '../../src/infrastructure/billing/entitlements.service';
 import { Global, INestApplicationContext, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -37,10 +39,13 @@ import { GetMovementHistoryHandler } from '../../src/application/queries/get-mov
     },
     // Exported globally by RbacModule in AppModule; WarehouseService and the history handler depend on it.
     WarehouseAccessService,
+    CapabilityService,
+    CapabilityShadowService,
+    AccessGrantService,
     // Exported globally by EntitlementsModule; WarehouseService checks the plan before creating a warehouse.
     EntitlementsService,
   ],
-  exports: [DataSource, WarehouseAccessService, EntitlementsService],
+  exports: [DataSource, WarehouseAccessService, CapabilityService, CapabilityShadowService, AccessGrantService, EntitlementsService],
 })
 class FakeDataSourceModule {}
 

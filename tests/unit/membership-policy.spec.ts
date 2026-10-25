@@ -26,7 +26,7 @@ describe('membership policy: what an allowed action changes', () => {
   it('suspend: status, immediate revocation of access tokens and of the refresh token; grants are kept (reversible)', () => {
     expect(decideMembershipAction('suspend', actor(), target(), ctx())).toEqual({
       eventType: 'suspend', toStatus: 'suspended', toRole: 'Staff',
-      bumpTokenVersion: true, clearRefreshToken: true, clearWarehouseGrants: false, clearCustomRoles: false,
+      bumpTokenVersion: true, clearRefreshToken: true, clearWarehouseGrants: false, clearCustomRoles: false, revokeScopedGrants: false,
     });
   });
   it('remove: revokes like suspend and also clears grants and custom roles (nothing silently returns on reactivation)', () => {

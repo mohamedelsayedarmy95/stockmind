@@ -119,13 +119,34 @@ export class TeamService {
     }
     await this.assertCompanyWarehouses(companyId, ids);
     await this.dataSource.transaction(async (m) => {
+      // Series 10: every change of a member's access takes the member row FOR UPDATE (it serializes against that member's
+      // in-flight stock writes, which hold it FOR SHARE) and leaves evidence in the same transaction.
+      await m.query(`SELECT 1 FROM users WHERE id = $1 AND company_id = $2 FOR UPDATE`, [memberId, companyId]);
+      const before: string[] = (await m.query(
+        `SELECT warehouse_id FROM warehouse_access WHERE user_id = $1 AND company_id = $2`, [memberId, companyId],
+      )).map((r: { warehouse_id: string }) => r.warehouse_id);
+      // A warehouse already covered by an active scoped grant (e.g. warehouse_manager) needs no second, weaker row.
+      const covered: string[] = (await m.query(
+        `SELECT scope_id FROM access_grants WHERE user_id = $1 AND company_id = $2 AND revoked_at IS NULL`, [memberId, companyId],
+      )).map((r: { scope_id: string }) => r.scope_id);
+      const wanted = ids.filter((id) => !covered.includes(id));
       await m.query(`DELETE FROM warehouse_access WHERE user_id = $1 AND company_id = $2`, [memberId, companyId]);
-      if (ids.length) {
+      if (wanted.length) {
         await m.query(
           `INSERT INTO warehouse_access (company_id, user_id, warehouse_id, granted_by)
            SELECT $1, $2, unnest($3::uuid[]), $4`,
-          [companyId, memberId, ids, actorId],
+          [companyId, memberId, wanted, actorId],
         );
+      }
+      for (const [type, list] of [['grant', wanted.filter((id) => !before.includes(id))], ['revoke', before.filter((id) => !wanted.includes(id))]] as const) {
+        for (const warehouseId of list) {
+          await m.query(
+            `INSERT INTO access_grant_events (company_id, actor_user_id, target_user_id, warehouse_id, event_type, profile_key,
+                                              profile_version, previous_profile_key, source)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'legacy_api')`,
+            [companyId, actorId, memberId, warehouseId, type, type === 'grant' ? 'operator' : null, type === 'grant' ? 1 : null, type === 'revoke' ? 'operator' : null],
+          );
+        }
       }
     });
     await this.audit.write({

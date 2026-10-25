@@ -79,7 +79,9 @@ class FakeDb {
           if (!this.balances.has(key) && !staged.has(key)) staged.set(key, '0.000000');
           return [];
         }
-        if (sql.includes('FROM users') && sql.includes('FOR SHARE')) return [{ ok: 1 }]; // Series 09: the actor is active
+        // Series 09/10: the in-transaction authorization reads the acting member (an active Admin here) and their links.
+        if (sql.includes('FROM users') && sql.includes('FOR SHARE')) return [{ id: params[0], company_id: params[1], role: 'Admin', status: 'active', is_owner: true }];
+        if (sql.includes('FROM user_roles')) return [];
         if (sql.includes('FOR UPDATE')) {
           const key = rowKey(params[0], params[1]);
           await this.lock(key, held);

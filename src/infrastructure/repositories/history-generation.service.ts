@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { assertActorActive } from '../security/actor-guard';
+import { assertActorAuthorized } from '../security/actor-guard';
+import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
 /**
  * The history generation of a company: an opaque id that names the history its clients are synchronising with.
@@ -63,8 +64,9 @@ export class HistoryGenerationService {
         `SELECT history_generation::text AS generation FROM companies WHERE id = $1 FOR UPDATE`, [companyId],
       );
       if (!company) throw new NotFoundException('Company not found');
-      // Series 09: the operator must still be an active member when the rotation commits (lock order: company, then user).
-      await assertActorActive(m, actorUserId, companyId);
+      // The operator must still be an active member AND still hold MANAGE_RECOVERY when the rotation commits (lock order:
+      // company, then user).
+      await assertActorAuthorized(m, { userId: actorUserId, companyId, capability: PERMISSIONS.MANAGE_RECOVERY });
       const warehouses: Array<{ id: string; revision: string }> = await m.query(
         `SELECT id, stock_revision::text AS revision FROM warehouses WHERE company_id = $1 ORDER BY id FOR UPDATE`, [companyId],
       );

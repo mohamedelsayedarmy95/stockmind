@@ -1,6 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { UserRole } from '../../shared/constants/enums';
+import { capabilityMode } from '../../shared/constants/capabilities.constant';
+import { warehouseScope } from '../../domain/authorization/capability-evaluator';
+import { CapabilityService, CapabilityShadowService } from './capability.service';
 
 /** Roles that may use every warehouse of their company. Everyone else needs a warehouse_access row per warehouse. */
 const FULL_ACCESS_ROLES: ReadonlySet<string> = new Set([UserRole.ADMIN, UserRole.MANAGER]);
@@ -8,18 +11,28 @@ const FULL_ACCESS_ROLES: ReadonlySet<string> = new Set([UserRole.ADMIN, UserRole
 /**
  * Server-side warehouse authorization for team members. The role and the grants are read from the database on every
  * check, so a revoked grant or a demotion applies to the next request, whatever the access token still says.
+ *
+ * Series 10: the capability engine (CAPABILITY_MODE) decides which model answers. `off` and `shadow` use the legacy query
+ * below (shadow also computes the new model and records any difference); `enforce` uses the capability model, where a
+ * warehouse is usable through a warehouse_access row (implicit operator grant) OR an active scoped grant.
  */
 @Injectable()
 export class WarehouseAccessService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly logger = new Logger(WarehouseAccessService.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly capabilities: CapabilityService,
+    private readonly shadow: CapabilityShadowService,
+  ) {}
 
   /** Whether a role may use every warehouse of its company (for callers that read the role inside their own transaction). */
   hasFullAccess(role: string): boolean {
     return FULL_ACCESS_ROLES.has(role);
   }
 
-  /** null: every warehouse of the company; otherwise the ids of the warehouses this user may use. */
-  async scope(userId: string, companyId: string): Promise<string[] | null> {
+  /** The pre-Series-10 query, unchanged: the reference the parity tests compare the new model against. */
+  async legacyScope(userId: string, companyId: string): Promise<string[] | null> {
     const rows: Array<{ role: string; ids: string[] }> = await this.dataSource.query(
       `SELECT u.role,
               COALESCE(array_agg(a.warehouse_id) FILTER (WHERE a.warehouse_id IS NOT NULL), '{}') AS ids
@@ -31,6 +44,42 @@ export class WarehouseAccessService {
     );
     if (!rows.length) throw new ForbiddenException('Unknown user for this company');
     return FULL_ACCESS_ROLES.has(rows[0].role) ? null : rows[0].ids;
+  }
+
+  /** The capability model's scope for the same member. */
+  private async scopedScope(userId: string, companyId: string): Promise<string[] | null> {
+    const principal = await this.capabilities.loadPrincipal(userId, companyId);
+    if (!principal || principal.status !== 'active') throw new ForbiddenException('Unknown user for this company');
+    return warehouseScope(principal, 'scoped');
+  }
+
+  /** null: every warehouse of the company; otherwise the ids this user may use. */
+  async scope(userId: string, companyId: string): Promise<string[] | null> {
+    const mode = capabilityMode();
+    if (mode === 'enforce') return this.scopedScope(userId, companyId);
+    const legacy = await this.legacyScope(userId, companyId);
+    if (mode === 'shadow') await this.compareScope(userId, companyId, legacy);
+    return legacy;
+  }
+
+  private async compareScope(userId: string, companyId: string, legacy: string[] | null): Promise<void> {
+    try {
+      const scoped = await this.scopedScope(userId, companyId);
+      const principal = await this.capabilities.loadPrincipal(userId, companyId);
+      // Compare as sets: "all" (null) against a list is a difference unless both are "all".
+      const key = (s: string[] | null) => (s === null ? '*' : [...new Set(s)].sort().join(','));
+      const same = key(legacy) === key(scoped);
+      // A scoped grant can only ADD warehouses: the new scope must always contain the legacy one.
+      const superset = legacy === null ? scoped === null : scoped === null || legacy.every((id) => scoped.includes(id));
+      // equal → (true, true); wider → (false, true) "the legacy scope lacked these"; narrower → (true, false) never expected
+      this.shadow.record({
+        kind: 'scope', route: 'WarehouseAccessService.scope', userId, capability: null, warehouseIds: [],
+        legacy: same ? true : !superset, scoped: same ? true : superset,
+        expected: !!principal?.grants.some((g) => g.source === 'access_grant'),
+      });
+    } catch (err) {
+      this.shadow.error();
+    }
   }
 
   /** 404 (as for another company's warehouse) unless the user may use every listed warehouse. */

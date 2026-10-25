@@ -7,6 +7,11 @@ import { ReplaceOperationDto } from '../../application/dtos/stock/replace-operat
 import { StockService, requestHash } from './stock.service';
 import { WarehouseAccessService } from '../security/warehouse-access.service';
 import { accessRevoked } from '../jwt.strategy';
+import { assertActorAuthorized } from '../security/actor-guard';
+import { loadPrincipalFrom } from '../security/capability.service';
+import { warehouseScope } from '../../domain/authorization/capability-evaluator';
+import { capabilityMode } from '../../shared/constants/capabilities.constant';
+import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
 export type ReplacementKind = 'inbound' | 'outbound';
 
@@ -95,7 +100,7 @@ export class StockReplacementService {
       await this.assertOwnership(qr, companyId, dto.productId, dto.warehouseId);
 
       // 2. Access, re-read in this transaction: Staff need a grant, and the grant row is share-locked until we commit.
-      await this.assertAccess(qr, actorUserId, companyId, dto.warehouseId);
+      await this.assertAccess(qr, actorUserId, companyId, dto.warehouseId, kind);
 
       // 3. The generation the person reviewed must still be the current one.
       const [company] = await qr.query(
@@ -211,30 +216,22 @@ export class StockReplacementService {
     if (!w) throw new NotFoundException('Warehouse not found or access denied');
   }
 
-  private async assertAccess(qr: QueryRunner, userId: string, companyId: string, warehouseId: string) {
-    // Series 09: the actor must still be ACTIVE when the replacement commits; FOR SHARE makes a concurrent suspension wait.
-    const [u] = await qr.query(
-      `SELECT role FROM users WHERE id = $1 AND company_id = $2 AND status = 'active' FOR SHARE`, [userId, companyId],
-    );
-    if (!u) throw accessRevoked();
-    if (this.access.hasFullAccess(u.role)) return;
-    const grant = await qr.query(
-      `SELECT 1 FROM warehouse_access WHERE company_id = $1 AND user_id = $2 AND warehouse_id = $3 FOR SHARE`,
-      [companyId, userId, warehouseId],
-    );
-    if (!grant.length) throw new NotFoundException('Warehouse not found or access denied');
+  private async assertAccess(qr: QueryRunner, userId: string, companyId: string, warehouseId: string, kind: ReplacementKind) {
+    // The actor must still be ACTIVE and still hold the capability of this movement kind on the warehouse when the
+    // replacement commits; the member row is share-locked, so a concurrent suspension, role change or grant revocation
+    // waits for this transaction or has already been seen (see assertActorAuthorized).
+    await assertActorAuthorized(qr, {
+      userId, companyId, warehouseIds: [warehouseId],
+      capability: kind === 'inbound' ? PERMISSIONS.STOCK_INBOUND : PERMISSIONS.STOCK_OUTBOUND,
+    });
   }
 
   /** Whether the caller may see/use this warehouse right now (read in the replacement's transaction). */
   private async mayUse(qr: QueryRunner, userId: string, companyId: string, warehouseId: string): Promise<boolean> {
-    const [u] = await qr.query(`SELECT role FROM users WHERE id = $1 AND company_id = $2 AND status = 'active'`, [userId, companyId]);
-    if (!u) return false;
-    if (this.access.hasFullAccess(u.role)) return true;
-    const grant = await qr.query(
-      `SELECT 1 FROM warehouse_access WHERE company_id = $1 AND user_id = $2 AND warehouse_id = $3`,
-      [companyId, userId, warehouseId],
-    );
-    return grant.length > 0;
+    const principal = await loadPrincipalFrom(qr, userId, companyId);
+    if (!principal || principal.status !== 'active') return false;
+    const scope = warehouseScope(principal, capabilityMode() === 'enforce' ? 'scoped' : 'legacy');
+    return scope === null || scope.includes(warehouseId);
   }
 
   /** The original key already has a record: say exactly why that stops the replacement. Always throws. */

@@ -6,11 +6,15 @@ import { RolePermission } from '../domain/entities/role-permission.entity';
 import { UserRoleLink } from '../domain/entities/user-role.entity';
 import { PermissionService } from '../infrastructure/repositories/permission.service';
 import { WarehouseAccessService } from '../infrastructure/security/warehouse-access.service';
+import { CapabilityService, CapabilityShadowService } from '../infrastructure/security/capability.service';
+import { AccessGrantService } from '../infrastructure/repositories/access-grant.service';
+import { MeController } from '../presentation/controllers/me.controller';
 
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([Role, Permission, RolePermission, UserRoleLink])],
-  providers: [PermissionService, WarehouseAccessService],
-  exports: [PermissionService, WarehouseAccessService],
+  controllers: [MeController],
+  providers: [PermissionService, WarehouseAccessService, CapabilityService, CapabilityShadowService, AccessGrantService],
+  exports: [PermissionService, WarehouseAccessService, CapabilityService, CapabilityShadowService, AccessGrantService],
 })
 export class RbacModule {}

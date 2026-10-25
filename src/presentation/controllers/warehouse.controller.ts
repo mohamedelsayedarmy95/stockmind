@@ -24,7 +24,7 @@ export class WarehouseController {
   @ApiResponse({ status: 201, description: 'Warehouse created' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateWarehouseDto) {
-    return this.service.create(user.companyId, dto);
+    return this.service.create(user.companyId, dto, user.sub);
   }
 
   @Get()

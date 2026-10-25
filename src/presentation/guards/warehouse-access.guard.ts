@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { WarehouseAccessService } from '../../infrastructure/security/warehouse-access.service';
 import { JwtPayload } from '../decorators/current-user.decorator';
 
-const WAREHOUSE_REFS_KEY = 'warehouse_refs';
+export const WAREHOUSE_REFS_KEY = 'warehouse_refs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Where a request names a warehouse: a route parameter, a body field or a query parameter. */
@@ -16,6 +16,18 @@ export type WarehouseRef = `${'params' | 'body' | 'query'}.${string}`;
 export const WarehouseScoped = (...refs: WarehouseRef[]) =>
   applyDecorators(SetMetadata(WAREHOUSE_REFS_KEY, refs), UseGuards(WarehouseAccessGuard));
 
+/** The warehouse ids a request names through its @WarehouseScoped refs (well-formed ones only). */
+export function requestedWarehouseIds(reflector: Reflector, context: ExecutionContext, req?: any): string[] {
+  const refs = reflector.get<WarehouseRef[]>(WAREHOUSE_REFS_KEY, context.getHandler()) ?? [];
+  const request = req ?? context.switchToHttp().getRequest();
+  return refs
+    .map((ref) => {
+      const [source, field] = ref.split('.');
+      return (request[source] as Record<string, unknown> | undefined)?.[field];
+    })
+    .filter((value): value is string => typeof value === 'string' && UUID.test(value));
+}
+
 @Injectable()
 export class WarehouseAccessGuard implements CanActivate {
   constructor(
@@ -24,16 +36,10 @@ export class WarehouseAccessGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const refs = this.reflector.get<WarehouseRef[]>(WAREHOUSE_REFS_KEY, context.getHandler()) ?? [];
     const req = context.switchToHttp().getRequest();
     const user = req.user as JwtPayload | undefined;
     if (!user) throw new ForbiddenException('No authenticated user');
-    const ids = refs
-      .map((ref) => {
-        const [source, field] = ref.split('.');
-        return (req[source] as Record<string, unknown> | undefined)?.[field];
-      })
-      .filter((value): value is string => typeof value === 'string' && UUID.test(value));
+    const ids = requestedWarehouseIds(this.reflector, context, req);
     if (ids.length) await this.access.assertCanUse(user.sub, user.companyId, ids);
     return true;
   }

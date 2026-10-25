@@ -3,8 +3,9 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TeamService } from '../../infrastructure/repositories/team.service';
 import { MembershipService } from '../../infrastructure/repositories/membership.service';
 import {
-  ChangeRoleDto, CreateInvitationDto, MembershipActionDto, RemoveMemberDto, SetWarehouseAccessDto,
+  ChangeRoleDto, CreateInvitationDto, MembershipActionDto, RemoveMemberDto, SetMemberAccessDto, SetWarehouseAccessDto,
 } from '../../application/dtos/team/team.dto';
+import { AccessGrantService } from '../../infrastructure/repositories/access-grant.service';
 import { UserRole } from '../../shared/constants/enums';
 import { CurrentUser, JwtPayload } from '../decorators/current-user.decorator';
 import { RequirePermissions } from '../decorators/require-permissions.decorator';
@@ -21,6 +22,7 @@ export class TeamController {
   constructor(
     private readonly team: TeamService,
     private readonly membership: MembershipService,
+    private readonly access: AccessGrantService,
   ) {}
 
   @Post('invitations')
@@ -90,6 +92,29 @@ export class TeamController {
   @Get('members/:id/events')
   events(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.membership.events(user.companyId, id);
+  }
+
+  // ── Warehouse access (Series 10 / S2): profiles and scoped grants ───────────────────────────────────────────────
+
+  /** What can be granted, what each profile carries, and whether it takes effect now (`available`). */
+  @Get('access-profiles')
+  accessProfiles() {
+    return this.access.listProfiles();
+  }
+
+  @Get('members/:id/access')
+  memberAccess(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.access.getMemberAccess(user.companyId, id);
+  }
+
+  @Put('members/:id/access')
+  setMemberAccess(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: SetMemberAccessDto) {
+    return this.access.setMemberAccess(user.companyId, user.sub, id, dto.assignments, { reason: dto.reason, expectedVersion: dto.expectedVersion });
+  }
+
+  @Get('members/:id/access/events')
+  memberAccessEvents(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.access.events(user.companyId, id);
   }
 
   @Put('members/:id/warehouses')

@@ -1,4 +1,5 @@
-import { ArrayMaxSize, Equals, IsArray, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Length, MaxLength } from 'class-validator';
+import { ArrayMaxSize, Equals, IsArray, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Length, MaxLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { IsStrongPassword } from '../../../shared/validators/strong-password.validator';
 
 /** Roles an Admin can invite. Owners (Admin) are created by registration only. */
@@ -65,4 +66,33 @@ export class ChangeRoleDto extends MembershipActionDto {
   @IsOptional()
   @IsBoolean()
   acknowledgeCompanyWideAccess?: boolean;
+}
+
+/** One warehouse and the access profile the member gets there. */
+export class AccessAssignmentDto {
+  @IsUUID('all')
+  warehouseId!: string;
+
+  @IsString()
+  @MaxLength(64)
+  profile!: string;
+}
+
+/** Replaces the member's whole warehouse access. `expectedVersion` is the `version` the client read (stale => 409). */
+export class SetMemberAccessDto {
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => AccessAssignmentDto)
+  assignments!: AccessAssignmentDto[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  expectedVersion?: string;
 }

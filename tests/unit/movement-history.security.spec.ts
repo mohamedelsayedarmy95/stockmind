@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { WarehouseAccessService } from '../../src/infrastructure/security/warehouse-access.service';
+import { CapabilityService, CapabilityShadowService } from '../../src/infrastructure/security/capability.service';
 import { INestApplication, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -136,6 +137,9 @@ let currentUser: JwtPayload;
     // Full warehouse scope (null): this suite is about credential columns, not warehouse grants.
     { provide: WarehouseAccessService, useValue: { scope: async () => null, assertCanUse: async () => undefined } },
     { provide: OperationLookupService, useValue: { lookup: async () => [] } },
+    // The permission guard consults the capability model (shadow mode); this suite is about credential columns only.
+    { provide: CapabilityService, useValue: { principalFor: async () => null } },
+    { provide: CapabilityShadowService, useValue: { record: () => undefined, error: () => undefined } },
   ],
 })
 class MovementHistoryTestModule {}

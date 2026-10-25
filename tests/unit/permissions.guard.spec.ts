@@ -13,7 +13,9 @@ function buildContext(user: { sub: string; role: string } | undefined) {
 describe('PermissionsGuard', () => {
   const permService = { hasAll: jest.fn() };
   const reflector = { getAllAndOverride: jest.fn() };
-  const guard = new PermissionsGuard(reflector as never, permService as never);
+  // CAPABILITY_MODE=off: this suite pins the LEGACY decision; the capability model has its own suites.
+  process.env.CAPABILITY_MODE = 'off';
+  const guard = new PermissionsGuard(reflector as never, permService as never, {} as never, {} as never);
 
   beforeEach(() => jest.clearAllMocks());
 

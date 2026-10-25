@@ -9,6 +9,7 @@ import {
 import { DataSource } from 'typeorm';
 import { AuditLogService } from '../audit/audit-log.service';
 import { EntitlementsService } from '../billing/entitlements.service';
+import { AccessGrantService } from './access-grant.service';
 import {
   decideMembershipAction,
   MEMBERSHIP_ERROR_STATUS,
@@ -46,6 +47,7 @@ export class MembershipService {
     private readonly dataSource: DataSource,
     private readonly audit: AuditLogService,
     private readonly entitlements: EntitlementsService,
+    private readonly access: AccessGrantService,
   ) {}
 
   async apply(
@@ -101,6 +103,9 @@ export class MembershipService {
         );
         if (effects.clearWarehouseGrants) {
           await m.query(`DELETE FROM warehouse_access WHERE user_id = $1 AND company_id = $2`, [target.id, companyId]);
+        }
+        if (effects.revokeScopedGrants) {
+          await this.access.revokeAllScopedGrants(m, companyId, target.id, actor.id, `membership ${effects.eventType}`);
         }
         if (effects.clearCustomRoles) {
           await m.query(`DELETE FROM user_roles WHERE user_id = $1`, [target.id]);
