@@ -6,9 +6,9 @@
 > التصنيفات: `VERIFIED / PARTIAL / UNVERIFIED / BLOCKED / FAILED / DEFERRED`.
 
 > ## ⚠ المكان الرسمي لهذا الملف (ACTIVE CANONICAL)
-> **الفرع:** `feature/series09-access-foundation` — **المسار:** `D:\Projects\StockMind-wt\series09-access-foundation\docs\handoff\STOCKMIND_AI_BRIDGE.md`
-> **الفرع ده superset من `design/series08-enterprise-blueprint` (= كود Series 07 + `docs/product/`) + كود وتوثيق Series 09 (S0 + S1).**
-> **النسخ الأقدم غير سارية (stale):** على `design/series08-enterprise-blueprint` (v1.4)، `feature/series07-recovery-integrity` (v1.3)، `hardening/series06-release-safety` (v1.2)، `preflight/series05-rc-admission` (v1.1)، `integration/series04` (v1.0). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
+> **الفرع:** `feature/series10-scoped-access` — **المسار:** `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\STOCKMIND_AI_BRIDGE.md`
+> **الفرع ده superset من `feature/series09-access-foundation` (= Series 08 تصميم + Series 09 S0/S1) + كود وتوثيق Series 10 (S2).**
+> **النسخ الأقدم غير سارية (stale):** على `feature/series09-access-foundation` (v1.5)، `design/series08-enterprise-blueprint` (v1.4)، `feature/series07-recovery-integrity` (v1.3)، `hardening/series06-release-safety` (v1.2)، `preflight/series05-rc-admission` (v1.1)، `integration/series04` (v1.0). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
 ---
 
 ## 00 — BRIDGE METADATA
@@ -16,20 +16,30 @@
 | البند | القيمة |
 |---|---|
 | المشروع | StockMind (inventory / WMS SaaS) |
-| إصدار الملف | **v1.5** (بعد Series 09 — S0 + S1 كود) |
+| إصدار الملف | **v1.6** (بعد Series 10 — S2 كود: قدرات + منح بنطاق + تنقل متكيّف + CP-4) |
 | آخر تحديث | **2026-10-25 (التوقيت في الـ changelog قسم 11)** (Egypt Standard Time) |
 | الـ session | Claude Code Desktop، `claude-sonnet-5-5`. Series 07 وSeries 08 اتنفّذوا بتفويضين كاملين من الـ Director في رسائل مستقلة. مفيش identifiers حساسة. |
-| المرحلة الحالية | **Series 09 — Access Foundation (S0 خصوصية التكلفة + S1 دورة حياة الأعضاء والإبطال الفوري): مكتملة (PASS للنطاق على بيئة تطوير؛ الجهاز DEFERRED بقرار أمان).** قبلها: Series 08 (تصميم)، Series 07 (S1+S2 recovery). في انتظار قرارات الـ Director. |
+| المرحلة الحالية | **Series 10 — Scoped Access (S2): مكتملة — ENGINEERING PASS، الجهاز DEFERRED (DIRECTOR PHYSICAL ACCESS REQUIRED).** `CAPABILITY_MODE` الافتراضي **shadow** (القديم هو اللي يقرر)؛ `enforce` مختبَر لكن غير مفعّل في أي مكان. قبلها: Series 09 (S0+S1)، Series 08 (تصميم)، Series 07. في انتظار قرارات الـ Director. |
 | الحالة | ACTIVE |
-| Canonical | `D:\Projects\StockMind-wt\series09-access-foundation\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `feature/series09-access-foundation` |
+| Canonical | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `feature/series10-scoped-access` |
 | Desktop mirror | `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_BRIDGE.md` (مطابق بالـ SHA-256) |
-| **Verified baseline (مؤشر Git)** | **آخر commit كود: `00b494e`** (S0 `dc83f6b` ← S1 backend `7f55d09` ← اختبارات `1399b33`,`e49e3bb` ← mobile `00b494e`)، و**آخر commit اختبارات: `3b9bb69`** (اختبارات فقط فوق `00b494e`) وعليه اشتغلت الـ gates. أي commit بعد `3b9bb69` **docs/evidence فقط** — للتأكد: `git -C D:\Projects\StockMind-wt\series09-access-foundation diff --name-only 3b9bb69 HEAD` (لازم كلها تحت `docs/`). الفرع من `af7f61f` (Series 08). الملف مبيقدرش يكتب hash الـ commit بتاعه. |
-
+| **Verified baseline (مؤشر Git)** | **آخر commit كود:** backend `807676a` (core `5a24c17`) + mobile `a8a6ab3`؛ **آخر commit مختبَر: `2bb0053`** (إصلاح اقتباس في اختبار فقط) وعليه اشتغلت كل الـ gates؛ بعده `33c3039` ثم commits توثيق/أدلة فقط. للتأكد: `git -C D:\Projects\StockMind-wt\series10-scoped-access diff --name-only 2bb0053 HEAD` (لازم كلها تحت `docs/`). الفرع من `d24719d` (HEAD Series 09). الملف مبيقدرش يكتب hash الـ commit بتاعه. |
 ---
 
 ## 01 — EXECUTIVE PROJECT STATUS
 
-### Series 09 (S0 + S1، كود) — الجديد
+### Series 10 (S2، كود) — الجديد
+- **التقرير:** `docs/handoff/SERIES_10_SCOPED_ACCESS_REPORT.md`؛ **العقد:** `docs/handoff/SERIES_10_CAPABILITY_AUTHORIZATION_CONTRACT.md`؛ الأدلة: `docs/handoff/series10-evidence/`.
+- **النتيجة: ENGINEERING PASS — PHYSICAL DEVICE DEFERRED.** محرك قدرات (capability engine) default-deny بنظرتين (`legacy` = القرار قبل Series 10 حرفياً، `scoped` = الجديد)؛ `CAPABILITY_MODE=off|shadow|enforce` (الافتراضي **shadow**: القديم يقرر والجديد يُحسب ويُقارن)؛ profiles بإصدارات (`operator v1` = Staff الحالي بالظبط، `warehouse_manager v1` = operator + تسوية + تحويل + تعديل بيانات المخزن)؛ `access_grants` بنطاق مخزن مع أحداث append-only؛ `warehouse_access` القديم = grants `operator` ضمنية (dual-read بدون نسخ). **الـ Manager العالمي بدون تغيير (كل المخازن)؛ مدير المخزن المحدود = Staff + grant.**
+- **مفعول فقط تحت `enforce`:** نطاق المخزن الفعلي (خارج النطاق = 404 مطابق لمخزن غير موجود)، `GET /me/capabilities`، `PUT /team/members/:id/access` (بإصدار تفاؤلي، anti-escalation، لا تعديل ذاتي)، **CP-4** (مخزن جديد = لا أحد؛ `initialAccess` ذرّي اختياري)، تفويض داخل الـ transaction (مع قفل عضو عادل) — سحب منحة أو تغيير دور أثناء كتابة جارية بيرفض الكتابة بدون أثر في الـ ledger.
+- **الموبايل:** تنقل وأزرار متكيّفة من `/me/capabilities` (snapshot في الذاكرة فقط)، شاشة `team-access`، نموذج CP-4 — **منطق + Jest فقط، لا جهاز ولا component tests**.
+- **الاختبارات:** Backend PG **×3 على قواعد جديدة: 57 suites + 3 skipped، 459 passed + 3 skipped في كل تشغيلة** (Series 09: 54/395) + تشغيلة enforce إضافية 55 suites/438؛ build نضيف 12/12 migrations؛ Mobile `tsc` 0 وJest **20 suites، 308 tests** (كان 18/273). Negative controls: backend N1–N14، mobile MM1–MM8 — كلها أحمر في النهاية (اتنين ما اتمسكوش من أول مرة: N6 وN14، موثّقين بصدق).
+- **اكتشافات هندسية:** (1) تجويع `FOR UPDATE` خلف `FOR SHARE` متداخل، (2) deadlock عبر مفتاح الـ idempotency FK، (3) **عكس ترتيب أقفال كامن من Series 09** بين التعويض وتغيير العضوية (D11) — اتصلحوا بقفل advisory عادل لكل عضو وترتيب موحّد (company ← عضو ← مخازن)؛ 0 deadlocks في الضغط.
+- **الأداء (محلي):** طلب محروس وسيط off 3.58 / shadow 6.67 (+3.09) / enforce 5.17 (+1.59) ms؛ `/me/capabilities` ≈3.2 ms؛ كتابة مخزون وحدها 9.5 ms ومع سحب/منح متكرر p95 26.8 ms.
+- **سياسات Director بعد Series 09 (POLICY لا IMPLEMENTED — انظر قسم 07):** R-18 تنظيف `audit_logs` (معتمد مبدئياً، محجوب على Production)، R-19 ملكية legacy بدليل ومشغّل، R-20 رفض مالي افتراضي للـ Manager (الرفض الافتراضي **منفَّذ**؛ `item.set_cost` وصلاحية مالية بنطاق مخزن **غير منفَّذين**).
+- **الجهاز:** **ما اتلمسش** (Huawei/adb)؛ كل سيناريو جهاز = **DEFERRED — DIRECTOR PHYSICAL ACCESS REQUIRED**. **Production: NO-GO** (بدون تغيير).
+
+### Series 09 (S0 + S1، كود) — مرجع
 - **التقرير:** `docs/handoff/SERIES_09_ACCESS_FOUNDATION_REPORT.md`؛ **العقد:** `docs/handoff/SERIES_09_AUTHORIZATION_AND_PRIVACY_CONTRACT.md`؛ الأدلة: `docs/handoff/series09-evidence/`.
 - **S0 = PASS:** D1 **اتأكد تشغيلياً** (Staff استلم `costPrice` في list وdetail) ثم اتقفل: allowlist DTO + صلاحية `item.view_cost` (Admin فقط افتراضياً؛ Manager لا تلقائياً) + `Vary: Authorization` + redaction في الـ audit. **اكتشاف جديد D10:** الـ `audit_logs` كانت بتخزّن التكلفة بالنص الصريح (4 صفوف في الاختبار) — اتقفلت للكتابة الجديدة؛ **الصفوف القديمة لسه ممكن تحتويها (تنظيف مشغّل غير منفّذ).**
 - **S1 = PASS (backend VERIFIED؛ mobile unit فقط):** migration `1792600000000` (`status`, `token_version`, `is_owner`, trigger آخر owner، `membership_events`)؛ كل طلب بيقرأ صف العضو (status/tv/الشركة/**الدور من الـ DB**) فالتعليق/الإزالة/تغيير الدور/إنهاء الجلسات بتسري **من أول طلب بعدها**؛ فحص `FOR SHARE` جوه transaction الحركات والتعويض وتدوير الـ generation؛ سياسة نقية (owner فقط على Admins، لا ذاتي، آخر owner محمي، ترقية Manager/Admin بتأكيد صريح)؛ شاشة Team؛ الـ outbox بيحجز العمليات عند `ACCESS_REVOKED` ومبيبعتهاش تلقائياً بعد إعادة التفعيل.
@@ -74,7 +84,9 @@
 
 ## 03 — CURRENT TASK
 
-- **المهمة المعتمدة (اكتملت): Series 09 — S0 + S1 فقط.** التفويض كان رسالة Director كاملة في المحادثة: إثبات الاستغلال أولاً، `item.view_cost` وDTOs، دورة حياة الأعضاء والإبطال الفوري، Team screen، سلوك الـ outbox عند الإبطال، اختبارات سلبية، gates، تقارير. **قيود الأمان:** ممنوع أي تفاعل مع جهاز Huawei (قفل/إعادة تشغيل/مسح بيانات/إلخ)، ممنوع Production/Neon/merge/AAB/خدمات مدفوعة/موديل خارجي. قرارات Q-01..Q-18 اتعتمدت كاتجاه (انظر `STOCKMIND_ARCHITECTURE_DECISIONS.md` آخر جدول). **الحالة:** مكتملة.
+- **المهمة المعتمدة (اكتملت): Series 10 — S2 فقط** (تفويض Director كامل في المحادثة): capability profiles + scoped grants + `/me/capabilities` + تنقل متكيّف + CP-4 فوق Series 09، مع الحفاظ على معنى Manager العالمي و`warehouse_manager` كـ profile بنطاق، وحماية Owner/Admin، ورفض مالي افتراضي، وسلامة المخزون والـ offline والتعويض. **لم يُنفَّذ (بقرار):** موافقات، dashboard حي، عهدة متقدمة، محاسبة مالية. **قيود:** ممنوع أي تفاعل مع جهاز Huawei/adb، Production/Neon، merge، AAB/Play، خدمات مدفوعة، موديل خارجي/Council. **الحالة:** مكتملة؛ STOP بعدها.
+- **المهمة السابقة (اكتملت): Series 09 — S0 + S1 فقط.**
+- (تفصيل) Series 09: التفويض كان رسالة Director كاملة في المحادثة: إثبات الاستغلال أولاً، `item.view_cost` وDTOs، دورة حياة الأعضاء والإبطال الفوري، Team screen، سلوك الـ outbox عند الإبطال، اختبارات سلبية، gates، تقارير. **قيود الأمان:** ممنوع أي تفاعل مع جهاز Huawei (قفل/إعادة تشغيل/مسح بيانات/إلخ)، ممنوع Production/Neon/merge/AAB/خدمات مدفوعة/موديل خارجي. قرارات Q-01..Q-18 اتعتمدت كاتجاه (انظر `STOCKMIND_ARCHITECTURE_DECISIONS.md` آخر جدول). **الحالة:** مكتملة.
 - **المهمة السابقة (اكتملت): Series 08 — تصميم وأدلة فقط.** التفويض كان رسالة Director كاملة (موجودة في المحادثة): جرد الكود مقابل الرؤية المجمّعة من 5 نماذج + Product Bible v1.0، وكتابة حزمة معمارية/صلاحيات/حركات/UX/ADR/roadmap، بدون أي تنفيذ. الفرع `design/series08-enterprise-blueprint` من `dc4ff4d`. **ممنوع كان:** كود، migrations، اعتماديات، Production/Neon، Council/موديل خارجي، merge، AAB/Play. **الحالة:** مكتملة؛ الحكم المقترح PASS لنطاقها. بوابات القبول §12 في التفويض: مفيش كود اتغيّر (يتحقق بـ `git diff`)، كل مقترح Bible ليه disposition، الـ 12 workflow مغطّاة، الصلاحيات والخصوصية محدّدة، دلالات الـ feed صادقة، عوائق Production محفوظة، شرائح بمعايير قبول قابلة للاختبار.
 - **المهمة السابقة (اكتملت):** Series 07 — **S1 + S2 فقط**، على worktree/فرع معزول، Production NO-GO. التفويض كان رسالة Director كاملة (موجودة في المحادثة).
 - **الهدف:** (1) منع تكرار re-entry بالخطأ أو بالتزامن لعمليات اتأكدت وغابت بعد restore؛ (2) هوية history generation صريحة تخلّي العملاء يعيدوا بناء حالتهم ويفحصوا إيصالاتهم، من غير ادّعاء كشف restore تلقائي.
@@ -84,6 +96,8 @@
 ---
 
 ## 04 — CHANGES MADE
+
+**Series 10:** `5a24c17` feat(access) backend core (migration `1792610000000-ScopedAccess`، `capabilities.constant`، `capability-evaluator`، `CapabilityService`/`CapabilityShadowService`، `member-lock`، `actor-guard.assertActorAuthorized`، `AccessGrantService`، `MeController`، تعديل guards/warehouse-access/team/membership/warehouse/DTOs). `807676a` tests + قفل العضو العادل (stock/replacement/history-generation). `a8a6ab3` feat(mobile) (`capabilities.ts`، `capability-signal.ts`، store، hooks، `team-access.tsx`، CP-4 في `warehouse/new.tsx`، تنقل/أزرار، i18n ar/en). `d33b2f6` العقد + docs المنتج + negative controls. `2bb0053` إصلاح اقتباس في اختبار. `33c3039` ملخص gates + أداء. ثم التقرير والـ bridge والـ master. **migration جديدة واحدة (12 إجمالاً)، اعتماديات: صفر.** تغييرات سلوك (الافتراضي shadow = لا تغيير في القرارات): لا شيء ظاهر للمستخدم تحت shadow غير `GET /me/capabilities` وواجهة الصلاحيات؛ تحت `enforce` نطاق المخازن للـ grants. `item.set_cost`: موثّق فقط.
 
 **Series 09:** (1) `dc83f6b` feat(privacy): `product-response.dto.ts`، `item.view_cost`، `PermissionService.userHas`، controller، redaction في interceptor وsink، NT-12 + spec الإثبات. (2) `7f55d09` feat(access): migration `1792600000000-AccessLifecycle`، `User` entity، `JwtStrategy` (DB-backed)، `AuthService`، `MembershipService`، `membership-policy.ts`، `actor-guard.ts`، Team controller/DTOs، stock/replacement/rotation recheck، entitlements seats، تعديل 4 fixtures، اختبارات. (3) `1399b33`,`e49e3bb`,`3b9bb69` اختبارات (status لوحده، قياس الأداء، NT-32/NT-37). (4) `00b494e` feat(mobile): Team screen، `team-actions`، `access-notice.store`، outbox/auth-flow/client/login، i18n ar/en، اختبارات. (5) docs: التقرير، العقد، أدلة، تحديث `docs/product/*`، bridge v1.5، master. **migration جديدة واحدة (11 إجمالاً)، اعتماديات: صفر.** تغييرات سلوك: الـ Manager لا يرى `costPrice`؛ تغيير كلمة السر وإنهاء الجلسات الذاتي بيبطلوا الـ access token فوراً؛ seats لا تحسب المحذوفين.
 
@@ -103,6 +117,23 @@
 ---
 
 ## 05 — TESTS & VERIFICATION
+
+**Series 10 (كود: آخر commit مختبَر `2bb0053`، PostgreSQL 15.19 مؤقتة على 127.0.0.1:55433، بيانات synthetic):**
+
+| الفحص | النتيجة |
+|---|---|
+| Backend `tsc` / build نضيف | exit 0 / exit 0، `dist/main.js` ✓، **12/12 migrations** |
+| **Backend PG كامل ×3 (قواعد جديدة، shadow الافتراضي)** | **57 suites + 3 skipped · 459 passed + 3 skipped · exit 0 ×3** |
+| تشغيلة enforce (`CAPABILITY_MODE=enforce`) | 55 suites · 438 passed، exit 0 (استُثني `movement-history.security` ×2: بتركّب controllers بدون نموذج القدرات فـ enforce بيرفض بتصميمه) |
+| `capability-evaluator` / `scoped-access.pg` / `capability-shadow.pg` / `release-safety.migration` | 28 / 25 / 6 / 29 |
+| Mobile `tsc` + Jest | exit 0 · 20 suites، 308 tests |
+| Negative controls | backend N1–N14 أحمر (N6 وN14 اتمسكوا بعد تقوية)؛ mobile MM1–MM8 أحمر |
+| الأداء | انظر قسم 01 / `series10-evidence/s2-perf.json` |
+| الجهاز | **لم يُجرَّب** (DEFERRED — DIRECTOR PHYSICAL ACCESS REQUIRED) |
+
+**ما لم يُختبر في Series 10:** أي جهاز/emulator/RTL؛ component tests؛ جهازين؛ Neon/Production؛ shadow على بيانات حقيقية؛ قاعدة بعيدة؛ مراجعة خارجية.
+
+**(جداول Series 09 وSeries 07 أدناه تخص كودهم فقط وما تُنسبش لكود Series 10.)**
 
 **Series 09 (كود: آخر commit مختبَر `3b9bb69`، PostgreSQL 15.19 مؤقتة على 127.0.0.1:55433، بيانات synthetic):**
 
@@ -142,6 +173,7 @@
 
 ## 06 — GIT & ENVIRONMENT STATE
 
+- **Series 10:** الفرع `feature/series10-scoped-access` (worktree `D:\Projects\StockMind-wt\series10-scoped-access`) من `d24719d`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin feature/series10-scoped-access`). PostgreSQL المؤقت (55433) لسه شغّال بقواعد scratch `stockmind_gate_s10_*`. Huawei/adb: **ما اتلمسوا**. `freellmapi` ECONNREFUSED (ما استُخدم).
 - **Series 09:** الفرع `feature/series09-access-foundation` (worktree `D:\Projects\StockMind-wt\series09-access-foundation`) من `af7f61f`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin feature/series09-access-foundation`). `node_modules` junctions على `shared-warehouse` (mobile: نفس الفكرة؛ كفاية لـ tsc/Jest، مش لـ Metro). PostgreSQL المؤقت (55433) **لسه شغّال** بقواعد scratch `stockmind_gate_s09_*`. Huawei: **ما اتلمسش**.
 
 - **Series 08:** الفرع `design/series08-enterprise-blueprint` (worktree `D:\Projects\StockMind-wt\series08-enterprise-blueprint`) من `dc4ff4d`؛ docs فقط؛ حالة الرفع في الرد النهائي (`git ls-remote --heads origin design/series08-enterprise-blueprint`). **الـ worktree مفيهوش `node_modules` عمداً** (مفيش بناء/اختبار هنا). `feature/series07-recovery-integrity` @ `dc4ff4d` ما اتلمسش.
@@ -157,7 +189,28 @@
 
 ---
 
-## 07 — RISKS, BUGS & DEFERRED WORK  (التفاصيل: التقرير §7، العقد §5)
+## 07 — RISKS, BUGS & DEFERRED WORK  (التفاصيل: تقرير Series 10 §10، عقد Series 10 §12)
+
+**حالة بعد Series 10 — سياسات Director بعد Series 09 (POLICY ≠ IMPLEMENTED):**
+
+| # | السياسة المعتمدة | منفَّذ؟ | عائق Production |
+|---|---|---|---|
+| **R-18** | تنظيف `audit_logs` القديمة اللي فيها `costPrice` نصي: جرد بدون تصدير قيم، redaction ضيق idempotent (مختبَر على بيانات synthetic) لـ `old_values`/`new_values` بما فيها المتداخل، يُحتفظ بـ id/actor/action/timestamp/correlation، لا حذف سجلات، backup مُتحقَّق + خطة restore + dry-run + تحقق بعدي + سجل تنفيذ، حماية نسخ الـ backup، لا ادّعاء tamper-proof | **لا** (سياسة فقط، مش في S2) | **نعم — محجوب (Production/Neon)** |
+| **R-19** | ملكية legacy: backfill "Admin واحد بالظبط" يفضل لكن تتحقق فرضيته قبل أي rollout؛ 0 أو ≥2 Admin = دليل موثّق + قرار مشغّل بتحقق مستقل (مرجع الدليل، المراجع، الوقت، النتيجة)؛ ممنوع الأقدم/الأنشط/أول صف؛ لا تعيين ذاتي؛ آخر Owner نشط محمي؛ نقل الملكية workflow مستقبلي بـ MFA حديث | **لا** (الـ backfill من Series 09 فقط) | **نعم** — يعتمد على دليل |
+| **R-20** | `item.view_cost` رفض افتراضي للـ Manager والـ Staff؛ تفويض صريح بأقل صلاحية فقط؛ ممنوع ترقية Manager لـ Admin لكشف التكلفة؛ ممنوع وصف صلاحية مالية على مستوى الشركة بأنها محدودة بمخزن؛ السيرفر يحذف `costPrice` أيًا كانت الواجهة؛ `item.set_cost` قدرة كتابة مالية منفصلة للتقييم | **الرفض الافتراضي + اختبارات الانحدار: منفَّذ (Series 09/10).** `item.set_cost`: موثّق في العقد §10 وغير منفَّذ؛ إنشاء Manager لمنتج بتكلفة كما هو | قرار منتج |
+
+**مخاطر جديدة من Series 10:**
+
+| # | الخطورة | الوصف | الإجراء |
+|---|---|---|---|
+| R-23 | عالية قبل أي نشر | `enforce` غير مفعّل عالمياً، ولا اتجرّب shadow على بيانات حقيقية؛ صفر فروق غير مقصودة لسه ما اتثبتش خارج الاختبارات | بروفة shadow على نسخة غير إنتاجية بتفويضك |
+| R-24 | متوسطة | تفويض مالي صريح (دور مخصّص legacy) على مستوى الشركة | لا يُوصف كمحدود بمخزن؛ قرار منتج |
+| R-25 | متوسطة | تكلفة shadow ≈ +3 ms/طلب محروس محلياً؛ غير مقاسة على قاعدة بعيدة | قياس قبل النشر |
+| R-26 | متوسطة (UNVERIFIED) | واجهة Series 10 ما اتجرّبتش على جهاز/RTL؛ مفيش component tests | اختبار جهاز بحضور المدير |
+| R-27 | منخفضة | القراءات (مش الكتابات) مش بتتفوّض داخل transaction؛ نافذة ملّي ثانية بين الـ guard والتنفيذ | مقبول؛ موثّق (عقد §9) |
+| D11 | اتقفل | عكس ترتيب أقفال كامن من Series 09 | اتصلح (قفل العضو العادل + ترتيب موحّد) |
+
+**استمرار:** R12 (TLS)، L1 (restore)، release line (الخيار A غير منفَّذ)، فحص Neon المسبق، مراجعة خارجية، ترقية الأجهزة، D7 (refresh واحد لكل مستخدم) — بدون تغيير. **Production: NO-GO.**
 
 **حالة بعد Series 09:** **R-13/D1 اتقفل** (مُثبت قبل/بعد). **R-14/D2/D3 اتقفلوا** (S1). **جديد:**
 
@@ -202,6 +255,8 @@
 
 ## 08 — DIRECTOR APPROVALS REQUIRED
 
+**أولاً — بعد Series 10:** (1) مراجعة نتيجة Series 10 وتحديد التالي (قسم 09)؛ (2) **تفويض اختبار جهاز** لـ Series 09 + 10 (بحضورك فيزيائياً)؛ (3) **تفويض بروفة shadow** على نسخة بيانات **غير إنتاجية** قبل أي قرار `enforce`؛ (4) قرار تفعيل `enforce` (لم يُطلب)؛ (5) تنفيذ R-18/R-19 (محجوبين على Production)؛ (6) تقييم `item.set_cost` وصلاحية مالية بنطاق مخزن (قرار منتج).
+
 **أولاً — بعد Series 09:** (1) مراجعة نتيجة Series 09 وتحديد التالي (قسم 09)؛ (2) **تفويض اختبار جهاز** لـ Team screen وسحب الصلاحية أثناء جلسة (محتاج حضورك فيزيائياً للبصمة)؛ (3) **قرار تنظيف `audit_logs` القديمة** (R-18) وتفويضه؛ (4) **قرار شركات بدون owner** (R-19): مين يحدد الـ owner ومن أي دليل؛ (5) إبلاغ العملاء بتغيير رؤية التكلفة للـ Manager؛ (6) هل `item.view_cost` يتمنح للـ Manager افتراضياً (حالياً لا)؟ (7) سياسة إعادة دعوة إيميل عضو محذوف.
 
 **أولاً — قرارات Series 08 (التفاصيل والافتراضي الموصى به لكل واحد: `STOCKMIND_ARCHITECTURE_DECISIONS.md` آخر جدول، Q-01..Q-18):**
@@ -223,7 +278,13 @@
 
 ## 09 — NEXT RECOMMENDED ENGINEERING TASK  (توصية فقط — مش مُصرَّح بها)
 
-### التوصية الحالية (بعد Series 09): **Series 10 — Access Foundation Part 2 (S2) مسبوقة باختبار جهاز لـ Series 09**
+### التوصية الحالية (بعد Series 10): **بروفة shadow على بيانات غير إنتاجية + اختبار جهاز لـ Series 09/10 بحضورك — قبل أي تفعيل `enforce`**
+- ليه: كل ضمانات S2 مثبتة على بيانات synthetic؛ اللي ناقص دليل على بيانات حقيقية وعلى الجهاز.
+- **بديل لو عاوز شريحة ميزة:** S3 (بيانات المساءلة + `domain_events` + feed) — بتعتمد على الهوية والصلاحيات الموجودة.
+- **مش مُصرَّح؛ محتاج أمرك.** ولا حاجة من Production/Neon/AAB/merge.
+
+### توصية سابقة (بعد Series 09): Series 10 — S2 — **اتنفّذت**
+- (الأصل) **Series 10 — Access Foundation Part 2 (S2) مسبوقة باختبار جهاز لـ Series 09**
 - **S2:** قدرات ومنح بنطاق + `GET /me/capabilities` + قاعدة CP-4 (مين ياخد الصلاحية عند مخزن جديد) + Manager بنطاق (`warehouse_manager`) — حسب `docs/product/STOCKMIND_IMPLEMENTATION_ROADMAP.md` §S2 وقرار Q-02.
 - **قبلها (لما تكون متاح فيزيائياً):** تشغيل سيناريوهات الجهاز المؤجلة (Team screen، سحب صلاحية أثناء جلسة، outbox بعد إبطال، العربي).
 - **مش مُصرَّح؛ محتاج أمرك.** بالتوازي غير الكودي: Milestone R.
@@ -248,7 +309,25 @@
 
 ## 10 — MESSAGE FOR CHATGPT
 
-### رسالة Series 09 (الحالية)
+### رسالة Series 10 (الحالية)
+
+**اللي حصل:** نفّذنا S2: محرك قدرات default-deny، profiles بإصدارات، `access_grants` بنطاق مخزن، `/me/capabilities`، CP-4، تنقل متكيّف، وتفويض داخل الـ transaction مع قفل عضو عادل. **الافتراضي shadow** (القديم يقرر)؛ `enforce` مختبَر فقط. Backend PG ×3: 57 suites/459؛ enforce: 438؛ mobile 308؛ 14+8 negative controls.
+
+**نقاط ضعف للمراجعة (اختبرها ضد الكود):**
+1. **`enforce` ما اتجرّبش على بيانات حقيقية**؛ اختبارات parity على synthetic + بيانات legacy معاد بناؤها.
+2. **كلفة shadow** ≈ +3 ms وسيط محلياً؛ على قاعدة بعيدة ممكن تتضاعف. هل shadow يتشال بعد فترة؟
+3. **الصلاحية المالية الصريحة (دور مخصّص legacy) على مستوى الشركة**، مش بنطاق مخزن؛ `item.set_cost` غير منفَّذ.
+4. **التفويض داخل الـ transaction للكتابات فقط**؛ القراءات بتتفوّض عند أول طلب جديد.
+5. **اكتشفنا أخطاء أقفال حقيقية** (تجويع، deadlock، عكس ترتيب كامن من Series 09) — هل الترتيب company ← member ← warehouses كافي لباقي المسارات المستقبلية (موافقات/عهدة)؟
+6. **اتنين negative controls ما اتمسكوش من أول مرة** (N6, N14) واتقوّوا.
+7. **Mobile: لا component tests ولا جهاز.**
+8. R-18/R-19/R-20 سياسة معتمدة وغير منفَّذة؛ لا مراجعة خارجية.
+
+**أسئلة تحسمها:** هل نجرّب shadow على نسخة غير إنتاجية قبل أي قرار؟ هل نختبر الجهاز قبل S3؟ هل نحتاج `item.set_cost` قبل أي عميل حقيقي؟
+
+**في الـ prompt التنفيذي القادم ضمّن:** الفرع الأساسي `feature/series10-scoped-access`، الموافقات (خصوصاً أي بيئة غير إنتاجية)، وقاعدة الجهاز (حضورك فيزيائياً أو DEFERRED).
+
+### رسالة Series 09 (للمرجع)
 
 **اللي حصل:** نفّذنا S0 + S1 على فرع معزول بدون جهاز. **S0:** أثبتنا أولاً إن Staff كان بيستلم `costPrice` وإن الـ `audit_logs` كانت بتخزّنه بالنص الصريح (D10 جديد)، وبعدين allowlist DTO + `item.view_cost` (Admin فقط) + redaction. **S1:** `status`/`token_version`/`is_owner`، كل طلب بيقرأ صف العضو (الدور من الـ DB)، تعليق/إزالة/تغيير دور/إنهاء جلسات بتسري من أول طلب، فحص `FOR SHARE` جوه transaction الكتابة والتعويض والتدوير، trigger في الـ DB لآخر owner، سياسة owner-only على Admins، `membership_events`، شاشة Team، وحجز الـ outbox عند `ACCESS_REVOKED`. Backend PG ×3: 54 suites/395؛ mobile 273؛ 13 negative control أحمر.
 
@@ -321,6 +400,8 @@
 
 - **2026-10-25 (بعد v1.4) — v1.5:** نهاية Series 09 (S0 + S1، كود). نقل المكان الرسمي إلى `feature/series09-access-foundation` (آخر commit كود `00b494e`، آخر مختبَر `3b9bb69`). S0: D1 مُثبت ومقفول + D10 جديد؛ S1: إبطال فوري، owner، Team screen، outbox. Backend PG ×3 = 54/395؛ mobile 273؛ جهاز DEFERRED. Production NO-GO.
 
+- **2026-10-25 (بعد v1.5) — v1.6:** نهاية Series 10 (S2، كود). نقل المكان الرسمي إلى `feature/series10-scoped-access` (كود backend `807676a`/core `5a24c17`، mobile `a8a6ab3`، آخر مختبَر `2bb0053`). محرك قدرات (shadow افتراضي، enforce مختبَر)، profiles، grants بنطاق مخزن، CP-4، `/me/capabilities`، تنقل متكيّف؛ Backend PG ×3 = 57/459، mobile 308؛ جهاز DEFERRED. تسجيل سياسات R-18/R-19/R-20 كـ POLICY (غير منفَّذة). النسخ على فروع Series 09 وأقدم stale. Production NO-GO.
+
 ---
 
 ## 12 — SOURCE-OF-TRUTH REFERENCES
@@ -329,9 +410,10 @@
 
 | الموضوع | المسار |
 |---|---|
-| **Series 09 — تقرير / عقد / أدلة** | `D:\Projects\StockMind-wt\series09-access-foundation\docs\handoff\SERIES_09_ACCESS_FOUNDATION_REPORT.md` · `SERIES_09_AUTHORIZATION_AND_PRIVACY_CONTRACT.md` · `series09-evidence\` (before/after، negative controls، gate summary، perf) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s09_*.log` |
-| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series09-access-foundation\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
-| تعليمات الـ agents | `D:\Projects\StockMind-wt\series09-access-foundation\AGENTS.md` |
+| **Series 10 — تقرير / عقد / أدلة** | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\SERIES_10_SCOPED_ACCESS_REPORT.md` · `SERIES_10_CAPABILITY_AUTHORIZATION_CONTRACT.md` · `series10-evidence\` (negative controls، perf، gate summary) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s10_*.log` |
+| Series 09 — تقرير / عقد / أدلة (مرجع) | `D:\Projects\StockMind-wt\series09-access-foundation\docs\handoff\SERIES_09_ACCESS_FOUNDATION_REPORT.md` · `SERIES_09_AUTHORIZATION_AND_PRIVACY_CONTRACT.md` · `series09-evidence\` (before/after، negative controls، gate summary، perf) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s09_*.log` |
+| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
+| تعليمات الـ agents | `D:\Projects\StockMind-wt\series10-scoped-access\AGENTS.md` |
 | تقرير Series 07 | `...\series07-recovery-integrity\docs\handoff\SERIES_07_RECOVERY_INTEGRITY_REPORT.md` |
 | عقد Series 07 (API، transaction، ضمانات، trust model) | `...\docs\handoff\SERIES_07_RECOVERY_CONTRACT.md` |
 | أدلة Series 07 (جهاز، gates، negative controls) | `...\docs\handoff\series07-evidence\` · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s07_*.log` · لقطات كاملة: `_local-tools\evidence-s07\` |
