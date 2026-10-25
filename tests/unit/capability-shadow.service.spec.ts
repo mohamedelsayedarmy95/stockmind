@@ -109,6 +109,20 @@ describe('PermissionsGuard in shadow mode', () => {
   const permissions = { hasAll: jest.fn(async () => true) };
   const reflector = { getAllAndOverride: jest.fn(() => [PERMISSIONS.VIEW_PRODUCT]), get: jest.fn(() => []) };
 
+  it("Series 13: every guarded request is counted by mode, so a window partly decided outside shadow is never CLEAN", async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const shadow = new CapabilityShadowService();
+    const guard = new PermissionsGuard(reflector as never, permissions as never, undefined as never, shadow as never);
+    await guard.canActivate(ctx({ sub: 'u', role: 'Staff', companyId: COMPANY })); // shadow (incomplete: no model)
+    process.env.CAPABILITY_MODE = 'off';
+    try { await guard.canActivate(ctx({ sub: 'u', role: 'Staff', companyId: COMPANY })); } finally { process.env.CAPABILITY_MODE = 'shadow'; }
+    const r = shadow.report();
+    expect(r.modes.guardedByMode).toEqual({ shadow: 1, off: 1 });
+    expect(r.judgement.reasons).toContain('requests-outside-shadow:1');
+    expect(r.incompleteByReason).toEqual({ 'model-not-wired': 1 });
+    warn.mockRestore();
+  });
+
   it("7. with no capability model wired, the legacy answer is unchanged and the comparison is counted as incomplete", async () => {
     const shadow = new CapabilityShadowService();
     const guard = new PermissionsGuard(reflector as never, permissions as never, undefined as never, shadow as never);

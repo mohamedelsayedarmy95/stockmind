@@ -117,6 +117,17 @@ describe('balance copy', () => {
   });
 });
 
+describe('the stock-entry screens use the balance model (no bare number fallback)', () => {
+  const root = path.join(__dirname, '..', '..');
+  it.each(['app/movement/[productId].tsx', 'app/product/[productId].tsx'])('%s', (rel) => {
+    const src = fs.readFileSync(path.join(root, rel), 'utf8');
+    expect(src).toMatch(/resolveBalance\(/);
+    expect(src).toMatch(/balanceLine\(balanceTruth/);
+    expect(src).not.toMatch(/common\.currentBalance/); // the old "Current balance: {number}" line
+    expect(src).not.toMatch(/baseQuantity\)\)\s*:\s*0/); // the old "known ? figure : 0" fallback
+  });
+});
+
 describe('warehouseListState (the online stock list with no rows)', () => {
   it('loading only while nothing failed; unknown when the first sync failed; empty only after the server said so', () => {
     expect(warehouseListState(null)).toBe('loading');

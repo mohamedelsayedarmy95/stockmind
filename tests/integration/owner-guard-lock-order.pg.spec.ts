@@ -402,6 +402,19 @@ const note = (scenario: string, data: Record<string, unknown>) => {
       await db.query(`DELETE FROM companies WHERE id = $1`, [c]);
     });
 
+    it('an owner flag on a non-Admin (legacy or hand-edited data) does not count as the remaining legitimate owner', async () => {
+      const { c, ids } = await company(1);
+      await db.query(
+        `INSERT INTO users (company_id, name, email, password_hash, role, is_owner) VALUES ($1, 'Flagged', $2, 'x', 'Staff', true)`,
+        [c, `og.sql.flagged.${++seq}.${TAG}@example.test`],
+      ); // an INSERT never fires the guard: this is how such a row could exist
+      const outcome = await db.query(`UPDATE users SET status = 'removed' WHERE id = $1`, [ids[0]]).then(() => 'committed', (e: Error) => e.message);
+      note('sql-non-admin-owner-flag', { outcome, legitimateOwners: await legitimateOwners(c) });
+      expect(outcome).toMatch(/last_active_owner/);
+      expect(await legitimateOwners(c)).toBe(1);
+      await db.query(`DELETE FROM companies WHERE id = $1`, [c]);
+    });
+
     it("a direct SQL owner change waits for the application's membership lock of that company (one shared key), then re-checks", async () => {
       const { c, ids } = await company(2);
       const appTx = db.createQueryRunner(); await appTx.connect(); await appTx.startTransaction(); holders.push(appTx);
