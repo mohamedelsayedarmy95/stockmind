@@ -17,6 +17,9 @@ import { DataSource } from 'typeorm';
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 import * as path from 'path';
 import { createHash, randomBytes } from 'crypto';
+import { loadPrincipalFrom } from '../../src/infrastructure/security/capability.service';
+import { warehouseScope } from '../../src/domain/authorization/capability-evaluator';
+import { SYSTEM_PROFILES } from '../../src/shared/constants/capabilities.constant';
 
 const RUN = process.env.PG_INTEGRATION === '1' && ['localhost', '127.0.0.1'].includes(process.env.DB_HOST ?? '');
 const TAG = randomBytes(4).toString('hex');
@@ -28,7 +31,7 @@ const ALL_DBS = [DB_PROD, DB_FRESH, DB_OLD, DB_OWN];
 const MIGRATIONS = path.join(__dirname, '../../src/migrations');
 const migration = (id: string) => path.join(MIGRATIONS, `${id}-*.ts`);
 const PRODUCTION_IDS = ['1721700000000', '1721800000000', '1721900000000', '1722000000000'];
-const DELTA_IDS = ['1722345600000', '1792473600000', '1792560000000', '1792570000000', '1792580000000', '1792590000000', '1792600000000'];
+const DELTA_IDS = ['1722345600000', '1792473600000', '1792560000000', '1792570000000', '1792580000000', '1792590000000', '1792600000000', '1792610000000'];
 const PRODUCTION = PRODUCTION_IDS.map(migration);
 const ALL = [...PRODUCTION_IDS, ...DELTA_IDS].map(migration);
 const DELTA_NAMES = [
@@ -39,6 +42,7 @@ const DELTA_NAMES = [
   'StockRevisionGuard1792580000000',
   'RecoveryIntegrity1792590000000', // Series 07
   'AccessLifecycle1792600000000', // Series 09
+  'ScopedAccess1792610000000', // Series 10
 ];
 const LEGACY_TABLES = ['companies', 'users', 'warehouses', 'products', 'stock_movements', 'user_two_factor'];
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -77,6 +81,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     (await one(`SELECT count(*)::int AS n FROM pg_indexes WHERE indexname = 'uq_stock_movements_warehouse_revision'`, [], d)).n === 1;
   // Series 07 and 09 added migrations on top of the revision guard: reverting the guard first reverts those (pristine) ones.
   const undoGuard = async () => {
+    await ds.undoLastMigration(); // ScopedAccess (nothing recorded yet: allowed)
     await ds.undoLastMigration(); // AccessLifecycle (nothing recorded yet: allowed)
     await ds.undoLastMigration(); // RecoveryIntegrity (nothing recorded yet: allowed)
     await ds.undoLastMigration(); // StockRevisionGuard
@@ -402,7 +407,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
   });
 
   it('backfills ownership only from authoritative evidence: exactly one Admin; none or several stay ownerless (fail closed)', async () => {
-    const setup = await new DataSource(options(DB_OWN, ALL.slice(0, ALL.length - 1))).initialize();
+    const setup = await new DataSource(options(DB_OWN, ALL.slice(0, ALL.length - 2))).initialize();
     await setup.runMigrations(); // everything but AccessLifecycle
     const mk = async (name: string, roles: string[]) => {
       const c = (await setup.query(`INSERT INTO companies (name) VALUES ($1) RETURNING id`, [name]))[0].id as string;
@@ -421,7 +426,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
 
     const upgraded = await new DataSource(options(DB_OWN, ALL)).initialize();
     try {
-      expect((await upgraded.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[6]]);
+      expect((await upgraded.runMigrations()).map((m) => m.name)).toEqual(DELTA_NAMES.slice(6));
       const ownersOf = async (c: string) =>
         (await upgraded.query(`SELECT id FROM users WHERE company_id = $1 AND is_owner`, [c])).map((r: { id: string }) => r.id);
       expect(await ownersOf(noAdmin.c)).toEqual([]);
@@ -488,6 +493,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
       await ds.query(`SELECT * FROM membership_events ORDER BY id`),
       await ds.query(`SELECT name FROM migrations ORDER BY id`),
     ]);
+    await ds.undoLastMigration(); // ScopedAccess (Series 10, pristine here) sits on top of AccessLifecycle
     const attempt = async (pattern: RegExp) => {
       const before = await digest();
       await expect(ds.undoLastMigration()).rejects.toThrow(pattern);
@@ -512,6 +518,115 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     const extra = await insertUser(ids.companyA, 'Admin', { owner: true }); // company A now has two Admins: not derivable
     await attempt(/owner designation\(s\) that the one-Admin rule cannot recreate/s);
     await ds.query(`DELETE FROM users WHERE id = $1`, [extra]);
+    expect((await ds.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[7]]); // put ScopedAccess back
+  });
+
+  // -------------------------------------------------------------------------------------- Series 10: scoped access
+
+  it('adds the Series 10 objects without changing a legacy row: system profiles equal the application constants, no grants yet', async () => {
+    const rows: Array<{ key: string; version: number; label_key: string; capabilities: string[]; is_system: boolean; company_id: string | null }> =
+      await ds.query(`SELECT key, version, label_key, capabilities, is_system, company_id FROM permission_profiles ORDER BY key, version`);
+    expect(rows.map((r) => ({ key: r.key, version: r.version, label: r.label_key, caps: [...r.capabilities].sort(), system: r.is_system, company: r.company_id })))
+      .toEqual(SYSTEM_PROFILES.map((p) => ({ key: p.key, version: p.version, label: p.labelKey, caps: [...p.capabilities].sort(), system: true, company: null }))
+        .sort((a, b) => a.key.localeCompare(b.key))); // drift guard: the migration literals and the code constants must agree
+    expect(await count('access_grants')).toBe(0);
+    expect(await count('access_grant_events')).toBe(0);
+    for (const t of LEGACY_TABLES) expect(await count(t)).toBeGreaterThanOrEqual(legacyCounts[t]); // nothing removed
+  });
+
+  it('A8: for every member of the reconstructed production data the new model gives the legacy warehouse scope (and legacy role answers)', async () => {
+    const members: Array<{ id: string; company_id: string; role: string }> = await ds.query(`SELECT id, company_id, role::text AS role FROM users`);
+    expect(members.length).toBeGreaterThan(5);
+    for (const m of members) {
+      const legacy = (await ds.query(
+        `SELECT COALESCE(array_agg(a.warehouse_id) FILTER (WHERE a.warehouse_id IS NOT NULL), '{}') AS ids
+           FROM users u LEFT JOIN warehouse_access a ON a.user_id = u.id AND a.company_id = u.company_id WHERE u.id = $1`, [m.id]))[0].ids as string[];
+      const legacyScope = m.role === 'Admin' || m.role === 'Manager' ? null : [...legacy].sort();
+      const principal = (await loadPrincipalFrom(ds, m.id, m.company_id))!;
+      const scoped = warehouseScope(principal, 'scoped');
+      expect(scoped === null ? null : [...scoped].sort()).toEqual(legacyScope);
+      expect(warehouseScope(principal, 'legacy') === null ? null : [...(warehouseScope(principal, 'legacy') as string[])].sort()).toEqual(legacyScope);
+    }
+  });
+
+  it('keeps grants tenant-safe: a grant cannot join a member of one company to a warehouse (or profile) of another', async () => {
+    const [operatorProfile] = await ds.query(`SELECT id FROM permission_profiles WHERE key = 'warehouse_manager'`);
+    await expect(ds.query(
+      `INSERT INTO access_grants (company_id, user_id, profile_id, scope_id) VALUES ($1, $2, $3, $4)`,
+      [ids.companyA, ids.staffA1, operatorProfile.id, ids.b1],
+    )).rejects.toThrow(/fk_access_grants_warehouse/);
+    await expect(ds.query(
+      `INSERT INTO access_grants (company_id, user_id, profile_id, scope_id) VALUES ($1, $2, $3, $4)`,
+      [ids.companyA, ids.staffB, operatorProfile.id, ids.a1],
+    )).rejects.toThrow(/fk_access_grants_user/);
+    const [foreign] = await ds.query(
+      `INSERT INTO permission_profiles (company_id, key, version, label_key, capabilities) VALUES ($1, 'custom', 1, 'x', ARRAY['VIEW_BALANCE']) RETURNING id`, [ids.companyB]);
+    await expect(ds.query(
+      `INSERT INTO access_grants (company_id, user_id, profile_id, scope_id) VALUES ($1, $2, $3, $4)`,
+      [ids.companyA, ids.staffA1, foreign.id, ids.a1],
+    )).rejects.toThrow(/another company/);
+    await ds.query(`DELETE FROM permission_profiles WHERE id = $1`, [foreign.id]);
+  });
+
+  it('keeps grants honest: one active grant per member and warehouse, identity never changes, a revoked grant is final, profiles are immutable', async () => {
+    const [wm] = await ds.query(`SELECT id FROM permission_profiles WHERE key = 'warehouse_manager'`);
+    const [op] = await ds.query(`SELECT id FROM permission_profiles WHERE key = 'operator'`);
+    const grant = async (profile: string) => (await ds.query(
+      `INSERT INTO access_grants (company_id, user_id, profile_id, scope_id, granted_by, reason) VALUES ($1, $2, $3, $4, $5, 'test') RETURNING id`,
+      [ids.companyA, ids.staffA1, profile, ids.a1, ids.adminA]))[0].id as string;
+    const first = await grant(wm.id);
+    await expect(grant(op.id)).rejects.toThrow(/uq_access_grants_active_scope/); // a second ACTIVE grant on the same warehouse
+    await expect(ds.query(`UPDATE access_grants SET scope_id = $2 WHERE id = $1`, [first, ids.a2])).rejects.toThrow(/never changes identity/);
+    await expect(ds.query(`UPDATE access_grants SET profile_id = $2 WHERE id = $1`, [first, op.id])).rejects.toThrow(/never changes identity/);
+    await expect(ds.query(`UPDATE access_grants SET revoked_by = $2 WHERE id = $1`, [first, ids.adminA])).rejects.toThrow(/ck_access_grants_revocation/);
+    await expect(ds.query(`UPDATE access_grants SET valid_until = valid_from - interval '1 hour' WHERE id = $1`, [first])).rejects.toThrow(/ck_access_grants_window/);
+    await ds.query(`UPDATE access_grants SET revoked_at = now(), revoked_by = $2, revoke_reason = 'test' WHERE id = $1`, [first, ids.adminA]);
+    await expect(ds.query(`UPDATE access_grants SET revoked_at = NULL, revoked_by = NULL, revoke_reason = NULL WHERE id = $1`, [first])).rejects.toThrow(/revoked grant is final/);
+    const second = await grant(op.id); // after revocation a new active grant is fine
+    expect(second).not.toBe(first);
+
+    await expect(ds.query(`UPDATE permission_profiles SET capabilities = ARRAY['VIEW_COST'] WHERE id = $1`, [wm.id])).rejects.toThrow(/immutable/);
+    await expect(ds.query(`UPDATE permission_profiles SET version = 2 WHERE id = $1`, [wm.id])).rejects.toThrow(/immutable/);
+    await expect(ds.query(`DELETE FROM permission_profiles WHERE id = $1`, [wm.id])).rejects.toThrow(/cannot be deleted/);
+    await ds.query(`UPDATE permission_profiles SET retired_at = now() WHERE id = $1`, [wm.id]); // retiring is the one allowed change
+    await ds.query(`UPDATE permission_profiles SET retired_at = NULL WHERE id = $1`, [wm.id]);
+
+    await ds.query(
+      `INSERT INTO access_grant_events (company_id, actor_user_id, target_user_id, warehouse_id, event_type, profile_key, source) VALUES ($1, $2, $3, $4, 'grant', 'operator', 'api')`,
+      [ids.companyA, ids.adminA, ids.staffA1, ids.a1]);
+    await expect(ds.query(`UPDATE access_grant_events SET reason = 'rewritten'`)).rejects.toThrow(/append-only/);
+    await expect(ds.query(`INSERT INTO access_grant_events (company_id, target_user_id, event_type, source) VALUES ($1, $2, 'steal', 'api')`, [ids.companyA, ids.staffA1]))
+      .rejects.toThrow(/ck_access_grant_events_type/);
+  });
+
+  it('refuses to revert scoped access once any grant, event or custom profile exists, and changes nothing; allows it while pristine', async () => {
+    const digest = async () => JSON.stringify([
+      await ds.query(`SELECT * FROM access_grants ORDER BY id`),
+      await ds.query(`SELECT * FROM access_grant_events ORDER BY id`),
+      await ds.query(`SELECT id, key, version, retired_at FROM permission_profiles ORDER BY id`),
+      await ds.query(`SELECT user_id, warehouse_id FROM warehouse_access ORDER BY user_id, warehouse_id`),
+      await ds.query(`SELECT name FROM migrations ORDER BY id`),
+    ]);
+    // state left by the previous test: one active grant, one event
+    let before = await digest();
+    await expect(ds.undoLastMigration()).rejects.toThrow(/Refusing to revert ScopedAccess1792610000000.*recorded access grant\(s\).*recorded access grant event\(s\).*Nothing was changed/s);
+    expect(await digest()).toBe(before);
+
+    await ds.query(`DELETE FROM access_grants`);
+    await ds.query(`DELETE FROM access_grant_events`);
+    const [custom] = await ds.query(`INSERT INTO permission_profiles (company_id, key, version, label_key, capabilities) VALUES ($1, 'c', 1, 'x', ARRAY['VIEW_BALANCE']) RETURNING id`, [ids.companyA]);
+    before = await digest();
+    await expect(ds.undoLastMigration()).rejects.toThrow(/1 custom permission profile\(s\).*Nothing was changed/s);
+    expect(await digest()).toBe(before);
+    await ds.query(`DELETE FROM permission_profiles WHERE id = $1`, [custom.id]);
+
+    const legacyBefore = await ds.query(`SELECT user_id, warehouse_id FROM warehouse_access ORDER BY user_id, warehouse_id`);
+    await ds.undoLastMigration(); // pristine: lossless
+    expect(await exists('access_grants')).toBe(false);
+    expect(await exists('permission_profiles')).toBe(false);
+    expect(await ds.query(`SELECT user_id, warehouse_id FROM warehouse_access ORDER BY user_id, warehouse_id`)).toEqual(legacyBefore); // legacy grants untouched
+    expect((await ds.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[7]]);
+    expect(await count('permission_profiles')).toBe(SYSTEM_PROFILES.length);
   });
 
   it('refuses to revert recovery integrity once a rotation, a replacement or a floor is recorded, and changes nothing; allows it while pristine', async () => {
@@ -527,6 +642,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
       `INSERT INTO history_generation_events (company_id, previous_generation, new_generation, actor_user_id, reason)
        VALUES ($1, $2, gen_random_uuid(), $3, 'rotation recorded for the down() guard test')`, [ids.companyA, g, ids.adminA]);
     await expect(ds.query(`UPDATE history_generation_events SET reason = 'rewritten'`)).rejects.toThrow(/append-only/);
+    await ds.undoLastMigration(); // ScopedAccess (Series 10, pristine here)
     await ds.undoLastMigration(); // AccessLifecycle (Series 09, pristine here) sits on top of RecoveryIntegrity
     let before = await digest();
     await expect(ds.undoLastMigration()).rejects.toThrow(

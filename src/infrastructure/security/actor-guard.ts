@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { QueryRunner, EntityManager } from 'typeorm';
 import { accessRevoked } from '../jwt.strategy';
 import { loadPrincipalFrom } from './capability.service';
+import { lockMemberShared } from './member-lock';
 import { canAll, Decision } from '../../domain/authorization/capability-evaluator';
 import { capabilityMode } from '../../shared/constants/capabilities.constant';
 
@@ -19,6 +20,7 @@ type Runner = Pick<QueryRunner, 'query'> | Pick<EntityManager, 'query'>;
  * a user row, and always before any warehouse lock.
  */
 export async function assertActorActive(runner: Runner, userId: string, companyId: string): Promise<void> {
+  await lockMemberShared(runner, userId);
   const rows: Array<{ ok: number }> = await runner.query(
     `SELECT 1 AS ok FROM users WHERE id = $1 AND company_id = $2 AND status = 'active' FOR SHARE`,
     [userId, companyId],

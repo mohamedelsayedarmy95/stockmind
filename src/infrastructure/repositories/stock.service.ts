@@ -24,6 +24,7 @@ import {
 import { createHash, randomUUID } from 'crypto';
 import { RedisService } from '../../infrastructure/cache/redis.service';
 import { assertActorAuthorized } from '../security/actor-guard';
+import { lockMemberShared } from '../security/member-lock';
 import { MOVEMENT_CAPABILITY } from '../../shared/constants/capabilities.constant';
 import { PERMISSIONS } from '../../shared/constants/permissions.constant';
 
@@ -228,6 +229,7 @@ export class StockService {
     const idempotency = this.idempotency(options, 'transfer', dto);
     let result: WriteResult<{ referenceId: string; out: StockMovement; in: StockMovement }>;
     try {
+      await lockMemberShared(qr, userId); // first, as in executeMovement
       if (idempotency) {
         const replay = await this.claimIdempotencyKey(qr, companyId, userId, idempotency);
         if (replay !== undefined) {
@@ -369,6 +371,10 @@ export class StockService {
     await qr.startTransaction();
 
     try {
+      // The member's authority lock is the FIRST thing this transaction takes (see member-lock.ts): the idempotency insert
+      // below key-shares the member's row through its foreign key, and a revocation that already queued for the lock must
+      // not be able to wait on that row while we wait on the lock.
+      await lockMemberShared(qr, params.userId);
       // Idempotency first: a duplicate waits here for the first request's outcome, then replays it.
       if (params.idempotency) {
         const replay = await this.claimIdempotencyKey(qr, params.companyId, params.userId, params.idempotency);

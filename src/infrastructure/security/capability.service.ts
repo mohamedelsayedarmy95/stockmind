@@ -5,6 +5,7 @@ import {
   EffectiveCapabilities, GrantView, Principal,
 } from '../../domain/authorization/capability-evaluator';
 import { OPERATOR_PROFILE_KEY, SYSTEM_PROFILES } from '../../shared/constants/capabilities.constant';
+import { lockMemberShared } from './member-lock';
 
 type Runner = { query: (sql: string, params?: unknown[]) => Promise<any> };
 
@@ -112,6 +113,7 @@ export class CapabilityService {
  * committed and is therefore seen.
  */
 export async function loadPrincipalFrom(runner: Runner, userId: string, companyId: string, opts: { lock?: boolean } = {}): Promise<Principal | null> {
+    if (opts.lock) await lockMemberShared(runner, userId);
     const [u]: Array<{ id: string; company_id: string; role: string; status: string; is_owner: boolean }> = await runner.query(
       `SELECT id, company_id, role::text AS role, status, is_owner FROM users WHERE id = $1 AND company_id = $2${opts.lock ? ' FOR SHARE' : ''}`,
       [userId, companyId],

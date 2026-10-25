@@ -8,6 +8,7 @@ import { StockService, requestHash } from './stock.service';
 import { WarehouseAccessService } from '../security/warehouse-access.service';
 import { accessRevoked } from '../jwt.strategy';
 import { assertActorAuthorized } from '../security/actor-guard';
+import { lockMemberShared } from '../security/member-lock';
 import { loadPrincipalFrom } from '../security/capability.service';
 import { warehouseScope } from '../../domain/authorization/capability-evaluator';
 import { capabilityMode } from '../../shared/constants/capabilities.constant';
@@ -89,6 +90,10 @@ export class StockReplacementService {
     await qr.connect();
     await qr.startTransaction();
     try {
+      // Lock order (member-lock.ts): the company row, then the member, before anything else in this transaction. A membership
+      // change takes them in the same order, so the two can never wait on each other.
+      await qr.query(`SELECT 1 FROM companies WHERE id = $1 FOR SHARE`, [companyId]);
+      await lockMemberShared(qr, actorUserId);
       // 1. The replacement's own key. A repeat (a retry after a lost response, a double tap) replays the stored outcome.
       const replay = await this.stock.claimIdempotencyKey(qr, companyId, actorUserId, { key: replacementKey, hash });
       if (replay !== undefined) {

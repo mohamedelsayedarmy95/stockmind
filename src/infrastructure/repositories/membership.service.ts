@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 import { AuditLogService } from '../audit/audit-log.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { AccessGrantService } from './access-grant.service';
+import { lockMemberExclusive } from '../security/member-lock';
 import {
   decideMembershipAction,
   MEMBERSHIP_ERROR_STATUS,
@@ -61,6 +62,7 @@ export class MembershipService {
     try {
       change = await this.dataSource.transaction(async (m) => {
         await m.query(`SELECT 1 FROM companies WHERE id = $1 FOR UPDATE`, [companyId]);
+        await lockMemberExclusive(m, targetId); // fair queue behind/ahead of the member's own writes (see member-lock.ts)
         const ids = [...new Set([actorId, targetId])].sort();
         const rows: Row[] = await m.query(
           `SELECT id, company_id, email, name, role::text AS role, status, is_owner

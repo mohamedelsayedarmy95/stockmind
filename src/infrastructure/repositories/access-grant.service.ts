@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { createHash } from 'crypto';
 import { AuditLogService } from '../audit/audit-log.service';
 import { CapabilityService } from '../security/capability.service';
+import { lockMemberExclusive } from '../security/member-lock';
 import { can, mayGrantProfile, Principal } from '../../domain/authorization/capability-evaluator';
 import {
   capabilityMode, OPERATOR_PROFILE_KEY, SYSTEM_PROFILES, SystemProfile, WAREHOUSE_MANAGER_PROFILE_KEY,
@@ -144,6 +145,7 @@ export class AccessGrantService {
     if (actorId === memberId) {
       throw new ConflictException({ code: 'CANNOT_MODIFY_SELF', message: 'You cannot change your own access' });
     }
+    await lockMemberExclusive(m, memberId);
     const [target] = await m.query(
       `SELECT id, role::text AS role, status FROM users WHERE id = $1 AND company_id = $2 FOR UPDATE`, [memberId, companyId],
     );
@@ -277,7 +279,8 @@ export class AccessGrantService {
 
   /** CP-4: assignments chosen at warehouse creation, in the creation transaction. Nothing is granted unless asked. */
   async assignOnCreate(m: Tx, companyId: string, actorId: string, warehouseId: string, requests: Array<{ userId: string; profile: string }>) {
-    for (const req of requests) {
+    // Members are locked in id order, so two warehouse creations naming the same people cannot wait on each other.
+    for (const req of [...requests].sort((a, b) => a.userId.localeCompare(b.userId))) {
       await this.applyForMember(
         m, companyId, actorId, req.userId,
         (current) => [...current.filter((c) => c.warehouseId !== warehouseId).map((c) => ({ warehouseId: c.warehouseId, profile: c.profile })), { warehouseId, profile: req.profile }],

@@ -5,6 +5,7 @@ import { AuditLogService } from '../audit/audit-log.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { CreateInvitationDto } from '../../application/dtos/team/team.dto';
 import { UserRole } from '../../shared/constants/enums';
+import { lockMemberExclusive } from '../security/member-lock';
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -121,6 +122,7 @@ export class TeamService {
     await this.dataSource.transaction(async (m) => {
       // Series 10: every change of a member's access takes the member row FOR UPDATE (it serializes against that member's
       // in-flight stock writes, which hold it FOR SHARE) and leaves evidence in the same transaction.
+      await lockMemberExclusive(m, memberId);
       await m.query(`SELECT 1 FROM users WHERE id = $1 AND company_id = $2 FOR UPDATE`, [memberId, companyId]);
       const before: string[] = (await m.query(
         `SELECT warehouse_id FROM warehouse_access WHERE user_id = $1 AND company_id = $2`, [memberId, companyId],

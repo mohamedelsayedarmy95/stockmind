@@ -55,7 +55,10 @@ interface Receipt { id: string; revision: string; historyGeneration: string }
     (await db.query(`SELECT stock_revision::text AS r FROM warehouses WHERE id = $1`, [w]))[0].r as string;
   const balanceOf = async (w = w1) =>
     Number((await db.query(`SELECT base_quantity FROM product_warehouse WHERE product_id = $1 AND warehouse_id = $2`, [product, w]))[0]?.base_quantity ?? 0);
-  const movementCount = async () => (await db.query(`SELECT count(*)::int AS n FROM stock_movements`))[0].n as number;
+  // Scoped to THIS spec's company: specs share one database and run in parallel workers, so a database-wide count
+  // would also count the movements another spec writes at the same moment (Series 10 made that overlap likely).
+  const movementCount = async () => (await db.query(
+    `SELECT count(*)::int AS n FROM stock_movements m JOIN warehouses w ON w.id = m.warehouse_id WHERE w.company_id = $1`, [companyId]))[0].n as number;
   const replacementRows = async () => db.query(`SELECT * FROM stock_replacements WHERE company_id = $1 ORDER BY created_at`, [companyId]);
 
   const rotate = (token: string, body: object = { reason: REASON, confirm: ROTATE_CONFIRM }) =>
