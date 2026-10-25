@@ -42,6 +42,8 @@ export class PermissionsGuard implements CanActivate {
     if (!user) throw new ForbiddenException('No authenticated user');
 
     const mode = capabilityMode();
+    // Every guarded decision is counted by mode, so a shadow window that was partly decided in another mode is not conclusive.
+    this.shadow?.noteGuardedRequest(mode);
     if (mode === 'enforce') return this.enforce(context, req, user, required);
 
     const legacyAllowed = await this.legacyAllows(user, required);
@@ -49,7 +51,7 @@ export class PermissionsGuard implements CanActivate {
       // A comparison that cannot be made (the model is not wired, the token carries no company) is counted as INCOMPLETE:
       // it is missing evidence, never parity.
       if (user.companyId && this.capabilities && this.shadow) await this.compare(context, req, user, required, legacyAllowed);
-      else this.shadow?.incomplete();
+      else this.shadow?.incomplete(user.companyId ? 'model-not-wired' : 'no-company', this.route(context));
     }
     if (!legacyAllowed) throw this.deny(required);
     return true;
@@ -78,13 +80,17 @@ export class PermissionsGuard implements CanActivate {
       const legacyScope = principal ? warehouseScope(principal, 'legacy') : null;
       const legacy = legacyAllowed && (legacyScope === null || ids.every((id) => legacyScope.includes(id)));
       this.shadow!.observePermission({
-        route: `${context.getClass().name}.${context.getHandler().name}`, userId: user.sub, requestCompanyId: user.companyId as string,
+        route: this.route(context), userId: user.sub, requestCompanyId: user.companyId as string,
         principal, capabilities: required, warehouseIds: ids, legacyAllowed: legacy,
       });
     } catch (err) {
-      this.shadow?.error();
-      this.logger.warn(`shadow comparison failed: ${(err as Error).message}`);
+      // Recorded (and logged) by the shadow service with the error's class and code only: a message can echo request input.
+      this.shadow?.error('permission', err, this.route(context));
     }
+  }
+
+  private route(context: ExecutionContext): string {
+    return `${context.getClass().name}.${context.getHandler().name}`;
   }
 
   private async enforce(context: ExecutionContext, req: any, user: { sub: string; companyId?: string }, required: Permission[]): Promise<boolean> {

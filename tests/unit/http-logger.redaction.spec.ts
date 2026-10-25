@@ -13,6 +13,7 @@ const ACCESS_TOKEN = 'SENTINEL.ACCESS.TOKEN';
 const REQUEST_COOKIE = 'sid=SENTINEL_REQUEST_COOKIE';
 const RESPONSE_COOKIE = 'session=SENTINEL_RESPONSE_COOKIE';
 const REFRESH_TOKEN = 'SENTINEL_REFRESH_TOKEN';
+const SHADOW_TOKEN = 'SENTINEL_SHADOW_DIAGNOSTICS_TOKEN_0123456789';
 
 describe('HTTP request logging redacts credentials', () => {
   let server: http.Server;
@@ -53,6 +54,7 @@ describe('HTTP request logging redacts credentials', () => {
           headers: {
             authorization: `Bearer ${ACCESS_TOKEN}`,
             cookie: REQUEST_COOKIE,
+            'x-shadow-diagnostics-token': SHADOW_TOKEN, // Series 13: the operator token of the shadow diagnostics
             'content-type': 'application/json',
             'x-forwarded-for': '203.0.113.7',
           },
@@ -68,10 +70,11 @@ describe('HTTP request logging redacts credentials', () => {
     const entry = lines.map((l) => JSON.parse(l)).find((l) => l.msg === 'request completed');
     expect(entry).toBeDefined();
     const raw = JSON.stringify(entry);
-    for (const secret of [ACCESS_TOKEN, 'SENTINEL_REQUEST_COOKIE', 'SENTINEL_RESPONSE_COOKIE', REFRESH_TOKEN]) {
+    for (const secret of [ACCESS_TOKEN, 'SENTINEL_REQUEST_COOKIE', 'SENTINEL_RESPONSE_COOKIE', REFRESH_TOKEN, SHADOW_TOKEN]) {
       expect(raw).not.toContain(secret);
     }
     expect(entry.req.headers.authorization).toBe('[Redacted]');
+    expect(entry.req.headers['x-shadow-diagnostics-token']).toBe('[Redacted]');
     // Still useful for operations: method, path, status and proxy headers remain.
     expect(entry.req.url).toBe('/api/v1/auth/refresh-token');
     expect(entry.req.headers['x-forwarded-for']).toBe('203.0.113.7');

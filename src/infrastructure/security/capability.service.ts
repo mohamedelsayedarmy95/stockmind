@@ -1,12 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { createHash } from 'crypto';
 import {
-  canAll, EffectiveCapabilities, GrantView, Principal,
+  EffectiveCapabilities, GrantView, Principal,
 } from '../../domain/authorization/capability-evaluator';
-import {
-  classifyPermission, classifyScope, Justification, ShadowClassification, ShadowReason, ShadowVerdict, Unexplained,
-} from '../../domain/authorization/shadow-classifier';
 import { OPERATOR_PROFILE_KEY, SYSTEM_PROFILES } from '../../shared/constants/capabilities.constant';
 import { lockMemberShared } from './member-lock';
 
@@ -14,110 +11,9 @@ type Runner = { query: (sql: string, params?: unknown[]) => Promise<any> };
 
 const OPERATOR = SYSTEM_PROFILES.find((p) => p.key === OPERATOR_PROFILE_KEY)!;
 
-/**
- * One diverging decision between the legacy model and the new one. Identifiers of the question only: no request data, no
- * tokens, no values (the guard never passes a body, header or query value in).
- */
-export interface ShadowDifference {
-  at: string;
-  kind: 'permission' | 'scope';
-  route: string;
-  userId: string;
-  /** The capabilities the guard required (permission differences). */
-  capabilities: string[];
-  warehouseIds: string[];
-  /** What each model decided (permission differences); for scope differences, whether the scope was "all" or a list. */
-  legacy: boolean | 'all' | 'list';
-  scoped: boolean | 'all' | 'list';
-  /** The verdict of the classifier (shadow-classifier.ts) and its reason. */
-  verdict: Exclude<ShadowVerdict, 'equal'>;
-  reason: ShadowReason;
-  /** Which grants explain an expected difference, and which (capability, warehouse) pairs nothing explains. */
-  justifiedBy: Justification[];
-  unexplained: Unexplained[];
-}
-
-/**
- * Collects the comparison between the legacy decision and the new capability model while the engine runs in shadow mode.
- * Every difference is classified by `shadow-classifier.ts`: EXPECTED only when an explicit active grant explains exactly that
- * capability on exactly that warehouse. Counters and a short ring of differences, in memory only and per process: they inform
- * a NON-production rehearsal (zero UNEXPECTED differences, zero errors, zero incomplete comparisons), they are not an audit
- * trail, they are lost on restart, they are not aggregated across instances, and they are not a monitoring system.
- */
-@Injectable()
-export class CapabilityShadowService {
-  private readonly logger = new Logger('CapabilityShadow');
-  private counters = { compared: 0, equal: 0, expectedDifferences: 0, unexpectedDifferences: 0, errors: 0, incomplete: 0 };
-  private ring: ShadowDifference[] = [];
-
-  observePermission(input: {
-    route: string; userId: string; requestCompanyId: string; principal: Principal | null | undefined;
-    capabilities: string[]; warehouseIds: string[]; legacyAllowed: boolean;
-  }): void {
-    if (!input.principal) return this.incomplete();
-    const principal = input.principal;
-    const c = classifyPermission({
-      principal, requestCompanyId: input.requestCompanyId, capabilities: input.capabilities,
-      warehouseIds: input.warehouseIds, legacyAllowed: input.legacyAllowed,
-    });
-    const scopedAllowed = input.capabilities.every((cap) => canAll(principal, cap, input.warehouseIds, 'scoped').allowed);
-    this.tally(c, {
-      kind: 'permission', route: input.route, userId: input.userId, capabilities: input.capabilities, warehouseIds: input.warehouseIds,
-      legacy: input.legacyAllowed, scoped: scopedAllowed,
-    });
-  }
-
-  observeScope(input: {
-    route: string; userId: string; requestCompanyId: string; principal: Principal | null | undefined;
-    legacy: string[] | null; scoped: string[] | null;
-  }): void {
-    if (!input.principal) return this.incomplete();
-    const c = classifyScope({
-      principal: input.principal, requestCompanyId: input.requestCompanyId, legacy: input.legacy, scoped: input.scoped,
-    });
-    this.tally(c, {
-      kind: 'scope', route: input.route, userId: input.userId, capabilities: [], warehouseIds: [],
-      legacy: input.legacy === null ? 'all' : 'list', scoped: input.scoped === null ? 'all' : 'list',
-    });
-  }
-
-  private tally(c: ShadowClassification, d: Omit<ShadowDifference, 'at' | 'verdict' | 'reason' | 'justifiedBy' | 'unexplained'>): void {
-    this.counters.compared += 1;
-    if (c.verdict === 'equal') {
-      this.counters.equal += 1;
-      return;
-    }
-    if (c.verdict === 'expected') this.counters.expectedDifferences += 1;
-    else {
-      this.counters.unexpectedDifferences += 1;
-      // One structured line, identifiers only.
-      this.logger.warn(JSON.stringify({
-        event: 'capability-shadow-unexpected', kind: d.kind, route: d.route, capabilities: d.capabilities, reason: c.reason,
-        unexplained: c.unexplained,
-      }));
-    }
-    this.ring.push({ ...d, verdict: c.verdict, reason: c.reason, justifiedBy: c.justifiedBy, unexplained: c.unexplained, at: new Date().toISOString() });
-    if (this.ring.length > 50) this.ring.shift();
-  }
-
-  /** A comparison that could not be made (no principal, model not wired): evidence is missing, which is NOT parity. */
-  incomplete(): void {
-    this.counters.incomplete += 1;
-  }
-
-  error(): void {
-    this.counters.errors += 1;
-  }
-
-  snapshot() {
-    return { ...this.counters, recent: [...this.ring] };
-  }
-
-  reset(): void {
-    this.counters = { compared: 0, equal: 0, expectedDifferences: 0, unexpectedDifferences: 0, errors: 0, incomplete: 0 };
-    this.ring = [];
-  }
-}
+// Series 13: the shadow telemetry lives in its own file; re-exported here so existing imports keep working.
+export { CapabilityShadowService } from './capability-shadow.service';
+export type { ShadowDifference } from './capability-shadow.service';
 
 /**
  * Loads the authorization snapshot of one member (Principal) and the derived values clients use.

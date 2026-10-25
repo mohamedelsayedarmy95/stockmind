@@ -8,6 +8,8 @@ export const REDACTED_LOG_PATHS = [
   'req.headers.authorization',
   'req.headers["proxy-authorization"]',
   'req.headers.cookie',
+  // Series 13: the operator token of the local shadow diagnostics (presentation/guards/shadow-diagnostics.guard.ts).
+  'req.headers["x-shadow-diagnostics-token"]',
   'res.headers["set-cookie"]',
 ];
 

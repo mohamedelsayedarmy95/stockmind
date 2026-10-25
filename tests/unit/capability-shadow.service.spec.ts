@@ -83,7 +83,8 @@ describe('CapabilityShadowService', () => {
       ['at', 'capabilities', 'justifiedBy', 'kind', 'legacy', 'reason', 'route', 'scoped', 'unexplained', 'userId', 'verdict', 'warehouseIds'].sort(),
     );
     const logged = String(warn.mock.calls[0][0]);
-    expect(Object.keys(JSON.parse(logged)).sort()).toEqual(['capabilities', 'event', 'kind', 'reason', 'route', 'unexplained'].sort());
+    // Series 13: plus the instance and window ids the line belongs to (random correlation ids, not data)
+    expect(Object.keys(JSON.parse(logged)).sort()).toEqual(['capabilities', 'event', 'instance', 'kind', 'reason', 'route', 'unexplained', 'window'].sort());
     for (const secret of ['Bearer', 'password', 'costPrice', 'authorization']) {
       expect(JSON.stringify(shadow.snapshot())).not.toContain(secret);
       expect(logged).not.toContain(secret);

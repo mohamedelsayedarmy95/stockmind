@@ -9,11 +9,12 @@ import { WarehouseAccessService } from '../infrastructure/security/warehouse-acc
 import { CapabilityService, CapabilityShadowService } from '../infrastructure/security/capability.service';
 import { AccessGrantService } from '../infrastructure/repositories/access-grant.service';
 import { MeController } from '../presentation/controllers/me.controller';
+import { ShadowDiagnosticsController } from '../presentation/controllers/shadow-diagnostics.controller';
 
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([Role, Permission, RolePermission, UserRoleLink])],
-  controllers: [MeController],
+  controllers: [MeController, ShadowDiagnosticsController],
   providers: [PermissionService, WarehouseAccessService, CapabilityService, CapabilityShadowService, AccessGrantService],
   exports: [PermissionService, WarehouseAccessService, CapabilityService, CapabilityShadowService, AccessGrantService],
 })

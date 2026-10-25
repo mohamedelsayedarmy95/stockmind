@@ -71,7 +71,7 @@ export class WarehouseAccessService {
         legacy, scoped: principal && principal.status === 'active' ? warehouseScope(principal, 'scoped') : null,
       });
     } catch (err) {
-      this.shadow.error();
+      this.shadow.error('scope', err, 'WarehouseAccessService.scope');
     }
   }
 
