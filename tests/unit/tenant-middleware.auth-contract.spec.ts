@@ -14,6 +14,7 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
+import { DataSource } from 'typeorm';
 import { ContextModule } from '../../src/modules/context.module';
 import { TenantContextService } from '../../src/infrastructure/context/tenant-context.service';
 import { JwtStrategy } from '../../src/infrastructure/jwt.strategy';
@@ -59,7 +60,20 @@ class ProbeController {
     JwtModule.register({}),
   ],
   controllers: [ProbeController],
-  providers: [JwtStrategy, { provide: APP_GUARD, useClass: GlobalJwtGuard }],
+  providers: [
+    JwtStrategy,
+    // Series 09: JwtStrategy re-reads the member. The probe has no database: each user is an active Staff of its own company.
+    {
+      provide: DataSource,
+      useValue: {
+        query: async (_sql: string, [id]: [string]) => {
+          const company = id === USER_A ? COMPANY_A : id === USER_B ? COMPANY_B : null;
+          return company ? [{ company_id: company, role: 'Staff', status: 'active', token_version: 0 }] : [];
+        },
+      },
+    },
+    { provide: APP_GUARD, useClass: GlobalJwtGuard },
+  ],
 })
 class ProbeAppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

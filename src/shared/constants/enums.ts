@@ -4,6 +4,12 @@ export enum UserRole {
   STAFF = 'Staff',
 }
 
+export enum MemberStatus {
+  ACTIVE = 'active',
+  SUSPENDED = 'suspended',
+  REMOVED = 'removed',
+}
+
 export enum MovementType {
   INBOUND = 'INBOUND',
   OUTBOUND = 'OUTBOUND',

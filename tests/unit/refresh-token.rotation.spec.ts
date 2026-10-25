@@ -8,7 +8,10 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from '../../src/infrastructure/repositories/auth.service';
 
-const USER = { id: '6f1c2c1e-4a0b-4c55-9a77-1f0f0c9b2a11', companyId: 'c1', role: 'Admin', name: 'A', email: 'a@example.test' };
+const USER = {
+  id: '6f1c2c1e-4a0b-4c55-9a77-1f0f0c9b2a11', companyId: 'c1', role: 'Admin', name: 'A', email: 'a@example.test',
+  status: 'active', tokenVersion: 0,
+};
 const cfgValues: Record<string, string> = {
   JWT_ACCESS_SECRET: 'access-secret-for-tests', JWT_REFRESH_SECRET: 'refresh-secret-for-tests',
 };

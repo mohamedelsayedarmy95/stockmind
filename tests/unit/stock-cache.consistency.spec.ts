@@ -79,6 +79,7 @@ class FakeDb {
           if (!this.balances.has(key) && !staged.has(key)) staged.set(key, '0.000000');
           return [];
         }
+        if (sql.includes('FROM users') && sql.includes('FOR SHARE')) return [{ ok: 1 }]; // Series 09: the actor is active
         if (sql.includes('FOR UPDATE')) {
           const key = rowKey(params[0], params[1]);
           await this.lock(key, held);

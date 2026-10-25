@@ -13,6 +13,7 @@ import { Test } from '@nestjs/testing';
 import { TerminusModule, TypeOrmHealthIndicator } from '@nestjs/terminus';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as request from 'supertest';
+import { DataSource } from 'typeorm';
 import { HealthController } from '../../src/presentation/controllers/health.controller';
 import { FirebaseService } from '../../src/infrastructure/firebase/firebase.service';
 import { RedisService } from '../../src/infrastructure/cache/redis.service';
@@ -53,6 +54,8 @@ describe('WP-C: health endpoint and the global throttle', () => {
       controllers: [HealthController, ProbeController],
       providers: [
         JwtStrategy,
+        // Series 09: the strategy re-reads the member; this probe has no database, so every token's member is an active Staff.
+        { provide: DataSource, useValue: { query: async () => [{ company_id: 'c', role: 'Staff', status: 'active', token_version: 0 }] } },
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: GlobalJwtGuard },
         { provide: FirebaseService, useValue: { isEnabled: () => false } },

@@ -15,6 +15,11 @@ export interface TeamMember {
   name: string;
   email: string;
   role: string;
+  /** Series 09: 'active' | 'suspended' | 'removed'. The list includes removed members (history); clients hide them by default. */
+  status: string;
+  /** Company owner (metadata, separate from the Admin role). */
+  isOwner: boolean;
+  statusChangedAt: Date | null;
   /** 'all' for Admin and Manager; otherwise the granted warehouse ids. */
   warehouses: 'all' | string[];
 }
@@ -87,9 +92,9 @@ export class TeamService {
   }
 
   async listMembers(companyId: string): Promise<TeamMember[]> {
-    const rows: Array<{ id: string; name: string; email: string; role: string; ids: string[] }> =
+    const rows: Array<Omit<TeamMember, 'warehouses'> & { ids: string[] }> =
       await this.dataSource.query(
-        `SELECT u.id, u.name, u.email, u.role,
+        `SELECT u.id, u.name, u.email, u.role, u.status, u.is_owner AS "isOwner", u.status_changed_at AS "statusChangedAt",
                 COALESCE(array_agg(a.warehouse_id) FILTER (WHERE a.warehouse_id IS NOT NULL), '{}') AS ids
          FROM users u LEFT JOIN warehouse_access a ON a.user_id = u.id AND a.company_id = u.company_id
          WHERE u.company_id = $1
@@ -106,7 +111,7 @@ export class TeamService {
   async setWarehouseAccess(companyId: string, actorId: string, memberId: string, warehouseIds: string[]) {
     const ids = [...new Set(warehouseIds)];
     const [member] = await this.dataSource.query(
-      `SELECT role FROM users WHERE id = $1 AND company_id = $2`, [memberId, companyId],
+      `SELECT role FROM users WHERE id = $1 AND company_id = $2 AND status <> 'removed'`, [memberId, companyId],
     );
     if (!member) throw new NotFoundException('Member not found');
     if (member.role !== UserRole.STAFF) {

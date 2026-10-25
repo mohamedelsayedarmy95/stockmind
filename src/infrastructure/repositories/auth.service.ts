@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  ForbiddenException,
   HttpException,
   UnauthorizedException,
   BadRequestException,
@@ -17,7 +18,7 @@ import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 import { User } from '../../domain/entities/user.entity';
 import { Company } from '../../domain/entities/company.entity';
 import { Warehouse } from '../../domain/entities/warehouse.entity';
-import { UserRole } from '../../shared/constants/enums';
+import { MemberStatus, UserRole } from '../../shared/constants/enums';
 import { RegisterDto } from '../../application/dtos/auth/register.dto';
 import { LoginDto } from '../../application/dtos/auth/login.dto';
 import { AcceptInvitationDto } from '../../application/dtos/team/team.dto';
@@ -84,6 +85,8 @@ export class AuthService {
         email: dto.email,
         passwordHash,
         role: UserRole.ADMIN,
+        // The founder of a new company is its owner (Series 09): ownership is metadata, separate from the Admin role.
+        isOwner: true,
       });
       await qr.manager.save(user);
 
@@ -197,6 +200,7 @@ export class AuthService {
    * identity, not StockMind's own second factor: a user who enabled 2FA gets a temp token for /auth/2fa/login.
    */
   async issueTokensForSsoUser(user: User, ctx: RequestContext = {}) {
+    this.assertMayAuthenticate(user);
     const pending = await this.secondFactorGate(user);
     if (pending) return pending;
 
@@ -279,6 +283,7 @@ export class AuthService {
     }
 
     await this.bruteForce.record(dto.email, ip, ua, true);
+    this.assertMayAuthenticate(user);
 
     // Gate 2: if 2FA is active, do NOT issue real tokens yet.
     const pending = await this.secondFactorGate(user);
@@ -306,6 +311,7 @@ export class AuthService {
 
     const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException('Invalid 2FA session');
+    this.assertMayAuthenticate(user);
 
     // The same lockout as the password step: without it, anyone holding the password could request fresh temp
     // tokens and guess the 6-digit code.
@@ -338,7 +344,16 @@ export class AuthService {
     }
 
     const user = await this.userRepo.findOne({ where: { id: payload.sub as string } });
-    if (!user || !user.refreshTokenHash) {
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    // Checked before the stored hash (suspension clears it): the answer must be machine-readable, so a client can tell
+    // "access revoked" from an ordinary expired session and keep its queued work. (`status` is NOT NULL in the database,
+    // so a loaded user always has it; the guard only tolerates bare objects in unit tests.)
+    if (user.status && user.status !== MemberStatus.ACTIVE) {
+      throw new UnauthorizedException({ code: 'ACCESS_REVOKED', message: 'Access has been revoked' });
+    }
+    if (!user.refreshTokenHash) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -361,7 +376,7 @@ export class AuthService {
    * tokens expire naturally within their short TTL.
    */
   async terminateAllSessions(userId: string, companyId: string, ctx: RequestContext = {}) {
-    await this.userRepo.update(userId, { refreshTokenHash: null });
+    await this.userRepo.update(userId, { refreshTokenHash: null, tokenVersion: () => '"token_version" + 1' });
     await this.audit.write({
       actorUserId: userId,
       companyId,
@@ -388,7 +403,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     // Rotating the password also invalidates every existing session.
-    await this.userRepo.update(userId, { passwordHash, refreshTokenHash: null });
+    await this.userRepo.update(userId, { passwordHash, refreshTokenHash: null, tokenVersion: () => '"token_version" + 1' });
 
     await this.audit.write({
       actorUserId: userId,
@@ -476,8 +491,23 @@ export class AuthService {
     );
   }
 
+  /**
+   * A suspended or removed member never gets a session, whichever door they use (password, 2FA, Google, SAML, refresh).
+   * Reached only after the credential check, so the distinct answer reveals nothing to someone without the password.
+   */
+  private assertMayAuthenticate(user: User): void {
+    if (user.status && user.status !== MemberStatus.ACTIVE) {
+      throw new ForbiddenException({
+        code: 'ACCESS_REVOKED',
+        message: 'Your access to this company has been suspended or removed. Contact your company administrator.',
+      });
+    }
+  }
+
   private async generateTokens(user: User) {
-    const payload = { sub: user.id, companyId: user.companyId, role: user.role };
+    this.assertMayAuthenticate(user);
+    // `tv` binds the token to the member's token_version: bumping the version revokes every token issued before it.
+    const payload = { sub: user.id, companyId: user.companyId, role: user.role, tv: user.tokenVersion ?? 0 };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(payload, {

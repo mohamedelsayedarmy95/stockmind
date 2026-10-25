@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Length, MaxLength } from 'class-validator';
+import { ArrayMaxSize, Equals, IsArray, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Length, MaxLength } from 'class-validator';
 import { IsStrongPassword } from '../../../shared/validators/strong-password.validator';
 
 /** Roles an Admin can invite. Owners (Admin) are created by registration only. */
@@ -41,4 +41,28 @@ export class SetWarehouseAccessDto {
   @ArrayMaxSize(500)
   @IsUUID('all', { each: true })
   warehouseIds!: string[];
+}
+
+/** Body of suspend / reactivate / revoke-sessions: an optional note that is kept in the membership history. */
+export class MembershipActionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
+/** Removal is the heavier action: it needs an explicit confirmation in the request itself. */
+export class RemoveMemberDto extends MembershipActionDto {
+  @Equals(true, { message: 'confirm must be true to remove a member' })
+  confirm!: true;
+}
+
+export class ChangeRoleDto extends MembershipActionDto {
+  @IsIn(['Admin', 'Manager', 'Staff'])
+  role!: 'Admin' | 'Manager' | 'Staff';
+
+  // Required (true) when the change gives the member company-wide access (to Manager or Admin).
+  @IsOptional()
+  @IsBoolean()
+  acknowledgeCompanyWideAccess?: boolean;
 }

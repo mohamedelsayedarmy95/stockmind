@@ -6,6 +6,7 @@ import { MovementType, ReferenceType } from '../../shared/constants/enums';
 import { ReplaceOperationDto } from '../../application/dtos/stock/replace-operation.dto';
 import { StockService, requestHash } from './stock.service';
 import { WarehouseAccessService } from '../security/warehouse-access.service';
+import { accessRevoked } from '../jwt.strategy';
 
 export type ReplacementKind = 'inbound' | 'outbound';
 
@@ -211,8 +212,11 @@ export class StockReplacementService {
   }
 
   private async assertAccess(qr: QueryRunner, userId: string, companyId: string, warehouseId: string) {
-    const [u] = await qr.query(`SELECT role FROM users WHERE id = $1 AND company_id = $2`, [userId, companyId]);
-    if (!u) throw new NotFoundException('Warehouse not found or access denied');
+    // Series 09: the actor must still be ACTIVE when the replacement commits; FOR SHARE makes a concurrent suspension wait.
+    const [u] = await qr.query(
+      `SELECT role FROM users WHERE id = $1 AND company_id = $2 AND status = 'active' FOR SHARE`, [userId, companyId],
+    );
+    if (!u) throw accessRevoked();
     if (this.access.hasFullAccess(u.role)) return;
     const grant = await qr.query(
       `SELECT 1 FROM warehouse_access WHERE company_id = $1 AND user_id = $2 AND warehouse_id = $3 FOR SHARE`,
@@ -223,7 +227,7 @@ export class StockReplacementService {
 
   /** Whether the caller may see/use this warehouse right now (read in the replacement's transaction). */
   private async mayUse(qr: QueryRunner, userId: string, companyId: string, warehouseId: string): Promise<boolean> {
-    const [u] = await qr.query(`SELECT role FROM users WHERE id = $1 AND company_id = $2`, [userId, companyId]);
+    const [u] = await qr.query(`SELECT role FROM users WHERE id = $1 AND company_id = $2 AND status = 'active'`, [userId, companyId]);
     if (!u) return false;
     if (this.access.hasFullAccess(u.role)) return true;
     const grant = await qr.query(

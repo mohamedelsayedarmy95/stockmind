@@ -25,7 +25,7 @@ export class WarehouseAccessService {
               COALESCE(array_agg(a.warehouse_id) FILTER (WHERE a.warehouse_id IS NOT NULL), '{}') AS ids
        FROM users u
        LEFT JOIN warehouse_access a ON a.user_id = u.id AND a.company_id = u.company_id
-       WHERE u.id = $1 AND u.company_id = $2
+       WHERE u.id = $1 AND u.company_id = $2 AND u.status = 'active'
        GROUP BY u.role`,
       [userId, companyId],
     );

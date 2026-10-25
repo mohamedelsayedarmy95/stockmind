@@ -23,11 +23,12 @@ const TAG = randomBytes(4).toString('hex');
 const DB_PROD = `rs_prod_${TAG}`; // reconstructed production baseline, upgraded; uuid-ossp is NEVER installed here
 const DB_FRESH = `rs_fresh_${TAG}`; // fresh installation, uuid-ossp never installed
 const DB_OLD = `rs_old_${TAG}`; // an environment that ran the previous text of the FCM migration (uuid_generate_v4 default)
-const ALL_DBS = [DB_PROD, DB_FRESH, DB_OLD];
+const DB_OWN = `rs_own_${TAG}`; // ownership backfill: companies with no, one and several Admins
+const ALL_DBS = [DB_PROD, DB_FRESH, DB_OLD, DB_OWN];
 const MIGRATIONS = path.join(__dirname, '../../src/migrations');
 const migration = (id: string) => path.join(MIGRATIONS, `${id}-*.ts`);
 const PRODUCTION_IDS = ['1721700000000', '1721800000000', '1721900000000', '1722000000000'];
-const DELTA_IDS = ['1722345600000', '1792473600000', '1792560000000', '1792570000000', '1792580000000', '1792590000000'];
+const DELTA_IDS = ['1722345600000', '1792473600000', '1792560000000', '1792570000000', '1792580000000', '1792590000000', '1792600000000'];
 const PRODUCTION = PRODUCTION_IDS.map(migration);
 const ALL = [...PRODUCTION_IDS, ...DELTA_IDS].map(migration);
 const DELTA_NAMES = [
@@ -37,6 +38,7 @@ const DELTA_NAMES = [
   'CompanyEntitlements1792570000000',
   'StockRevisionGuard1792580000000',
   'RecoveryIntegrity1792590000000', // Series 07
+  'AccessLifecycle1792600000000', // Series 09
 ];
 const LEGACY_TABLES = ['companies', 'users', 'warehouses', 'products', 'stock_movements', 'user_two_factor'];
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -73,8 +75,9 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     (await one(`SELECT count(*)::int AS n FROM pg_trigger WHERE tgname = 'trg_stock_movements_assign_revision' AND NOT tgisinternal`, [], d)).n === 1;
   const hasUniqueIndex = async (d: DataSource = ds) =>
     (await one(`SELECT count(*)::int AS n FROM pg_indexes WHERE indexname = 'uq_stock_movements_warehouse_revision'`, [], d)).n === 1;
-  // Series 07 added a migration on top of the revision guard: reverting the guard first reverts that (pristine) migration.
+  // Series 07 and 09 added migrations on top of the revision guard: reverting the guard first reverts those (pristine) ones.
   const undoGuard = async () => {
+    await ds.undoLastMigration(); // AccessLifecycle (nothing recorded yet: allowed)
     await ds.undoLastMigration(); // RecoveryIntegrity (nothing recorded yet: allowed)
     await ds.undoLastMigration(); // StockRevisionGuard
   };
@@ -380,6 +383,137 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     )).rejects.toThrow(/uq_stock_replacements_original/); // one replacement per source operation, enforced by the database
   });
 
+  // ------------------------------------------------------------------------------- Series 09: access lifecycle
+
+  const insertUser = async (company: string, role: string, extra: { owner?: boolean } = {}, d: DataSource = ds) =>
+    (await d.query(
+      `INSERT INTO users (company_id, name, email, password_hash, role, is_owner) VALUES ($1, 'Member', $2, 'x', $3, $4) RETURNING id`,
+      [company, `s09.${role}.${randomBytes(4).toString('hex')}.${TAG}@example.test`, role, extra.owner === true],
+    ))[0].id as string;
+
+  it('adds the Series 09 objects without changing any existing member: all active, version 0, owner only where one Admin exists', async () => {
+    expect(await ds.query(`SELECT DISTINCT status, token_version FROM users`)).toEqual([{ status: 'active', token_version: 0 }]);
+    const owners = (await ds.query(`SELECT id FROM users WHERE is_owner ORDER BY id`)).map((r: { id: string }) => r.id);
+    expect(owners).toEqual([ids.adminA, ids.adminB].sort()); // each legacy company has exactly one Admin
+    expect(await exists('membership_events')).toBe(true);
+    expect(await count('membership_events')).toBe(0);
+    await expect(ds.query(`INSERT INTO users (company_id, name, email, password_hash, role, status) VALUES ($1, 'x', 'bad.status@example.test', 'x', 'Staff', 'banned')`, [ids.companyA]))
+      .rejects.toThrow(/ck_users_status/);
+  });
+
+  it('backfills ownership only from authoritative evidence: exactly one Admin; none or several stay ownerless (fail closed)', async () => {
+    const setup = await new DataSource(options(DB_OWN, ALL.slice(0, ALL.length - 1))).initialize();
+    await setup.runMigrations(); // everything but AccessLifecycle
+    const mk = async (name: string, roles: string[]) => {
+      const c = (await setup.query(`INSERT INTO companies (name) VALUES ($1) RETURNING id`, [name]))[0].id as string;
+      const members: string[] = [];
+      for (const r of roles) {
+        members.push((await setup.query(
+          `INSERT INTO users (company_id, name, email, password_hash, role) VALUES ($1, 'm', $2, 'x', $3) RETURNING id`,
+          [c, `own.${randomBytes(4).toString('hex')}@example.test`, r]))[0].id);
+      }
+      return { c, members };
+    };
+    const noAdmin = await mk('No admin', ['Manager', 'Staff']);
+    const oneAdmin = await mk('One admin', ['Admin', 'Manager', 'Staff']);
+    const twoAdmins = await mk('Two admins', ['Admin', 'Admin', 'Staff']);
+    await setup.destroy();
+
+    const upgraded = await new DataSource(options(DB_OWN, ALL)).initialize();
+    try {
+      expect((await upgraded.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[6]]);
+      const ownersOf = async (c: string) =>
+        (await upgraded.query(`SELECT id FROM users WHERE company_id = $1 AND is_owner`, [c])).map((r: { id: string }) => r.id);
+      expect(await ownersOf(noAdmin.c)).toEqual([]);
+      expect(await ownersOf(oneAdmin.c)).toEqual([oneAdmin.members[0]]);
+      expect(await ownersOf(twoAdmins.c)).toEqual([]); // ambiguous: two founders cannot be told apart from the data
+    } finally {
+      await upgraded.destroy();
+    }
+  });
+
+  it('keeps "an active owner remains" a database rule: demote, suspend, delete or move the last owner is refused', async () => {
+    await expect(ds.query(`UPDATE users SET status = 'suspended' WHERE id = $1`, [ids.adminA])).rejects.toThrow(/last_active_owner/);
+    await expect(ds.query(`UPDATE users SET status = 'removed' WHERE id = $1`, [ids.adminA])).rejects.toThrow(/last_active_owner/);
+    await expect(ds.query(`UPDATE users SET is_owner = false WHERE id = $1`, [ids.adminA])).rejects.toThrow(/last_active_owner/);
+    await expect(ds.query(`UPDATE users SET company_id = $2 WHERE id = $1`, [ids.adminA, ids.companyB])).rejects.toThrow(/last_active_owner/);
+    await expect(ds.query(`DELETE FROM users WHERE id = $1`, [ids.adminA])).rejects.toThrow(/last_active_owner/);
+    expect(await one(`SELECT status, is_owner FROM users WHERE id = $1`, [ids.adminA])).toEqual({ status: 'active', is_owner: true }); // unchanged
+
+    // Statements that do not touch ownership or status never fire the guard.
+    await ds.query(`UPDATE users SET refresh_token_hash = NULL, name = 'Admin A' WHERE id = $1`, [ids.adminA]);
+    // A second owner makes the first removable; the second is then the protected one.
+    const second = await insertUser(ids.companyA, 'Admin', { owner: true });
+    await ds.query(`UPDATE users SET status = 'suspended' WHERE id = $1`, [ids.adminA]);
+    await expect(ds.query(`UPDATE users SET status = 'suspended' WHERE id = $1`, [second])).rejects.toThrow(/last_active_owner/);
+    await ds.query(`UPDATE users SET status = 'active' WHERE id = $1`, [ids.adminA]);
+    await ds.query(`DELETE FROM users WHERE id = $1`, [second]);
+
+    // Deleting the whole company (cascade) is not "losing the owner".
+    const temp = (await ds.query(`INSERT INTO companies (name) VALUES ('Cascade') RETURNING id`))[0].id as string;
+    await insertUser(temp, 'Admin', { owner: true });
+    await ds.query(`DELETE FROM companies WHERE id = $1`, [temp]);
+    expect(await ds.query(`SELECT 1 FROM users WHERE company_id = $1`, [temp])).toEqual([]);
+  });
+
+  it('serializes concurrent owner changes: of two owners suspended at the same time exactly one succeeds', async () => {
+    const c = (await ds.query(`INSERT INTO companies (name) VALUES ('Two owners') RETURNING id`))[0].id as string;
+    const o1 = await insertUser(c, 'Admin', { owner: true });
+    const o2 = await insertUser(c, 'Admin', { owner: true });
+    const tx1 = ds.createQueryRunner();
+    const tx2 = ds.createQueryRunner();
+    await tx1.connect();
+    await tx2.connect();
+    await tx1.startTransaction();
+    await tx2.startTransaction();
+    try {
+      await tx1.query(`UPDATE users SET status = 'suspended' WHERE id = $1`, [o1]); // sees o2 active; holds the company lock
+      const second = tx2.query(`UPDATE users SET status = 'suspended' WHERE id = $1`, [o2]).then(() => 'ok', (e: Error) => e.message);
+      await new Promise((r) => setTimeout(r, 400)); // tx2 is now waiting on the company row
+      await tx1.commitTransaction();
+      expect(await second).toMatch(/last_active_owner/); // re-evaluated after tx1 committed
+      await tx2.rollbackTransaction();
+    } finally {
+      await tx1.release();
+      await tx2.release();
+    }
+    expect((await ds.query(`SELECT count(*)::int AS n FROM users WHERE company_id = $1 AND is_owner AND status = 'active'`, [c]))[0].n).toBe(1);
+    await ds.query(`UPDATE users SET status = 'active' WHERE id = $1`, [o1]);
+    await ds.query(`DELETE FROM companies WHERE id = $1`, [c]);
+  });
+
+  it('refuses to revert access lifecycle once any membership change exists, and changes nothing; allows it while pristine', async () => {
+    const digest = async () => JSON.stringify([
+      await ds.query(`SELECT id, status, token_version, is_owner, status_changed_at FROM users ORDER BY id`),
+      await ds.query(`SELECT * FROM membership_events ORDER BY id`),
+      await ds.query(`SELECT name FROM migrations ORDER BY id`),
+    ]);
+    const attempt = async (pattern: RegExp) => {
+      const before = await digest();
+      await expect(ds.undoLastMigration()).rejects.toThrow(pattern);
+      expect(await digest()).toBe(before);
+    };
+
+    await ds.query(`UPDATE users SET status = 'suspended' WHERE id = $1`, [ids.staffA1]);
+    await attempt(/Refusing to revert AccessLifecycle1792600000000.*1 suspended or removed member\(s\).*Nothing was changed/s);
+    await ds.query(`UPDATE users SET status = 'active' WHERE id = $1`, [ids.staffA1]);
+
+    await ds.query(`UPDATE users SET token_version = 3 WHERE id = $1`, [ids.staffA2]);
+    await attempt(/1 member\(s\) whose sessions were revoked/s);
+    await ds.query(`UPDATE users SET token_version = 0 WHERE id = $1`, [ids.staffA2]);
+
+    await ds.query(
+      `INSERT INTO membership_events (company_id, actor_user_id, target_user_id, target_email, event_type) VALUES ($1, $2, $3, 'x@example.test', 'suspend')`,
+      [ids.companyA, ids.adminA, ids.staffA1]);
+    await expect(ds.query(`UPDATE membership_events SET reason = 'rewritten'`)).rejects.toThrow(/append-only/);
+    await attempt(/1 recorded membership event\(s\)/s);
+    await ds.query(`DELETE FROM membership_events`);
+
+    const extra = await insertUser(ids.companyA, 'Admin', { owner: true }); // company A now has two Admins: not derivable
+    await attempt(/owner designation\(s\) that the one-Admin rule cannot recreate/s);
+    await ds.query(`DELETE FROM users WHERE id = $1`, [extra]);
+  });
+
   it('refuses to revert recovery integrity once a rotation, a replacement or a floor is recorded, and changes nothing; allows it while pristine', async () => {
     const digest = async () => JSON.stringify([
       await ds.query(`SELECT id, history_generation FROM companies ORDER BY id`),
@@ -393,6 +527,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
       `INSERT INTO history_generation_events (company_id, previous_generation, new_generation, actor_user_id, reason)
        VALUES ($1, $2, gen_random_uuid(), $3, 'rotation recorded for the down() guard test')`, [ids.companyA, g, ids.adminA]);
     await expect(ds.query(`UPDATE history_generation_events SET reason = 'rewritten'`)).rejects.toThrow(/append-only/);
+    await ds.undoLastMigration(); // AccessLifecycle (Series 09, pristine here) sits on top of RecoveryIntegrity
     let before = await digest();
     await expect(ds.undoLastMigration()).rejects.toThrow(
       /Refusing to revert RecoveryIntegrity1792590000000.*1 recorded history-generation rotation\(s\).*Nothing was changed/s);
@@ -418,7 +553,7 @@ const options = (database: string, migrations: string[] = []): PostgresConnectio
     await ds.undoLastMigration(); // pristine: lossless
     expect(await exists('stock_replacements')).toBe(false);
     expect(await exists('history_generation_events')).toBe(false);
-    expect((await ds.runMigrations()).map((m) => m.name)).toEqual([DELTA_NAMES[5]]);
+    expect((await ds.runMigrations()).map((m) => m.name)).toEqual(DELTA_NAMES.slice(5));
   });
 
   it('reverts the guard without deleting anything, and applies it again to the same result', async () => {

@@ -35,6 +35,10 @@ const AUDIT_REDACT_FIELDS = new Set([
   'otpCode',
   'backupCodes',
   'token',
+  // Financial (Series 09 / S0): the cost price is gated by item.view_cost and must not be readable through the audit trail.
+  'costPrice',
+  'unitCost',
+  'purchasePrice',
 ]);
 
 /** Recursively replaces sensitive field values with [REDACTED] before persistence. */

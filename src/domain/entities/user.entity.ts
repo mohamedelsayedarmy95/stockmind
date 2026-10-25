@@ -11,7 +11,7 @@ import {
 import { AuditableEntity } from './auditable.entity';
 import { Company } from './company.entity';
 import { Warehouse } from './warehouse.entity';
-import { UserRole } from '../../shared/constants/enums';
+import { MemberStatus, UserRole } from '../../shared/constants/enums';
 import { UserFcmToken } from './user-fcm-token.entity';
 
 @Entity('users')
@@ -45,6 +45,24 @@ export class User extends AuditableEntity {
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.STAFF })
   role!: UserRole;
+
+  /** Series 09: whether the member may use the company's data. Checked on every request and inside every stock write. */
+  @Column({ type: 'text', default: MemberStatus.ACTIVE })
+  status!: MemberStatus;
+
+  /** Bumped on suspend/remove/role change/revoke-sessions; an access token carries the version it was issued under. */
+  @Column({ name: 'token_version', type: 'int', default: 0 })
+  tokenVersion!: number;
+
+  /** Ownership as metadata, separate from the Admin role. Never changed through the API in Series 09. */
+  @Column({ name: 'is_owner', type: 'boolean', default: false })
+  isOwner!: boolean;
+
+  @Column({ name: 'status_changed_at', type: 'timestamptz', nullable: true })
+  statusChangedAt!: Date | null;
+
+  @Column({ name: 'status_changed_by', type: 'uuid', nullable: true })
+  statusChangedBy!: string | null;
 
   @OneToMany(() => UserFcmToken, (token) => token.user)
   fcmTokens: UserFcmToken[];

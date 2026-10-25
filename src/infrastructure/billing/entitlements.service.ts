@@ -55,7 +55,7 @@ export class EntitlementsService {
     const [row] = await manager.query(
       `SELECT c.plan, c.subscription_status AS status, c.plan_expires_at AS "expiresAt",
               c.entitlement_source AS source,
-              (SELECT count(*)::int FROM users u WHERE u.company_id = c.id) AS seats,
+              (SELECT count(*)::int FROM users u WHERE u.company_id = c.id AND u.status <> 'removed') AS seats,
               (SELECT count(*)::int FROM team_invitations i WHERE i.company_id = c.id AND i.accepted_at IS NULL
                  AND i.revoked_at IS NULL AND i.expires_at > now()) AS pending,
               (SELECT count(*)::int FROM warehouses w WHERE w.company_id = c.id) AS warehouses

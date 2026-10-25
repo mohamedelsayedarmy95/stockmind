@@ -23,6 +23,7 @@ import {
 } from '../../application/dtos/stock/movement-response.dto';
 import { createHash, randomUUID } from 'crypto';
 import { RedisService } from '../../infrastructure/cache/redis.service';
+import { assertActorActive } from '../security/actor-guard';
 
 // v2: entries hold the allowlisted MovementResponseDto. Earlier 'stock:movements'
 // entries could hold raw entities with credential columns, so they are never read.
@@ -233,6 +234,9 @@ export class StockService {
         }
       }
 
+      // The actor must still be active when this write commits (see assertActorActive); before any warehouse lock.
+      await assertActorActive(qr, userId, companyId);
+
       // Both warehouses' revisions, in id order like the stock rows below (no lock-order deadlock).
       const revisions = new Map<string, string>();
       for (const id of [dto.fromWarehouseId, dto.toWarehouseId].sort()) {
@@ -396,6 +400,9 @@ export class StockService {
     qr: QueryRunner,
     params: MovementParams & { companyId: string },
   ): Promise<StockMovement & { historyGeneration: string }> {
+    // The actor must still be active when this write commits (see assertActorActive); before any warehouse lock.
+    await assertActorActive(qr, params.userId, params.companyId);
+
     // The warehouse's revision is bumped under its row lock, so revisions commit in order (see getChanges).
     const revision = await this.bumpRevision(qr, params.warehouseId);
 
