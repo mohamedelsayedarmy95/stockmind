@@ -1,0 +1,103 @@
+{
+  "method": "local PostgreSQL 15 on the same host; sequential HTTP; alternating rounds; throttle counter replaced by a no-op",
+  "generatedAt": "2026-10-25T11:48:41.628Z",
+  "guardedRead": {
+    "route": "GET /stock/balance/:product/:warehouse (VIEW_BALANCE + warehouse scope)",
+    "off": {
+      "n": 600,
+      "medianMs": 3.614,
+      "p95Ms": 5.181,
+      "p99Ms": 7.367,
+      "meanMs": 3.901
+    },
+    "shadow": {
+      "n": 600,
+      "medianMs": 5.801,
+      "p95Ms": 7.592,
+      "p99Ms": 10.336,
+      "meanMs": 6.077
+    },
+    "enforce": {
+      "n": 600,
+      "medianMs": 5.335,
+      "p95Ms": 7.284,
+      "p99Ms": 9.654,
+      "meanMs": 5.624
+    },
+    "shadowAddsMedianMs": 2.187,
+    "enforceAddsMedianMs": 1.721,
+    "shadowAddsP95Ms": 2.411,
+    "enforceAddsP95Ms": 2.103
+  },
+  "meCapabilities": {
+    "owner": {
+      "n": 300,
+      "medianMs": 3.281,
+      "p95Ms": 4.456,
+      "p99Ms": 7.554,
+      "meanMs": 3.463
+    },
+    "scopedManager": {
+      "n": 300,
+      "medianMs": 3.374,
+      "p95Ms": 4.588,
+      "p99Ms": 8.649,
+      "meanMs": 3.587
+    }
+  },
+  "grantLookup": {
+    "grantsInTable": 12000,
+    "planNodes": [
+      "Hash Join",
+      "Bitmap Heap Scan",
+      "Bitmap Index Scan:ix_access_grants_user_active",
+      "Hash",
+      "Seq Scan"
+    ],
+    "executionMs": 0.155,
+    "roundTripPerQueryMs": {
+      "n": 1000,
+      "medianMs": 0.577,
+      "p95Ms": 0.92,
+      "p99Ms": 1.185,
+      "meanMs": 0.667
+    }
+  },
+  "contention": {
+    "writers": 4,
+    "writeAloneMs": {
+      "n": 100,
+      "medianMs": 9.873,
+      "p95Ms": 12.04,
+      "p99Ms": 14.457,
+      "meanMs": 10.092
+    },
+    "writeDuringRevocationsMs": {
+      "n": 1100,
+      "medianMs": 9.396,
+      "p95Ms": 27.356,
+      "p99Ms": 36.184,
+      "meanMs": 14.17
+    },
+    "responsesByStatus": {
+      "201": 336,
+      "404": 764
+    },
+    "revokeRequestMs": {
+      "n": 12,
+      "medianMs": 29.749,
+      "p95Ms": 34.799,
+      "p99Ms": 34.799,
+      "meanMs": 30.083
+    },
+    "grantRequestMs": {
+      "n": 12,
+      "medianMs": 42.667,
+      "p95Ms": 49.521,
+      "p99Ms": 49.521,
+      "meanMs": 43.021
+    },
+    "deadlocksDuringRun": 0
+  },
+  "caveat": "Same-host database. A hosted database adds its network round trip to every query (the model costs 2 queries per guarded request, 1 more for the user lookup of Series 09)."
+}

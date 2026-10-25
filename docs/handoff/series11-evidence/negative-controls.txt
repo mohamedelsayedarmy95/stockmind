@@ -64,3 +64,13 @@ N6b  the access endpoint does not check the actor capability inside the transact
       -> STILL GREEN (NOT CAUGHT)  [Tests:       26 passed, 26 total] jest exit 0  (58s)  restored=yes
 N6c  CP-4 does not re-authorize the creating actor for warehouse creation (defence in depth: MANAGE_USERS is still checked per target)
       -> STILL GREEN (NOT CAUGHT)  [Tests:       26 passed, 26 total] jest exit 0  (58s)  restored=yes
+
+PASS 3 (after the Manager-demotion variant and the lock-order unit test were added)
+N1b  the actor lock is taken late (only when the actor is loaded), outside the ordered set
+      -> RED  [Tests:       1 failed, 27 passed, 28 total] jest exit 1  (61s)  restored=yes
+N6b  the access endpoint does not check the actor capability MANAGE_USERS inside the transaction (a demoted Manager keeps every warehouse capability)
+      -> RED  [Tests:       2 failed, 24 passed, 26 total] jest exit 1  (59s)  restored=yes
+      failing: an administrator revoked AFTER the request 
+N6  the legacy endpoint does not re-authorize its actor inside the transaction (re-run with the Manager-demotion variant)
+      -> RED  [Tests:       1 failed, 25 passed, 26 total] jest exit 1  (58s)  restored=yes
+      failing: an administrator revoked AFTER the request 

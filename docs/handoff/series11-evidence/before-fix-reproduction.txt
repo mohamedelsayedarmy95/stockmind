@@ -73,3 +73,11 @@ before it reached the lock (a test mistake, fixed). The case was re-run alone on
   expect(r.settled).toBe(false) -> Received: true  (the removal of the granting administrator COMMITTED while the grant was in flight).
 So all four membership revocations (demote to Staff, demote to Manager, suspend, remove), the documented-protocol revoker and the
 legacy path reproduce F11-01 on the Series 10 code. The Series 10 worktree was left clean (the temporary spec copy was deleted).
+
+ADDENDUM 2 (found by the Series 11 lock-perf measurement, on the Series 11 code that took the company row FOR UPDATE for membership
+actions, i.e. the Series 09/10 behaviour kept): with 4 writers writing continuously, a membership action (the owner suspending a member)
+sat in `SELECT 1 FROM companies WHERE id = $1 FOR UPDATE` for 9 min 45 s and was still waiting when the run was stopped (pg_stat_activity:
+wait_event_type=Lock, wait_event=transactionid). Every write holds a key-share on the company row until it commits; a FOR UPDATE request
+is not fair against NEW key-shares, so under a stream of overlapping writes it is never granted. An urgent revocation (suspend, remove,
+role change) could therefore starve under load. Fixed in Series 11 (F11-09): membership actions serialize on a fair per-company
+advisory lock and no longer take the company row, except reactivation of a REMOVED member (it takes a seat).

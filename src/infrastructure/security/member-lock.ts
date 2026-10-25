@@ -15,8 +15,10 @@ type Runner = { query: (sql: string, params?: unknown[]) => Promise<any> };
  * SQL change of the row is respected too.
  *
  * LOCK ORDER (global; documented in SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md):
- *   1. the company row (FOR UPDATE for membership actions and the recovery rotation; FOR KEY SHARE / FOR SHARE for everything
- *      else that writes under the company: grants, stock writes, replacements),
+ *   0. (membership actions only) the fair per-company membership lock: they must not interleave (the last-owner rule counts owners),
+ *   1. the company row. FOR KEY SHARE / FOR SHARE for everything that writes under the company (grants, stock writes, replacements);
+ *      FOR UPDATE only for the recovery rotation and for taking a seat (reactivating a REMOVED member, accepting an invitation).
+ *      NEVER FOR UPDATE for urgent actions: it is not fair against a stream of key-shares, so it can starve (see below),
  *   2. the member locks of EVERY member the transaction involves, acquired together, in ascending canonical id order
  *      (`lockMembers`), each in the strongest mode the transaction needs: exclusive for a member whose authority it changes,
  *      shared for a member whose authority it relies on. A transaction never upgrades shared to exclusive,
@@ -57,6 +59,14 @@ export async function lockMembers(runner: Runner, requests: readonly MemberLockR
     if (merged.get(id) === 'exclusive') await lockMemberExclusive(runner, id);
     else await lockMemberShared(runner, id);
   }
+}
+
+/**
+ * Serializes the membership actions of ONE company (they must not interleave: the last-owner rule counts owners). A fair
+ * advisory lock, taken by membership actions only and always FIRST in their transaction, so it cannot take part in a cycle.
+ */
+export async function lockCompanyMembership(runner: Runner, companyId: string): Promise<void> {
+  await runner.query(`SELECT pg_advisory_xact_lock(hashtextextended('stockmind:company-members:' || $1::uuid::text, 0))`, [companyId]);
 }
 
 /** Step 1 of the order for a writer that is not changing the company row itself (a FK to companies would take it anyway). */

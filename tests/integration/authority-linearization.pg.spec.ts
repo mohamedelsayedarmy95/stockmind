@@ -568,6 +568,38 @@ type Done<T> = { settled: boolean; res?: T };
     expect(status(act)).toBe(200);
   });
 
+  it("urgent membership actions are not starved by a continuous stream of stock writes (they do not wait on the company row)", async () => {
+    const S = await newStaff(); const T = await newStaff();
+    const product = await stockFixture();
+    const stop = { v: false };
+    const statuses: Record<string, number> = {};
+    const writers = Array.from({ length: 4 }, async () => {
+      while (!stop.v) {
+        const r = await http().post('/api/v1/stock/inbound').set(auth(S.token)).set('Idempotency-Key', randomUUID()).send({ productId: product, warehouseId: w1, quantity: '1' });
+        statuses[r.status] = (statuses[r.status] ?? 0) + 1;
+      }
+    });
+    try {
+      await sleep(300); // the writers overlap: at every instant some transaction holds the company key-share
+      const timed = async (call: () => request.Test) => { const t = Date.now(); const r = await call(); return { ms: Date.now() - t, status: r.status }; };
+      const post = (id: string, action: string, body: object = {}) => () => http().post(`/api/v1/team/members/${id}/${action}`).set(auth(owner.token)).send(body);
+      const results = [
+        await timed(post(T.id, 'suspend')),
+        await timed(post(T.id, 'reactivate')),
+        await timed(post(T.id, 'revoke-sessions')),
+        await timed(() => http().patch(`/api/v1/team/members/${T.id}/role`).set(auth(owner.token)).send({ role: 'Manager', acknowledgeCompanyWideAccess: true })),
+        await timed(post(S.id, 'suspend')), // even the member who is writing right now
+      ];
+      for (const r of results) { expect(r.status).toBe(200); expect(r.ms).toBeLessThan(4000); }
+      await sleep(300);
+      expect(statuses[201]).toBeGreaterThan(0); // the writers really were writing
+      expect(Object.keys(statuses).every((k) => Number(k) < 500)).toBe(true);
+    } finally {
+      stop.v = true;
+      await Promise.all(writers);
+    }
+  });
+
   it("the same, for a TRANSFER and for a replacement-less retry of the same key", async () => {
     const S = await newStaff();
     const product = await stockFixture();

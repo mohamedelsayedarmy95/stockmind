@@ -10,7 +10,7 @@ import { DataSource } from 'typeorm';
 import { AuditLogService } from '../audit/audit-log.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { AccessGrantService } from './access-grant.service';
-import { authorityTransaction, lockMembers } from '../security/member-lock';
+import { authorityTransaction, lockCompanyMembership, lockMembers } from '../security/member-lock';
 import {
   decideMembershipAction,
   MEMBERSHIP_ERROR_STATUS,
@@ -39,7 +39,7 @@ interface Row {
  *   2. the actor and the target are locked and re-read INSIDE the transaction, so the decision is made on committed truth;
  *   3. the pure policy decides; the row is updated (and token_version bumped / refresh hash cleared when it must);
  *   4. a membership_events row records who did what to whom and why.
- * Lock order is company, then users by id; stock writes take a user FOR SHARE only (no company lock), so no cycle exists.
+ * Lock order: see security/member-lock.ts (membership serialization, then the member locks as one ordered set, then rows).
  * The database trigger `users_guard_last_owner` is the backstop behind the policy's own last-owner rule.
  */
 @Injectable()
@@ -63,11 +63,17 @@ export class MembershipService {
     actorId = actorId.toLowerCase();
     try {
       change = await authorityTransaction(this.dataSource, async (m) => {
-        await m.query(`SELECT 1 FROM companies WHERE id = $1 FOR UPDATE`, [companyId]);
+        // Membership actions of one company are serialized by a FAIR advisory lock (it protects the owner count), NOT by the
+        // company row: a FOR UPDATE on that row waits for every overlapping stock write's key-share and, under a sustained
+        // stream of writes, never gets it (measured in Series 11: a suspension starved for minutes). Only a reactivation of a
+        // REMOVED member needs the company row (it takes a seat, which invitation acceptance also serializes on).
+        await lockCompanyMembership(m, companyId);
         // The other company's member and a missing id answer the same 404 BEFORE any member lock is taken, so a foreign
         // administrator can neither queue behind nor delay a member of this company.
-        const [{ inCompany }] = await m.query(`SELECT count(*)::int AS "inCompany" FROM users WHERE id = $1 AND company_id = $2`, [targetId, companyId]);
-        if (!inCompany) throw new NotFoundException('Member not found');
+        const [pre] = await m.query(`SELECT status FROM users WHERE id = $1 AND company_id = $2`, [targetId, companyId]);
+        if (!pre) throw new NotFoundException('Member not found');
+        // (every other writer of `status` is a membership action, so it cannot change under us now)
+        if (action === 'reactivate' && pre.status === MemberStatus.REMOVED) await m.query(`SELECT 1 FROM companies WHERE id = $1 FOR UPDATE`, [companyId]);
         // The actor's authority is relied on (shared) and the target's is changed (exclusive): both locks as one ordered set
         // (member-lock.ts), so this action is ordered against any grant or write that relies on either of them.
         await lockMembers(m, [{ userId: actorId, mode: 'shared' }, { userId: targetId, mode: 'exclusive' }]);

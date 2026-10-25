@@ -1,0 +1,53 @@
+{
+  "method": "local PostgreSQL 15 on the same host; HTTP; 4 concurrent writers by the grant target; the throttle counter replaced by a no-op",
+  "generatedAt": "2026-10-25T11:48:14.084Z",
+  "grantAloneMs": {
+    "n": 100,
+    "medianMs": 10.955,
+    "p95Ms": 15.157,
+    "p99Ms": 33.698,
+    "maxMs": 33.698,
+    "meanMs": 11.546
+  },
+  "underContention": {
+    "writers": 4,
+    "grantWhileWritersAndMembershipMs": {
+      "n": 60,
+      "medianMs": 40.146,
+      "p95Ms": 47.849,
+      "p99Ms": 62.372,
+      "maxMs": 62.372,
+      "meanMs": 40.358
+    },
+    "membershipActionMs": {
+      "n": 60,
+      "medianMs": 16.845,
+      "p95Ms": 22.495,
+      "p99Ms": 26.718,
+      "maxMs": 26.718,
+      "meanMs": 17.384
+    },
+    "writerLatencyMs": {
+      "n": 262,
+      "medianMs": 40.071,
+      "p95Ms": 61.022,
+      "p99Ms": 75.182,
+      "maxMs": 103.293,
+      "meanMs": 40.192
+    },
+    "writerStatusCounts": {
+      "201": 262
+    },
+    "lockWaitSamples": {
+      "sampleIntervalMs": 5,
+      "polls": 381,
+      "backendsWaitingByEvent": {
+        "Lock:transactionid": 222,
+        "Lock:tuple": 63,
+        "Lock:advisory": 449
+      }
+    }
+  },
+  "deadlocksDuringRun": 0,
+  "authorityBusyResponses": 0
+}
