@@ -74,3 +74,8 @@ N6b  the access endpoint does not check the actor capability MANAGE_USERS inside
 N6  the legacy endpoint does not re-authorize its actor inside the transaction (re-run with the Manager-demotion variant)
       -> RED  [Tests:       1 failed, 25 passed, 26 total] jest exit 1  (58s)  restored=yes
       failing: an administrator revoked AFTER the request 
+
+PASS 4 (membership starvation, F11-09)
+N17  membership actions take the company row FOR UPDATE again (not fair against the key-share of a stream of writes)
+      -> RED  [Tests:       2 failed, 25 passed, 27 total] jest exit 1  (305s)  restored=yes
+      failing: urgent membership actions are not starved 
