@@ -1,0 +1,10 @@
+N1 native QA identity not checked: RED (caught) Tests:       1 failed, 50 passed, 51 total
+N2 QA falls back to the app-config (production) URL: RED (caught) Tests:       1 failed, 50 passed, 51 total
+N3 any host counts as private: RED (caught) Tests:       5 failed, 46 passed, 51 total
+N4 production host not refused in QA: RED (caught) Tests:       3 failed, 48 passed, 51 total
+N5 QA uses the pinned transport: RED (caught) Tests:       1 failed, 50 passed, 51 total
+N6 release signing left on the debug key: RED (caught) Tests:       2 failed, 49 passed, 51 total
+N7 production apiBaseUrl kept in the QA config: RED (caught) Tests:       1 failed, 50 passed, 51 total
+N8 QA keeps the original application id: RED (caught) Tests:       1 failed, 50 passed, 51 total
+N9 plugin allows cleartext to any host: RED (caught) Tests:       6 failed, 45 passed, 51 total
+N10 dev build may use the production host: RED (caught) Tests:       1 failed, 50 passed, 51 total

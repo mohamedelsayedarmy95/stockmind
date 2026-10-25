@@ -1,7 +1,40 @@
 # StockMind — دليل المستخدم والتشغيل
 
-> آخر تحديث: 2026-10-21. الدليل ده مكتوب لأي حد ميعرفش StockMind ولا البرمجة.
+> آخر تحديث: 2026-10-25 (Series 12 — إضافة قسم "تحديث Series 12" تحت؛ باقي الدليل من 2026-10-21 زي ما هو، والجمل اللي بقت غلط عليها ملاحظة **[Series 12]** جنبها بدل ما تتمسح). الدليل ده مكتوب لأي حد ميعرفش StockMind ولا البرمجة.
 > اللي مكتوب هنا مبني على اللي اتجرب فعلاً. أي حاجة مش متأكد منها عليها كلمة **UNVERIFIED**.
+
+## تحديث Series 12 (2026-10-25): أنهي تطبيق تفتحه؟
+
+فيه دلوقتي **تلات أنواع** من تطبيق StockMind على Android. اسمهم وأيقونتهم بيفرّقوا بينهم:
+
+| النوع | الاسم على الموبايل | بيحتاج الكمبيوتر؟ | الاستخدام |
+|---|---|---|---|
+| **OLD DEVELOPMENT CLIENT** | **StockMind** (`io.stockmind.app`) | **أيوه دايماً**: Metro شغال على الكمبيوتر + كابل USB (أو نفس الشبكة) | شغل المطوّر (Claude) بس. فيه بياناتك القديمة (profile "Device Tester" وسجلات "Weapon" و"s" و"akm") — **ما اتلمسش ومش هيتلمس** |
+| **STANDALONE QA** | **StockMind QA** (`io.stockmind.app.qa`) | **لا** — الكود جوه التطبيق نفسه، والكمبيوتر ممكن يكون مقفول | **ده التطبيق اللي تفتحه وتجرّبه بنفسك كل يوم.** بياناته منفصلة تماماً عن StockMind القديم |
+| **PUBLIC RELEASE** | — | — | **غير مُصرَّح.** مفيش AAB ولا Google Play ولا نشر |
+
+**ليه StockMind القديم بيقول "Cannot connect to Metro" أو "Unable to load script ... index.android.bundle"؟** لأنه **debug build**: الـ APK بتاعه مفيهوش كود التطبيق نفسه (الجافاسكربت)، وبيطلبه كل مرة من برنامج اسمه Metro على كمبيوتر المطوّر عن طريق الكابل. لو Metro مش شغال أو الكابل مش موصّل، مفيش كود يتحمّل فبتظهر الرسالتين دول. ده تصميم الـ debug build، مش عطل في بياناتك. (الملاحظة اللي كانت **UNVERIFIED** في Quick Start تحت اتأكدت من الـ APK نفسه في Series 12.)
+
+**StockMind QA:**
+- افتحه من أيقونته **StockMind QA** زي أي تطبيق. مش محتاج كابل ولا كمبيوتر.
+- أول مرة: اختار اللغة → **Offline (on this device)** → اكتب اسم → Start. البيانات اللي تعملها فيه بتفضل بعد ما تقفله وتفتحه، وبعد أي تحديث لـ QA.
+- في **Settings** هتلاقي كارت **"StockMind QA — test build"** بيقولك النسخة دي محلي بس ولا معاها خادم اختبار، ورقم الإصدار.
+- **Online Preview في QA** (اختياري): بيشتغل بس مع خادم اختبار محلي على كمبيوتر المطوّر ببيانات وهمية (synthetic)، **أبداً** مع السيرفر الحقيقي. لو الخادم مش شغال، التطبيق هيقولك إنه مش قادر يوصل للسيرفر — والأوفلاين بيفضل شغال عادي.
+- لو حصل خطأ: **Settings → Crash reports** بيعرض الأخطاء المسجّلة على الموبايل نفسه من غير كابل.
+- التثبيت والتحديث بيتعملوا من الكمبيوتر بالكابل **وأنت ماسك الموبايل** (المطوّر بيشغّل `mobile\scripts\qa-install.ps1`). التحديث بيحافظ على بيانات QA. **مفيش أي سكربت بيمسح أو بيلغي تثبيت StockMind القديم.**
+
+**أوامر المطوّر (من مجلد `mobile` في الـ worktree):**
+
+| عايز إيه | الأمر |
+|---|---|
+| بناء/تحديث StockMind QA | `powershell -ExecutionPolicy Bypass -File scripts\qa-build.ps1` (أو `-Online`) |
+| تثبيته على موبايل محدد | `powershell -ExecutionPolicy Bypass -File scripts\qa-install.ps1 -Serial <serial>` |
+| تشغيل Metro للتطبيق القديم | `powershell -ExecutionPolicy Bypass -File scripts\dev-metro.ps1 [-AdbReverse -Serial <serial>]` |
+| هل خادم الاختبار شغال؟ | `powershell -ExecutionPolicy Bypass -File scripts\qa-backend-preflight.ps1` |
+| QA أونلاين بيقول "مش قادرين نوصل للخادم" والموبايل على الكابل | غالباً الكابل اتفصل واتوصّل فاتشال تحويل البورت: `powershell -ExecutionPolicy Bypass -File scripts\qa-backend-preflight.ps1 -Serial <serial> -RestoreReverse` وبعدها جرّب تاني |
+| تشغيل خادم اختبار + بيانات وهمية | `scripts\qa-local-backend.ps1` ثم `node scripts\qa-seed-synthetic.mjs` |
+
+التفاصيل الكاملة: `docs/handoff/SERIES_12_STANDALONE_QA_CONTRACT.md` و`SERIES_12_DEVELOPER_RUNTIME_REPORT.md`.
 
 ## قبل أي حاجة: 3 نسخ مختلفة من StockMind
 
@@ -21,6 +54,7 @@
    - ده **debug build**، يعني بياخد الكود بتاعه من **Metro** اللي شغال على كمبيوتر المطوّر.
    - لو التطبيق فتح على شاشة حمرا أو رسالة "Cannot connect to Metro"، شغّل Metro الأول (الجزء 8) وافتح التطبيق تاني.
    - (إن الـ debug build ميفتحش خالص من غير Metro: **UNVERIFIED** في الجلسات دي، بس ده السلوك المعتاد للـ debug builds).
+   - **[Series 12]** اتأكد: الـ debug APK مفيهوش `index.android.bundle`، فمن غير Metro مش هيفتح. للاستخدام اليومي من غير كمبيوتر افتح **StockMind QA** (القسم "تحديث Series 12" فوق).
 2. **اختار اللغة** (English أو العربية)، وبعدها **وضع التشغيل**: اختار **Offline (on this device)**.
 3. **اكتب اسمك** واضغط **Start**. كده عملت profile محلي ومفيش باسورد.
 4. لو التليفون فيه بصمة مسجلة، التطبيق ممكن يطلب **البصمة** وهو بيفتح. ده قفل حماية، ومينفعش تتخطاه.
@@ -99,7 +133,7 @@
 ## 3. استخدام التطبيق المتسطّب على Android خطوة بخطوة
 
 1. الموبايل المجرّب: **Huawei JSN-L22 (Android 10)**، والتطبيق debug APK اسمه `io.stockmind.app`.
-2. Metro لازم يكون شغال على الكمبيوتر، والموبايل متوصل USB (الجزء 8).
+2. Metro لازم يكون شغال على الكمبيوتر، والموبايل متوصل USB (الجزء 8). **[Series 12]** ده للتطبيق القديم (OLD DEVELOPMENT CLIENT) بس؛ **StockMind QA** مش محتاج Metro ولا USB.
 3. افتح التطبيق. لو طلب البصمة، المسها.
 4. التابات تحت:
    - **Hello**: الملخص وأزرار سريعة؛
@@ -228,7 +262,7 @@ D:\Projects\StockMind-wt\_local-tools\pg15\pgsql\bin\pg_ctl.exe -D D:\Projects\S
 
 | المشكلة | الحل |
 |---|---|
-| شاشة حمرا أو "Cannot connect to Metro" | شغّل Metro، اعمل `adb reverse tcp:8081 tcp:8081`، وافتح التطبيق تاني |
+| شاشة حمرا أو "Cannot connect to Metro" | شغّل Metro، اعمل `adb reverse tcp:8081 tcp:8081`، وافتح التطبيق تاني. **[Series 12]** أو افتح **StockMind QA** اللي مش محتاج Metro خالص (`scripts\dev-metro.ps1 -AdbReverse -Serial <serial>` بيعمل الخطوتين للتطبيق القديم من غير Metro مكرر) |
 | التطبيق طلب البصمة | ده قفل حماية لما يكون فيه جلسة Online. المس الحساس |
 | خيار Online مكتوب "Coming soon" | التطبيق مش متشغّل بـ Metro اللي فيه Online Preview (الجزء 8، الخطوة 3) |
 | "Offline · figures from …" | السيرفر مش واصل. اتأكد إن الـ Backend شغال وإن `adb reverse tcp:3000 tcp:3000` معمول |
@@ -245,7 +279,7 @@ D:\Projects\StockMind-wt\_local-tools\pg15\pgsql\bin\pg_ctl.exe -D D:\Projects\S
 
 | الحاجة | سيرفر | نت | مطوّر | إعداد زيادة |
 |---|---|---|---|---|
-| التطبيق Offline | لأ | لأ | لأ (غير Metro في الـ debug build) | — |
+| التطبيق Offline | لأ | لأ | لأ (غير Metro في الـ debug build) | — **[Series 12]** في **StockMind QA**: ولا حاجة خالص، حتى Metro |
 | Online Preview | **أيوه** (محلي) | شبكة محلية / USB | **أيوه** | Metro بالـ flag، Backend، PostgreSQL، `adb reverse` |
 | دعوات الفريق والصلاحيات | أيوه | — | **أيوه** (API) | — |
 | Google Sign-In | أيوه | أيوه | — | Firebase **(UNVERIFIED في البيئة المحلية)** |

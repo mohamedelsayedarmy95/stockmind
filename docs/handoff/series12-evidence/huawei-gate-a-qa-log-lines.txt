@@ -1,0 +1,30 @@
+﻿10-25 21:21:00.808 D/ActivityThread(29441): add activity client record, r= ActivityRecord{ca6ea7e token=android.os.BinderProxy@59ba2a {io.stockmind.app.qa/io.stockmind.app.qa.MainActivity}} token= android.os.BinderProxy@59ba2a
+10-25 21:21:00.835 I/HidataAppQoeP( 1903): foregroundUidAdd uid: 10302 name: io.stockmind.app.qa activity state: true
+10-25 21:21:00.846 I/UidCloseNrStateMachine( 1903): enter uidStateChanged, ForeGrountApp = io.stockmind.app.qa, mIsCallOn = false, mIsUsbPlugged = false
+10-25 21:21:52.417 I/HidataAppQoeP( 1903): foregroundUidRemove uid: 10302 name: io.stockmind.app.qa
+10-25 21:21:55.346 D/ActivityThread(29662): add activity client record, r= ActivityRecord{d1e102c token=android.os.BinderProxy@59ba2a {io.stockmind.app.qa/io.stockmind.app.qa.MainActivity}} token= android.os.BinderProxy@59ba2a
+10-25 21:21:55.366 I/HidataAppQoeP( 1903): foregroundUidAdd uid: 10302 name: io.stockmind.app.qa activity state: true
+10-25 21:21:55.373 I/UidCloseNrStateMachine( 1903): enter uidStateChanged, ForeGrountApp = io.stockmind.app.qa, mIsCallOn = false, mIsUsbPlugged = false
+10-25 21:22:01.340 I/HidataAppQoeP( 1903): foregroundUidRemove uid: 10302 name: io.stockmind.app.qa
+10-25 21:22:06.455 D/ActivityThread(29756): add activity client record, r= ActivityRecord{d1e102c token=android.os.BinderProxy@59ba2a {io.stockmind.app.qa/io.stockmind.app.qa.MainActivity}} token= android.os.BinderProxy@59ba2a
+10-25 21:22:06.475 I/HidataAppQoeP( 1903): foregroundUidAdd uid: 10302 name: io.stockmind.app.qa activity state: true
+10-25 21:22:06.481 I/UidCloseNrStateMachine( 1903): enter uidStateChanged, ForeGrountApp = io.stockmind.app.qa, mIsCallOn = false, mIsUsbPlugged = false
+10-25 21:22:32.792 I/HidataAppQoeP( 1903): foregroundUidRemove uid: 10302 name: io.stockmind.app.qa
+10-25 21:22:34.806 D/ActivityThread(29940): add activity client record, r= ActivityRecord{d1e102c token=android.os.BinderProxy@59ba2a {io.stockmind.app.qa/io.stockmind.app.qa.MainActivity}} token= android.os.BinderProxy@59ba2a
+10-25 21:22:34.830 I/HidataAppQoeP( 1903): foregroundUidAdd uid: 10302 name: io.stockmind.app.qa activity state: true
+10-25 21:22:34.833 I/UidCloseNrStateMachine( 1903): enter uidStateChanged, ForeGrountApp = io.stockmind.app.qa, mIsCallOn = false, mIsUsbPlugged = false
+10-25 21:22:38.274 I/HidataAppQoeP( 1903): foregroundUidRemove uid: 10302 name: io.stockmind.app.qa
+10-25 21:22:40.586 D/ActivityThread(30028): add activity client record, r= ActivityRecord{d1e102c token=android.os.BinderProxy@59ba2a {io.stockmind.app.qa/io.stockmind.app.qa.MainActivity}} token= android.os.BinderProxy@59ba2a
+10-25 21:22:40.609 I/HidataAppQoeP( 1903): foregroundUidAdd uid: 10302 name: io.stockmind.app.qa activity state: true
+10-25 21:22:40.613 I/UidCloseNrStateMachine( 1903): enter uidStateChanged, ForeGrountApp = io.stockmind.app.qa, mIsCallOn = false, mIsUsbPlugged = false
+10-25 21:22:57.645 I/HidataAppQoeP( 1903): foregroundUidRemove uid: 10302 name: io.stockmind.app.qa
+10-25 21:22:59.407 D/ActivityThread(30121): add activity client record, r= ActivityRecord{d1e102c token=android.os.BinderProxy@59ba2a {io.stockmind.app.qa/io.stockmind.app.qa.MainActivity}} token= android.os.BinderProxy@59ba2a
+10-25 21:22:59.428 I/HidataAppQoeP( 1903): foregroundUidAdd uid: 10302 name: io.stockmind.app.qa activity state: true
+10-25 21:22:59.433 I/UidCloseNrStateMachine( 1903): enter uidStateChanged, ForeGrountApp = io.stockmind.app.qa, mIsCallOn = false, mIsUsbPlugged = false
+10-25 21:23:19.148 D/ActivityThread(30121): add activity client record, r= ActivityRecord{7b24b97 token=android.os.BinderProxy@f830766 {io.stockmind.app.qa/com.google.android.gms.auth.api.signin.internal.SignInHubActivity}} token= android.os.BinderProxy@f830766
+10-25 21:23:24.816 D/ActivityThread(30121): Remove activity client record, r= ActivityRecord{7b24b97 token=android.os.BinderProxy@f830766 {io.stockmind.app.qa/com.google.android.gms.auth.api.signin.internal.SignInHubActivity}} token= android.os.BinderProxy@f830766
+10-25 21:26:22.268 I/HidataAppQoeP( 1903): foregroundUidRemove uid: 10302 name: io.stockmind.app.qa
+10-25 21:26:23.324 I/HidataAppQoeP( 1903): foregroundUidAdd uid: 10302 name: io.stockmind.app.qa activity state: true
+10-25 21:26:23.334 I/UidCloseNrStateMachine( 1903): enter uidStateChanged, ForeGrountApp = io.stockmind.app.qa, mIsCallOn = false, mIsUsbPlugged = false
+10-25 21:27:27.430 E/BufferQueueProducer( 661): [io.stockmind.app.qa/io.stockmind.app.qa.MainActivity#0]:1338: disconnect: not connected (req=1)
+10-25 21:27:27.435 I/HidataAppQoeP( 1903): foregroundUidRemove uid: 10302 name: io.stockmind.app.qa

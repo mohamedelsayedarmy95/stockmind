@@ -6,9 +6,9 @@
 > التصنيفات: `VERIFIED / PARTIAL / UNVERIFIED / BLOCKED / FAILED / DEFERRED`.
 
 > ## ⚠ المكان الرسمي لهذا الملف (ACTIVE CANONICAL)
-> **الفرع:** `hardening/series11-authorization-admission` — **المسار:** `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\STOCKMIND_AI_BRIDGE.md`
-> **الفرع ده superset من `feature/series10-scoped-access` (= Series 09 + Series 10) + تصليب Series 11 (أقفال السلطة، `CAPABILITY_MODE`، تصنيف shadow).**
-> **النسخ الأقدم غير سارية (stale):** على `feature/series10-scoped-access` (v1.6)، `feature/series09-access-foundation` (v1.5)، `design/series08-enterprise-blueprint` (v1.4)، `feature/series07-recovery-integrity` (v1.3)، `hardening/series06-release-safety` (v1.2)، `preflight/series05-rc-admission` (v1.1)، `integration/series04` (v1.0). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
+> **الفرع:** `feature/series12-standalone-qa` — **المسار:** `D:\Projects\StockMind-wt\series12-standalone-qa\docs\handoff\STOCKMIND_AI_BRIDGE.md`
+> **الفرع ده superset من `hardening/series11-authorization-admission` (= Series 09 + 10 + 11) + Series 12 (StockMind QA المستقل، حدود الأونلاين المحلي، سكربتات Dev/QA). صفر تغيير backend.**
+> **النسخ الأقدم غير سارية (stale):** على `hardening/series11-authorization-admission` (v1.7)، `feature/series10-scoped-access` (v1.6)، `feature/series09-access-foundation` (v1.5)، `design/series08-enterprise-blueprint` (v1.4)، `feature/series07-recovery-integrity` (v1.3)، `hardening/series06-release-safety` (v1.2)، `preflight/series05-rc-admission` (v1.1)، `integration/series04` (v1.0). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
 ---
 
 ## 00 — BRIDGE METADATA
@@ -16,19 +16,30 @@
 | البند | القيمة |
 |---|---|
 | المشروع | StockMind (inventory / WMS SaaS) |
-| إصدار الملف | **v1.7** (بعد Series 11 — تصليب تفويض السلطة قبل أي بروفة enforce) |
+| إصدار الملف | **v1.8** (بعد Series 12 — StockMind QA مستقل عن Metro + workflow Dev/QA) |
 | آخر تحديث | **2026-10-25 (التوقيت في الـ changelog قسم 11)** (Egypt Standard Time) |
-| الـ session | Claude Code Desktop، `claude-sonnet-5-5`. Series 07 وSeries 08 اتنفّذوا بتفويضين كاملين من الـ Director في رسائل مستقلة. مفيش identifiers حساسة. |
-| المرحلة الحالية | **Series 11 — Authorization Enforcement Admission: مكتملة — PASS للنطاق، الحكم: READY FOR NON-PRODUCTION ENFORCE REHEARSAL (مش إذن تفعيل).** الجهاز DEFERRED. الافتراضي لسه `CAPABILITY_MODE=shadow`، و`enforce` غير مفعّل في أي مكان. قبلها: Series 10 (S2)، 09، 08، 07. Production NO-GO. في انتظار قرارات الـ Director. |
+| الـ session | Claude Code Desktop، `claude-opus-5-5` (Mission 00 + Series 12). Series 07–12 اتنفّذوا بتفويضات Director كاملة في رسائل مستقلة. مفيش identifiers حساسة. |
+| المرحلة الحالية | **Series 12 — Developer Runtime Stability & Standalone QA: مكتملة — PASS للنطاق بحدود مكتوبة** (StockMind QA `io.stockmind.app.qa` مثبّت جنب التطبيق القديم على الـ Huawei، بيفتح من غير Metro/USB، أوفلاين شغال، أونلاين محلي اتجرّب). التطبيق القديم `io.stockmind.app` ما اتلمسش. الافتراضي `CAPABILITY_MODE=shadow`؛ `enforce` غير مفعّل. **Series 11 N-1/N-2 (Mission 00) مفتوحين.** Production NO-GO. في انتظار قرارات الـ Director. |
 | الحالة | ACTIVE |
-| Canonical | `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `hardening/series11-authorization-admission` |
+| Canonical | `D:\Projects\StockMind-wt\series12-standalone-qa\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `feature/series12-standalone-qa` |
 | Desktop mirror | `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_BRIDGE.md` (مطابق بالـ SHA-256) |
-| **Verified baseline (مؤشر Git)** | **آخر commit كود: `f0d9df1`** (F11-01/02/04/05..08 في `8f5bfe3`، اختبارات `399b91b`,`e17b6b8`,`b5251c4`، F11-09 في `f0d9df1`)، و**آخر commit مختبَر: `4547af9`** (= `f0d9df1` + أدلة فقط) وعليه اشتغلت كل الـ gates. أي commit بعده docs/evidence فقط — للتأكد: `git -C D:\Projects\StockMind-wt\series11-authorization-admission diff --name-only 4547af9 HEAD` (لازم كلها تحت `docs/`). الفرع من `7e695d8` (HEAD Series 10). الملف مبيقدرش يكتب hash الـ commit بتاعه. |
+| **Verified baseline (مؤشر Git)** | **آخر commit كود تطبيق: `8ca81fc`** (variant QA + حدود الأونلاين + سكربتات + 51 اختبار)؛ سكربتات بعده: `045b204`, `f2747d6`, `f8304bc`, `d63cfbe` (مالهاش أثر على الـ APK). **الـ APK المختبَر اتبنى من `f2747d6`** (كود التطبيق = `8ca81fc`)، SHA-256 `10b3fd473bf7d1fc4e4b612dcbb1b10397d8e63492ff438bde2a7aafaebc7213`. Mobile `tsc`/Jest على كود `8ca81fc`. أي commit بعد `d63cfbe` = docs/evidence فقط: `git -C D:\Projects\StockMind-wt\series12-standalone-qa diff --name-only d63cfbe HEAD` (لازم كلها تحت `docs/`). الفرع من `5902072` (HEAD Series 11). Backend: صفر تغيير من `4547af9`. |
 ---
 
 ## 01 — EXECUTIVE PROJECT STATUS
 
-### Series 11 (تصليب تفويض السلطة، كود + اختبارات) — الجديد
+### Series 12 (StockMind QA مستقل + workflow Dev/QA، موبايل + سكربتات) — الجديد
+- **التقرير:** `docs/handoff/SERIES_12_DEVELOPER_RUNTIME_REPORT.md`؛ **العقد:** `docs/handoff/SERIES_12_STANDALONE_QA_CONTRACT.md`؛ الأدلة: `docs/handoff/series12-evidence/` (فحص الـ APK، ledger الـ emulator، تشغيل الـ Huawei، negative controls، 10 لقطات)؛ الدليل للمستخدم: `docs/handoff/STOCKMIND_USER_MANUAL.md` (مُرآة على الـ Desktop).
+- **السبب الجذري (مُثبت على الجهاز نفسه):** StockMind المتثبّت على الـ Huawei = `app-debug.apk` بتاع يوليو بالـ SHA-256 (`ce960750…`)، DEBUGGABLE، من غير `index.android.bundle`، بمفتاح RN العام. بيحمّل الكود من Metro عبر `adb reverse`؛ من غيرهم "Cannot connect to Metro" / "Unable to load script". ده تصميم الـ debug build. `expo-dev-client` مش متثبّت أصلاً. `eas.json preview` لوحده مش حل (cloud، نفس الـ id بتوقيع تاني = لازم uninstall = ضياع بياناتك، URL الإنتاج، pinning مكسور).
+- **الحل:** variant **StockMind QA** = `io.stockmind.app.qa` release جنب التطبيق القديم: Hermes bundle مضمّن، مش debuggable، توقيع مفتاح QA محلي (DPAPI، خارج Git، البناء يفشل من غيره، أبداً مش مفتاح RN العام)، `app.config.js` + `plugins/with-stockmind-qa.js` (مفيش تعديل يدوي في `android/`). `app.json` والـ build الافتراضي **بدون تغيير**.
+- **حدود الأونلاين:** QA = علامتين build مستقلتين (bundle + app config مضمّن بالـ id)، وأونلاين بس لـ loopback/RFC 1918، أبداً host الإنتاج، مفيش رجوع لـ URL الإنتاج، cleartext لـ host واحد بس. Dev builds كمان ممنوع عليها host الإنتاج. Google Sign-In/FCM غير متاحين في QA.
+- **السكربتات (`mobile/scripts/`):** `qa-build` (prebuild clean → assembleRelease → فحص 21 بند إلزامي → artifacts + SHA-256)، `qa-inspect-apk`، `qa-install` (جهاز مسمّى، `install -r` بس، فحص ABI، مفيش uninstall/clear/downgrade)، `dev-metro`، `qa-backend-preflight` (`-RestoreReverse`)، `qa-local-backend` (shadow، بدون `.env`)، `qa-seed-synthetic`، `qa-signing-init`.
+- **الاختبارات:** Mobile `tsc` 0؛ Jest **22 suites / 359** (+51)؛ negative controls 10/10 أحمر؛ الـ APK المختبَر 21/21 فحص؛ Hermes bundle متطابق بالبايت بين بيلدين. Backend صفر تغيير (build نضيف 12/12 + تكامل حقيقي في Gate C).
+- **emulator Android 10 (معزول):** Gate A 10/10 cold + 5/5 warm؛ Gate B كامل (رفض صرف زيادة، process death، airplane، عربي RTL)؛ Gate C (Owner/Manager/Staff، التكلفة مش بتوصل لـ Manager/Staff، shadow ظاهر بصدق، انقطاع → طابور → تسليم مرة واحدة).
+- **الـ Huawei (بحضور وتفويض الـ Director):** QA اتثبّت جنب القديم (القديم بنفس سجله وتوقيعه)؛ Gate A: الـ Director 10/10 مع الـ USB مفصول، الـ log بيأكد 7 (صفر أخطاء)؛ Gate B: الـ Director كل الخطوات؛ Gate C: Staff دخول + W1 بس + استلام +2 مرة واحدة (53→55)، بعد تشخيص "مش قادرين نوصل للخادم" = قاعدة `adb reverse` اتشالت مع إعادة توصيل الـ USB (مش عيب كود).
+- **مفتوح:** Series 11 **N-1** (trigger آخر owner بياخد `companies FOR UPDATE` بعد أقفال الأعضاء) و**N-2** (`snapshot()` غير مرئي) — blockers قبل أي بروفة enforce. ملاحظات واجهة (أهمها "Current balance: 0" أونلاين لما الـ backend واقع).
+
+### Series 11 (تصليب تفويض السلطة، كود + اختبارات) — مرجع
 - **التقرير:** `docs/handoff/SERIES_11_AUTHORIZATION_HARDENING_REPORT.md`؛ **العقد:** `docs/handoff/SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md`؛ الأدلة: `docs/handoff/series11-evidence/` (إعادة إنتاج قبل الإصلاح، negative controls، أداء).
 - **F11-01 (مؤكَّد بإعادة إنتاج على كود Series 10):** منحة صلاحيات كانت بتعمل commit بعد ما سلطة الـ admin المانح اتسحبت بـ commit سابق (demote/suspend/remove + مسار legacy اللي مكانش بيعيد تفويض الـ actor أصلاً). **مصلّح:** بروتوكول أقفال عالمي (الـ actor shared + الهدف exclusive كمجموعة مرتبة بالـ id، company KEY SHARE، `lock_timeout` + `AUTHORITY_BUSY` 503)، الـ legacy وCP-4 بيعيدوا التفويض جوه الـ tx.
 - **اكتشافات إضافية مؤكدة:** F11-05 مفتاح القفل غير canonical (UUID كبير = قفل تاني)، F11-06 admin من شركة تانية بيتحبس خلف قفل عضو غريب، **F11-07 deadlock حقيقي بين كتابة مخزون وإجراء عضوية (500)**، F11-08 الـ legacy PUT كان بيسيب منح بنطاق بصمت (دلوقتي 409)، **F11-09 تجويع: suspend استنّى 9:45 د تحت كتابة متواصلة** (مصلّح: قفل عضوية عادل بدل `FOR UPDATE` على صف الشركة).
@@ -95,7 +106,8 @@
 
 ## 03 — CURRENT TASK
 
-- **المهمة المعتمدة (اكتملت): Series 11 — تصليب تفويض السلطة** (تفويض Director كامل في المحادثة): F11-01 إلغاء سلطة المانح، F11-02 تحقق `CAPABILITY_MODE`، F11-03 تغطية enforce، F11-04 دقة تصنيف shadow، والرجوع بين الأوضاع. **ممنوع كان:** Production/Neon، merge، AAB/Play، موديل خارجي/Council، أي تفاعل مع Huawei/adb، تفعيل enforce عالمياً، ميزات جديدة. **الحالة:** مكتملة؛ STOP بعدها (لا بروفة enforce ولا مرحلة تالية).
+- **المهمة المعتمدة (اكتملت): Series 12 — Developer Runtime Stability & Standalone QA Foundation** (تفويض Director كامل في المحادثة): تطبيق QA مستقل عن Metro/USB/الكمبيوتر، منفصل عن `io.stockmind.app`، workflow Dev منفصل، أونلاين محلي آمن، بوابات A–D، توثيق. **ممنوع كان:** Production/Neon، deploy، AAB/Play، cloud/EAS، تعديل أو مسح التطبيق القديم، enforce، ميزات جديدة، Council/موديل خارجي. الجهاز: بعد تأكيد الـ Director الصريح بخطة محددة فقط (حصل). **الحالة:** مكتملة؛ STOP بعدها. وقبلها **Mission 00** (تهيئة جلسة، قراءة فقط): كشفت N-1/N-2 (القسم 07).
+- **المهمة السابقة (اكتملت): Series 11 — تصليب تفويض السلطة** (تفويض Director كامل في المحادثة): F11-01 إلغاء سلطة المانح، F11-02 تحقق `CAPABILITY_MODE`، F11-03 تغطية enforce، F11-04 دقة تصنيف shadow، والرجوع بين الأوضاع. **ممنوع كان:** Production/Neon، merge، AAB/Play، موديل خارجي/Council، أي تفاعل مع Huawei/adb، تفعيل enforce عالمياً، ميزات جديدة. **الحالة:** مكتملة؛ STOP بعدها (لا بروفة enforce ولا مرحلة تالية).
 - **المهمة السابقة (اكتملت): Series 10 — S2.**
 - (تفصيل) Series 10: **S2 فقط** (تفويض Director كامل في المحادثة): capability profiles + scoped grants + `/me/capabilities` + تنقل متكيّف + CP-4 فوق Series 09، مع الحفاظ على معنى Manager العالمي و`warehouse_manager` كـ profile بنطاق، وحماية Owner/Admin، ورفض مالي افتراضي، وسلامة المخزون والـ offline والتعويض. **لم يُنفَّذ (بقرار):** موافقات، dashboard حي، عهدة متقدمة، محاسبة مالية. **قيود:** ممنوع أي تفاعل مع جهاز Huawei/adb، Production/Neon، merge، AAB/Play، خدمات مدفوعة، موديل خارجي/Council. **الحالة:** مكتملة؛ STOP بعدها.
 - **المهمة السابقة (اكتملت): Series 09 — S0 + S1 فقط.**
@@ -109,6 +121,8 @@
 ---
 
 ## 04 — CHANGES MADE
+
+**Series 12:** `c3eeb94` docs: نسخة الدليل القديم كما هي (قبل التصحيح). `8ca81fc` feat(mobile): `app.config.js`، `plugins/with-stockmind-qa.js`، `src/domain/build-variant.ts` (+test)، `qa-build-config.test.ts`، `lib/dev-flags.ts`، `api/client.ts`، كارت QA في Settings + شارة QA PREVIEW (login/mode)، i18n ar/en، `mobile/README.md`، `mobile/scripts/*` (8 سكربتات). `045b204` علامة dirty لـ `mobile/` بس. `f2747d6` المفتش يلاقي الـ network config باسمه المتقصّر. `f8304bc` الـ installer: فحص ABI + host من سجل البيلد. `d63cfbe` الـ preflight: `-RestoreReverse` + طرف الموبايل. ثم docs: التقرير، العقد، الأدلة، الدليل المصحّح، bridge v1.8، master. **migrations: صفر، backend: صفر، اعتماديات (`package*.json`): صفر.** تغييرات سلوك: Dev online ممنوع على host الإنتاج (كان مسموح لو اتكتب صراحة)؛ مفيش تغيير تاني للبيلد الافتراضي.
 
 **Series 11:** `8f5bfe3` fix(authz): `member-lock.ts` (lockMembers مرتبة، canonical، lockForAuthorityChange، authorityTransaction + AUTHORITY_BUSY)، `access-grant.service` / `team.service` (legacy) / `warehouse.service` (CP-4) / `membership.service`، `stock.service` (company key-share قبل قفل العضو)، `capabilities.constant` (CapabilityModeError + parse/validate)، `app.module` (+import-time check + ConfigModule validate)، `main.ts`، `shadow-classifier.ts` (جديد)، `capability.service` (CapabilityShadowService: observePermission/observeScope/incomplete)، `permissions.guard`، `warehouse-access.service`. `399b91b`,`e17b6b8`,`b5251c4` اختبارات (authority-linearization 27، classifier 17، mode 23، shadow.service 13، enforce-coverage 10، member-lock 8، lock-order 2، + rollback في capability-shadow.pg). `f0d9df1` fix F11-09 (قفل عضوية عادل) + `authority-lock-perf`. `4547af9` أدلة. ثم التقرير والعقد والـ handoff. **migrations: صفر (12 إجمالاً)، اعتماديات: صفر، mobile: صفر.** تغييرات سلوك ظاهرة: invalid `CAPABILITY_MODE` = رفض إقلاع؛ 503 `AUTHORITY_BUSY` بدل 500 عند تعارض أقفال؛ legacy PUT بيرفض بـ 409 `SCOPED_GRANTS_PRESENT`؛ `GET /team/members/:id/access` بيرجّع `effective` لكل تعيين.
 
@@ -132,6 +146,19 @@
 ---
 
 ## 05 — TESTS & VERIFICATION
+
+**Series 12 (كود تطبيق `8ca81fc`؛ APK من `f2747d6`؛ synthetic فقط):**
+
+| الفحص | النتيجة |
+|---|---|
+| Mobile `tsc` / Jest | 0 / **22 suites، 359 tests** (+51) |
+| Negative controls (حدود QA) | 10/10 أحمر |
+| بيلد APK محلي (release، بدون AAB/cloud) | 4 محاولات؛ المختبَر `stockmind-qa-428472-f2747d6.apk` = 21/21 فحص (id، label، مش debuggable، Hermes bundle، config مضمّن من غير URL إنتاج، activity، cleartext host واحد، توقيع QA ≠ مفتاح RN العام)؛ bundle متطابق بالبايت بين بيلدين |
+| emulator Android 10 | Gate A 10/10 cold (675–790 ms) + 5/5 warm + swipe-away، صفر أخطاء؛ Gate B كامل؛ Gate C كامل (3 أدوار، تكلفة، shadow، انقطاع/طابور/تسليم مرة واحدة) |
+| **Huawei JSN-L22 (Android 10)** | تثبيت جنب القديم (القديم بنفس سجله)؛ Gate A: Director 10/10 USB مفصول، log 7 فتحات نضيفة؛ Gate B: Director كل الخطوات؛ Gate C: Staff دخول/W1/استلام +2 مرة واحدة |
+| Backend | صفر تغيير؛ build نضيف 12/12؛ إقلاع shadow على `stockmind_qa_local`؛ ما اتعادتش suites الـ PG |
+
+**ما لم يُختبر في Series 12:** بصمة على الجهاز (ما ظهرتش)، Owner/Manager وتسلسل الانقطاع على الجهاز، قفل الكمبيوتر فعلياً، جهازين، iOS، Google Sign-In/FCM في QA.
 
 **Series 11 (كود: آخر commit مختبَر `4547af9`، PostgreSQL 15.19 مؤقتة على 127.0.0.1:55433، بيانات synthetic):**
 
@@ -205,6 +232,7 @@
 
 ## 06 — GIT & ENVIRONMENT STATE
 
+- **Series 12:** الفرع `feature/series12-standalone-qa` (worktree `D:\Projects\StockMind-wt\series12-standalone-qa`) من `5902072`؛ الرفع (بدون force) في الرد النهائي. `mobile/node_modules` **نسخة حقيقية** (robocopy من `series04-integration`، نفس الـ lockfile)؛ backend `node_modules` junction على `shared-warehouse`. `mobile/android/` متولّد لـ QA (git-ignored، علامة `.stockmind-variant`). أدوات محلية جديدة: `_local-tools\qa-signing\` (مفتاح QA + كلمة سر DPAPI — **خذ نسخة احتياطية**)، `_local-tools\artifacts\stockmind-qa\` (APKs + سجلات + `latest.json`)، لوجات `_local-tools\logs\s12-*`. Android SDK: اتثبّت NDK 26.1.10909125 (sdkmanager) وGradle نزّل NDK 25.1.8937393 (رخصة موجودة من قبل)، و`system-images;android-29;default;x86_64` + AVD `stockmind_qa_api29`. خدمات شغالة وقت كتابة الـ bridge: PostgreSQL 55433، backend مؤقت `:3000` (`stockmind_qa_local`، shadow)، `adb reverse tcp:3000` على الـ Huawei. **Huawei:** عليه `io.stockmind.app` (ما اتلمسش) + `io.stockmind.app.qa`.
 - **Series 11:** الفرع `hardening/series11-authorization-admission` (worktree `D:\Projects\StockMind-wt\series11-authorization-admission`) من `7e695d8`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin hardening/series11-authorization-admission`). `node_modules` junctions (backend على `shared-warehouse`، mobile على `series04-integration`). PostgreSQL المؤقت (55433) لسه شغّال بقواعد scratch `stockmind_gate_s11_*`. Huawei/adb: **ما اتلمسوا**. `freellmapi` ECONNREFUSED (ما استُخدم). ما اتعدّلش أي worktree تاني (نسخة اختبار مؤقتة اتحطت في worktree Series 10 واتمسحت؛ نضيف).
 - **Series 10:** الفرع `feature/series10-scoped-access` (worktree `D:\Projects\StockMind-wt\series10-scoped-access`) من `d24719d`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin feature/series10-scoped-access`). PostgreSQL المؤقت (55433) لسه شغّال بقواعد scratch `stockmind_gate_s10_*`. Huawei/adb: **ما اتلمسوا**. `freellmapi` ECONNREFUSED (ما استُخدم).
 - **Series 09:** الفرع `feature/series09-access-foundation` (worktree `D:\Projects\StockMind-wt\series09-access-foundation`) من `af7f61f`؛ الرفع (بدون force) في الرد النهائي (`git ls-remote --heads origin feature/series09-access-foundation`). `node_modules` junctions على `shared-warehouse` (mobile: نفس الفكرة؛ كفاية لـ tsc/Jest، مش لـ Metro). PostgreSQL المؤقت (55433) **لسه شغّال** بقواعد scratch `stockmind_gate_s09_*`. Huawei: **ما اتلمسش**.
@@ -223,6 +251,25 @@
 ---
 
 ## 07 — RISKS, BUGS & DEFERRED WORK  (Series 11: التقرير §13–14؛ Series 10: تقريره §10)
+
+**مفتوح من Mission 00 (Series 11، لم يُصلَح — blockers قبل أي بروفة enforce):**
+
+| # | الخطورة | التصنيف | الوصف |
+|---|---|---|---|
+| **N-1** | متوسطة-منخفضة | PLAUSIBLE (قراءة كود، بدون repro) | الـ trigger `users_guard_last_owner` (`1792600000000`) بياخد `companies FOR UPDATE` عند suspend/remove لـ owner نشط **بعد** أقفال الأعضاء — عكس العقد §2: deadlock محتمل مع كتابة نفس الـ owner، وتجويع محدود (10s → `AUTHORITY_BUSY`) |
+| **N-2** | متوسطة (للبروفة) | CONFIRMED | `CapabilityShadowService.snapshot()` مالوش أي caller؛ `incomplete` مش بيتسجّل → بوابة §15 "0 incomplete" مش قابلة للقياس برّه الـ process |
+| N-3 | منخفضة | CONFIRMED | الموبايل مش بيعرف `AUTHORITY_BUSY`/`SCOPED_GRANTS_PRESENT` (رسالة عامة) |
+| N-4 | منخفضة | PLAUSIBLE | `enforce-coverage.spec` بيقارن عناوين بس |
+
+**مخاطر Series 12:**
+
+| # | الخطورة | الوصف | الإجراء |
+|---|---|---|---|
+| R-34 | منخفضة | QA أونلاين على `127.0.0.1` محتاج USB، وكل إعادة توصيل USB بتشيل `adb reverse` (حصل فعلاً) | `qa-backend-preflight -RestoreReverse`؛ أو بيلد LAN |
+| R-35 | منخفضة | ABIs جزئية (`armeabi-v7a`/`x86` = 50/56) | الـ installer بيرفض جهاز هيحمّل ABI ناقص؛ الـ Huawei arm64 |
+| R-36 | متوسطة | ضياع مفتاح QA أو DPAPI (reinstall ويندوز) = QA جديد مايتثبّتش كتحديث → لازم uninstall QA (بيانات QA بس) | نسخة احتياطية من `_local-tools\qa-signing\` (قرار Director) |
+| R-37 | منخفضة-متوسطة | "Current balance: 0" في شاشة الاستلام الأونلاين لما الـ backend واقع (القيمة الحقيقية مجهولة) — مخالفة لمبدأ الحالة الصادقة (قائم قبل Series 12) | milestone تصليب |
+| R-38 | منخفضة | Google Sign-In/FCM غير متاحين في QA؛ Node 26 مش مدعوم رسمياً مع SDK 51؛ `SYSTEM_ALERT_WINDOW` في الـ manifest (قائم) | موثّق |
 
 **مخاطر Series 11 المتبقية:**
 
@@ -302,6 +349,8 @@
 
 ## 08 — DIRECTOR APPROVALS REQUIRED
 
+**أولاً — بعد Series 12:** (1) مراجعة نتيجة Series 12؛ (2) نسخة احتياطية لمفتاح QA (`_local-tools\qa-signing\`) — وين؟؛ (3) تفويض milestone تصليب لـ N-1/N-2 + "Current balance: 0" (التوصية)؛ (4) هل StockMind QA يفضل بيلد أونلاين `127.0.0.1` (USB) ولا بيلد LAN؟؛ (5) مصير التطبيق القديم `io.stockmind.app` (يفضل زي ما هو؛ أي تحديث له بيلد debug بنفس المفتاح = قرار منفصل)؛ (6) قيمة `AUTHORITY_LOCK_TIMEOUT_MS` وبنود Series 11 أدناه لسه قائمة.
+
 **أولاً — بعد Series 11:** (1) مراجعة نتيجة Series 11 وحكم القبول؛ (2) هل تفوّض **بروفة shadow ثم enforce على نسخة بيانات غير إنتاجية** وفق §15 من التقرير (لا Neon/Production)؟ (3) قيمة `AUTHORITY_LOCK_TIMEOUT_MS`؛ (4) **اختبار جهاز** لـ Series 09–11 بحضورك؛ (5) تنفيذ R-18/R-19 (محجوبين على Production)؛ (6) قرار `item.set_cost`. **مفيش حاجة من دي بتفعّل enforce.**
 
 **أولاً — بعد Series 10:** (1) مراجعة نتيجة Series 10 وتحديد التالي (قسم 09)؛ (2) **تفويض اختبار جهاز** لـ Series 09 + 10 (بحضورك فيزيائياً)؛ (3) **تفويض بروفة shadow** على نسخة بيانات **غير إنتاجية** قبل أي قرار `enforce`؛ (4) قرار تفعيل `enforce` (لم يُطلب)؛ (5) تنفيذ R-18/R-19 (محجوبين على Production)؛ (6) تقييم `item.set_cost` وصلاحية مالية بنطاق مخزن (قرار منتج).
@@ -327,7 +376,11 @@
 
 ## 09 — NEXT RECOMMENDED ENGINEERING TASK  (توصية فقط — مش مُصرَّح بها)
 
-### التوصية الحالية (بعد Series 11): **بروفة shadow ثم enforce على نسخة بيانات غير إنتاجية (بتفويضك) + اختبار جهاز لـ Series 09–11 بحضورك**
+### التوصية الحالية (بعد Series 12): **milestone تصليب: Series 11 N-1 (repro حتمي ثم إصلاح trigger آخر owner) + N-2 (طريقة مقروءة للـ shadow snapshot) + N-3 + "Current balance: 0"**
+- كل حاجة تتجرّب على StockMind QA على الـ Huawei (workflow Series 12) + PG المؤقت. بعدها بروفة shadow/enforce غير إنتاجية (synthetic أولاً).
+- **مش مُصرَّح؛ محتاج أمرك.** لا Production/Neon/AAB/merge.
+
+### توصية سابقة (بعد Series 11): **بروفة shadow ثم enforce على نسخة بيانات غير إنتاجية (بتفويضك) + اختبار جهاز لـ Series 09–11 بحضورك** — الجهاز اتعمل جزئياً في Series 12؛ البروفة مستنية N-1/N-2
 - الشروط والبوابات: تقرير Series 11 §15 (0 unexpected / 0 errors / 0 incomplete في shadow، قياس زمن على قاعدة بعيدة، تمرين رجوع، سحب تحت حمل).
 - **مش مُصرَّح؛ محتاج أمرك.** لا Production/Neon/AAB/merge.
 - بديل ميزة: S3 (بيانات المساءلة + `domain_events`) — لكن بعد البروفة أنسب.
@@ -364,7 +417,23 @@
 
 ## 10 — MESSAGE FOR CHATGPT
 
-### رسالة Series 11 (الحالية)
+### رسالة Series 12 (الحالية)
+
+**اللي حصل:** الـ Director عمره ما قدر يفتح StockMind لوحده لأن المتثبّت debug build من غير bundle (مُثبت على الجهاز بالـ SHA-256). عملنا **StockMind QA** (`io.stockmind.app.qa`) release مستقل جنب القديم، بتوقيع QA محلي وحدود أونلاين محلية بعلامتين، وسكربتات build/inspect/install/metro/preflight/backend/seed. اتجرّب على emulator Android 10 (A/B/C كاملين) وعلى الـ Huawei بحضور الـ Director (تثبيت جنب القديم، فتح من غير USB، أوفلاين، Staff أونلاين). Backend صفر تغيير. Jest 359.
+
+**نقاط ضعف للمراجعة (اختبرها ضد الكود):**
+1. **حد QA على build-time markers** (env في الـ bundle + app config مضمّن). حد ده كافي ولا محتاج signature check وقت التشغيل؟
+2. **QA بيتخطى الـ pinned transport** بشرط host خاص فقط؛ والـ release العادي pinning بتاعه مكسور أصلاً (placeholders + موديول مستبعد).
+3. **ABIs جزئية** والحل حاجز في الـ installer مش بيلد كامل.
+4. **مفتاح QA بـ DPAPI**: ضياع = uninstall QA.
+5. **Gate A على الجهاز:** الـ log أكّد 7 من 10؛ الكمبيوتر اتفصل مش اتقفل؛ Gate B ملاحظات Director.
+6. **Mission 00 N-1/N-2 لسه مفتوحين.**
+
+**أسئلة تحسمها:** هل نصلّح N-1/N-2 قبل أي حاجة؟ هل QA build-time boundary مقبول؟ هل نبني كل الـ ABIs؟ هل "Current balance: 0" يتصلّح في نفس الـ milestone؟
+
+**في الـ prompt التنفيذي القادم ضمّن:** الفرع الأساسي `feature/series12-standalone-qa`، وقاعدة الجهاز (حضور + خطة محددة)، واستخدام StockMind QA للاختبار اليدوي.
+
+### رسالة Series 11 (للمرجع)
 
 **اللي حصل:** مراجعتك لـ Series 10 كانت صح: **F11-01 اتأكد** بإعادة إنتاج حتمية على الكود القديم (منحة بتعمل commit بعد سحب سلطة المانح، وفي الـ legacy حتى من غير فحص actor). اتصلح ببروتوكول أقفال مرتب (actor shared + target exclusive، ترتيب id، company key-share، مهلة + `AUTHORITY_BUSY`). كمان القياس كشف **تجويع** (suspend استنّى ~10 دقايق تحت كتابة متواصلة) و**deadlock** كتابة/عضوية — الاتنين اتصلحوا. `CAPABILITY_MODE` غلط = رفض إقلاع. shadow بيصنّف expected بدقة (grant نشط على نفس المخزن والـ capability). تغطية enforce كاملة ما عدا fixture إنتاجي مجمّد بديله مُلزَم بعناوينه. Backend ×3: 64/560؛ enforce: 63/552؛ mobile 308.
 
@@ -479,17 +548,22 @@
 
 ---
 
+- **2026-10-25 (بعد v1.7) — v1.8:** Mission 00 (تهيئة، قراءة فقط: N-1..N-4) ثم نهاية Series 12 (StockMind QA المستقل). نقل المكان الرسمي إلى `feature/series12-standalone-qa` (كود تطبيق `8ca81fc`، سكربتات حتى `d63cfbe`، APK مختبَر من `f2747d6` SHA-256 `10b3fd47…aebc7213`). السبب الجذري مُثبت على الجهاز؛ QA `io.stockmind.app.qa` جنب القديم (القديم ما اتلمسش)؛ emulator A/B/C كامل؛ Huawei: تثبيت + فتح بدون USB + أوفلاين + Staff أونلاين؛ Jest 359؛ backend صفر تغيير. الحكم: PASS للنطاق بحدود مكتوبة. النسخ على Series 11 وأقدم stale. Production NO-GO. enforce غير مفعّل.
+
+---
+
 ## 12 — SOURCE-OF-TRUTH REFERENCES
 
 **Series 08 (حزمة المنتج والمعمارية — فهرس: `docs/product/README.md`):** `docs/product/STOCKMIND_PRODUCT_BIBLE_V2.md` · `STOCKMIND_CODE_TO_CAPABILITY_GAP_MATRIX.md` · `STOCKMIND_ORGANIZATION_RBAC_SPEC.md` · `STOCKMIND_MOVEMENT_GOVERNANCE_SPEC.md` · `STOCKMIND_ENTERPRISE_UX_BLUEPRINT.md` · `STOCKMIND_ARCHITECTURE_DECISIONS.md` · `STOCKMIND_IMPLEMENTATION_ROADMAP.md` (كلها تحت `D:\Projects\StockMind-wt\series08-enterprise-blueprint\`). **المسارات في الجدول أدناه (Series 07) كانت بجذر worktree الـ Series 07؛ الملفات نفسها موجودة بنفس المسار النسبي داخل worktree الـ Series 08.**
 
 | الموضوع | المسار |
 |---|---|
-| **Series 11 — تقرير / عقد / أدلة** | `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\SERIES_11_AUTHORIZATION_HARDENING_REPORT.md` · `SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md` · `series11-evidence\` (before-fix-reproduction، negative-controls، authority-lock-perf.json، s2-perf-rerun.json) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s11_*.log` |
+| **Series 12 — تقرير / عقد / أدلة / دليل** | `D:\Projects\StockMind-wt\series12-standalone-qa\docs\handoff\SERIES_12_DEVELOPER_RUNTIME_REPORT.md` · `SERIES_12_STANDALONE_QA_CONTRACT.md` · `series12-evidence\` (apk-inspection، emulator-gate-ledger، huawei-device-run، negative-controls، screenshots) · `STOCKMIND_USER_MANUAL.md` · سكربتات: `mobile\scripts\` · APKs: `D:\Projects\StockMind-wt\_local-tools\artifacts\stockmind-qa\` · لوجات `_local-tools\logs\s12-*` |
+| Series 11 — تقرير / عقد / أدلة (مرجع) | `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\SERIES_11_AUTHORIZATION_HARDENING_REPORT.md` · `SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md` · `series11-evidence\` (before-fix-reproduction، negative-controls، authority-lock-perf.json، s2-perf-rerun.json) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s11_*.log` |
 | Series 10 — تقرير / عقد / أدلة (مرجع) | `D:\Projects\StockMind-wt\series10-scoped-access\docs\handoff\SERIES_10_SCOPED_ACCESS_REPORT.md` · `SERIES_10_CAPABILITY_AUTHORIZATION_CONTRACT.md` · `series10-evidence\` (negative controls، perf، gate summary) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s10_*.log` |
 | Series 09 — تقرير / عقد / أدلة (مرجع) | `D:\Projects\StockMind-wt\series09-access-foundation\docs\handoff\SERIES_09_ACCESS_FOUNDATION_REPORT.md` · `SERIES_09_AUTHORIZATION_AND_PRIVACY_CONTRACT.md` · `series09-evidence\` (before/after، negative controls، gate summary، perf) · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s09_*.log` |
-| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series11-authorization-admission\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
-| تعليمات الـ agents | `D:\Projects\StockMind-wt\series11-authorization-admission\AGENTS.md` |
+| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series12-standalone-qa\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
+| تعليمات الـ agents | `D:\Projects\StockMind-wt\series12-standalone-qa\AGENTS.md` |
 | تقرير Series 07 | `...\series07-recovery-integrity\docs\handoff\SERIES_07_RECOVERY_INTEGRITY_REPORT.md` |
 | عقد Series 07 (API، transaction، ضمانات، trust model) | `...\docs\handoff\SERIES_07_RECOVERY_CONTRACT.md` |
 | أدلة Series 07 (جهاز، gates، negative controls) | `...\docs\handoff\series07-evidence\` · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s07_*.log` · لقطات كاملة: `_local-tools\evidence-s07\` |

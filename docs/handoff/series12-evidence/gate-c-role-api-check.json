@@ -1,0 +1,73 @@
+﻿{
+ "owner": {
+  "products": [
+   {
+    "name": "QA Oil 1L (synthetic)",
+    "hasCostPriceKey": true,
+    "costPrice": "40.00"
+   },
+   {
+    "name": "QA Rice 5kg (synthetic)",
+    "hasCostPriceKey": true,
+    "costPrice": "25.50"
+   }
+  ],
+  "warehouses": [
+   "W2 QA Giza (synthetic)",
+   "W1 QA Cairo (synthetic)"
+  ],
+  "engine": {
+   "mode": "shadow",
+   "enforced": false,
+   "version": 1
+  },
+  "teamMembersStatus": 200
+ },
+ "manager": {
+  "products": [
+   {
+    "name": "QA Oil 1L (synthetic)",
+    "hasCostPriceKey": false,
+    "costPrice": null
+   },
+   {
+    "name": "QA Rice 5kg (synthetic)",
+    "hasCostPriceKey": false,
+    "costPrice": null
+   }
+  ],
+  "warehouses": [
+   "W2 QA Giza (synthetic)",
+   "W1 QA Cairo (synthetic)"
+  ],
+  "engine": {
+   "mode": "shadow",
+   "enforced": false,
+   "version": 1
+  },
+  "teamMembersStatus": 403
+ },
+ "staff": {
+  "products": [
+   {
+    "name": "QA Oil 1L (synthetic)",
+    "hasCostPriceKey": false,
+    "costPrice": null
+   },
+   {
+    "name": "QA Rice 5kg (synthetic)",
+    "hasCostPriceKey": false,
+    "costPrice": null
+   }
+  ],
+  "warehouses": [
+   "W1 QA Cairo (synthetic)"
+  ],
+  "engine": {
+   "mode": "shadow",
+   "enforced": false,
+   "version": 1
+  },
+  "teamMembersStatus": 403
+ }
+}
