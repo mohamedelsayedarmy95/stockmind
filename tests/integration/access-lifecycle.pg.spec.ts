@@ -156,6 +156,18 @@ interface Member { id: string; email: string; password: string; token: string; r
     expect(history.map((e: { eventType: string }) => e.eventType)).toEqual(['reactivate', 'suspend']); // newest first
   });
 
+  it('status is enforced on its own: a member suspended directly in SQL (no version bump) is refused on the next request', async () => {
+    const staff = await join('Staff');
+    await http().get('/api/v1/products').set(auth(staff.token)).expect(200);
+    await db.query(`UPDATE users SET status = 'suspended' WHERE id = $1`, [staff.id]); // an operator's change, token_version untouched
+    expect((await rowOf(staff.id)).token_version).toBe(0);
+    const denied = await http().get('/api/v1/products').set(auth(staff.token));
+    expect(denied.status).toBe(401);
+    expect(denied.body.code).toBe('ACCESS_REVOKED');
+    await db.query(`UPDATE users SET status = 'active' WHERE id = $1`, [staff.id]);
+    await http().get('/api/v1/products').set(auth(staff.token)).expect(200); // and honoured symmetrically when lifted
+  });
+
   it('an idempotent retry of an earlier write from a suspended member is refused, not replayed', async () => {
     const staff = await join('Staff');
     const key = randomUUID();
