@@ -14,11 +14,14 @@ type Runner = { query: (sql: string, params?: unknown[]) => Promise<any> };
  * FOR UPDATE can wait indefinitely behind new FOR SHARE lockers). Callers still lock the member row afterwards, so a plain
  * SQL change of the row is respected too.
  *
- * LOCK ORDER (global; documented in SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md):
- *   0. (membership actions only) the fair per-company membership lock: they must not interleave (the last-owner rule counts owners),
+ * LOCK ORDER (global; documented in SERIES_11_ENFORCEMENT_ADMISSION_CONTRACT.md, amended by SERIES_13_CONCURRENCY_AND_TELEMETRY_CONTRACT.md):
+ *   0. (membership actions only) the fair per-company membership lock: they must not interleave (the last-owner rule counts owners;
+ *      the database guard takes the same key, see lockCompanyMembership),
+ *   0b. (taking a seat only: reactivating a REMOVED member, accepting an invitation) the fair per-company seat lock,
  *   1. the company row. FOR KEY SHARE / FOR SHARE for everything that writes under the company (grants, stock writes, replacements);
- *      FOR UPDATE only for the recovery rotation and for taking a seat (reactivating a REMOVED member, accepting an invitation).
- *      NEVER FOR UPDATE for urgent actions: it is not fair against a stream of key-shares, so it can starve (see below),
+ *      FOR UPDATE only for the recovery rotation (it must exclude every write).
+ *      NEVER FOR UPDATE for anything else: it is not fair against a stream of key-shares, so it starves for as long as the stream
+ *      lasts, and lock_timeout does NOT bound that (each new key-share restarts the wait; measured in Series 13),
  *   2. the member locks of EVERY member the transaction involves, acquired together, in ascending canonical id order
  *      (`lockMembers`), each in the strongest mode the transaction needs: exclusive for a member whose authority it changes,
  *      shared for a member whose authority it relies on. A transaction never upgrades shared to exclusive,
@@ -64,9 +67,21 @@ export async function lockMembers(runner: Runner, requests: readonly MemberLockR
 /**
  * Serializes the membership actions of ONE company (they must not interleave: the last-owner rule counts owners). A fair
  * advisory lock, taken by membership actions only and always FIRST in their transaction, so it cannot take part in a cycle.
+ * The database guard `users_guard_last_owner` (migration 1792620000000) takes the SAME key when an owner's seat changes: a
+ * re-entrant no-op inside a membership action, and the serialization point for a direct SQL change. Keep the key text in
+ * step with that migration.
  */
 export async function lockCompanyMembership(runner: Runner, companyId: string): Promise<void> {
   await runner.query(`SELECT pg_advisory_xact_lock(hashtextextended('stockmind:company-members:' || $1::uuid::text, 0))`, [companyId]);
+}
+
+/**
+ * Serializes the actions that TAKE A SEAT in one company (the seat count must not be read by two of them at once): accepting
+ * an invitation and reactivating a REMOVED member. A fair advisory lock instead of the company row FOR UPDATE that Series 07–12
+ * used, which starved behind a stream of writes. Taken after the membership lock (step 0) and before anything else.
+ */
+export async function lockCompanySeats(runner: Runner, companyId: string): Promise<void> {
+  await runner.query(`SELECT pg_advisory_xact_lock(hashtextextended('stockmind:company-seats:' || $1::uuid::text, 0))`, [companyId]);
 }
 
 /** Step 1 of the order for a writer that is not changing the company row itself (a FK to companies would take it anyway). */

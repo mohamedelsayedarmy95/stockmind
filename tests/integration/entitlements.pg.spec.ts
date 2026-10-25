@@ -87,7 +87,7 @@ const password = () => `Aa1!${randomBytes(8).toString('hex')}`;
     expect((await invite(c, 3).expect(402)).body.message).toMatch(/seats/);
   });
 
-  it('concurrent acceptances cannot exceed the seats (the company row lock serializes them)', async () => {
+  it('concurrent acceptances cannot exceed the seats (the company seat lock serializes them)', async () => {
     enforce(true);
     const c = await company();
     await grant(c.companyId, 'business'); // invite three while seats allow it
@@ -98,6 +98,30 @@ const password = () => `Aa1!${randomBytes(8).toString('hex')}`;
     expect(results.map((r) => r.status).sort()).toEqual([201, 201, 402]);
     const [{ n }] = await db.query(`SELECT count(*)::int AS n FROM users WHERE company_id = $1`, [c.companyId]);
     expect(n).toBe(3);
+  });
+
+  it('an acceptance and the reactivation of a REMOVED member racing for the last seat: exactly one takes it (Series 13)', async () => {
+    enforce(true);
+    const c = await company();
+    await grant(c.companyId, 'business');
+    const join = async (n: number) => {
+      const token = (await invite(c, n).expect(201)).body.token as string;
+      return (await http().post('/api/v1/auth/accept-invitation').send({ token, name: `M${n}`, password: password() }).expect(201)).body.user.id as string;
+    };
+    const m1 = await join(1);
+    await join(2);
+    await http().post(`/api/v1/team/members/${m1}/remove`).set(auth(c.token)).send({ confirm: true }).expect(200);
+    const pending = (await invite(c, 3).expect(201)).body.token as string;
+    await grant(c.companyId, 'pro'); // 3 seats: the owner and M2 hold two, one is left
+    const [reactivated, accepted] = await Promise.all([
+      http().post(`/api/v1/team/members/${m1}/reactivate`).set(auth(c.token)).send({}),
+      http().post('/api/v1/auth/accept-invitation').send({ token: pending, name: 'M3', password: password() }),
+    ]);
+    const won = [reactivated.status === 200, accepted.status === 201];
+    expect(won.filter(Boolean).length).toBe(1); // exactly one took the seat
+    expect(won[0] ? accepted.status : reactivated.status).toBe(402); // the other was refused for the seat, not for anything else
+    const [{ n }] = await db.query(`SELECT count(*)::int AS n FROM users WHERE company_id = $1 AND status <> 'removed'`, [c.companyId]);
+    expect(n).toBe(3); // never 4
   });
 
   it('read-only and expired plans stop growth but never hide existing stock', async () => {

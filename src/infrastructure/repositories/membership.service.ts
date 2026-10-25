@@ -10,7 +10,7 @@ import { DataSource } from 'typeorm';
 import { AuditLogService } from '../audit/audit-log.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { AccessGrantService } from './access-grant.service';
-import { authorityTransaction, lockCompanyMembership, lockMembers } from '../security/member-lock';
+import { authorityTransaction, lockCompanyMembership, lockCompanySeats, lockMembers } from '../security/member-lock';
 import {
   decideMembershipAction,
   MEMBERSHIP_ERROR_STATUS,
@@ -35,7 +35,8 @@ interface Row {
 
 /**
  * Applies a membership action (suspend, reactivate, remove, role change, revoke sessions) in ONE transaction:
- *   1. the company row is locked (serializes concurrent membership changes of the company, and with it the owner count);
+ *   1. the fair per-company membership lock is taken (serializes concurrent membership changes of the company, and with it
+ *      the owner count; the last-owner trigger takes the same lock, so it never waits for anything here);
  *   2. the actor and the target are locked and re-read INSIDE the transaction, so the decision is made on committed truth;
  *   3. the pure policy decides; the row is updated (and token_version bumped / refresh hash cleared when it must);
  *   4. a membership_events row records who did what to whom and why.
@@ -65,15 +66,16 @@ export class MembershipService {
       change = await authorityTransaction(this.dataSource, async (m) => {
         // Membership actions of one company are serialized by a FAIR advisory lock (it protects the owner count), NOT by the
         // company row: a FOR UPDATE on that row waits for every overlapping stock write's key-share and, under a sustained
-        // stream of writes, never gets it (measured in Series 11: a suspension starved for minutes). Only a reactivation of a
-        // REMOVED member needs the company row (it takes a seat, which invitation acceptance also serializes on).
+        // stream of writes, never gets it (measured in Series 11: a suspension starved for minutes). A reactivation of a
+        // REMOVED member also takes a seat: it serializes with invitation acceptance on the fair seat lock (Series 13; it
+        // used the company row FOR UPDATE, which starved the same way and was not bounded by lock_timeout).
         await lockCompanyMembership(m, companyId);
         // The other company's member and a missing id answer the same 404 BEFORE any member lock is taken, so a foreign
         // administrator can neither queue behind nor delay a member of this company.
         const [pre] = await m.query(`SELECT status FROM users WHERE id = $1 AND company_id = $2`, [targetId, companyId]);
         if (!pre) throw new NotFoundException('Member not found');
         // (every other writer of `status` is a membership action, so it cannot change under us now)
-        if (action === 'reactivate' && pre.status === MemberStatus.REMOVED) await m.query(`SELECT 1 FROM companies WHERE id = $1 FOR UPDATE`, [companyId]);
+        if (action === 'reactivate' && pre.status === MemberStatus.REMOVED) await lockCompanySeats(m, companyId);
         // The actor's authority is relied on (shared) and the target's is changed (exclusive): both locks as one ordered set
         // (member-lock.ts), so this action is ordered against any grant or write that relies on either of them.
         await lockMembers(m, [{ userId: actorId, mode: 'shared' }, { userId: targetId, mode: 'exclusive' }]);
@@ -181,9 +183,12 @@ export class MembershipService {
         default: return new ConflictException(body);
       }
     }
-    // The database trigger is the backstop for the same rule, e.g. if a concurrent path ever bypassed the policy.
+    // The database trigger is the backstop for the same rules, e.g. if a concurrent path ever bypassed the policy.
     if (err instanceof Error && /last_active_owner/.test(err.message)) {
       return new ConflictException({ code: 'LAST_OWNER', message: 'The last active owner cannot be suspended, removed or demoted' });
+    }
+    if (err instanceof Error && /owner_requires_admin_role/.test(err.message)) {
+      return new ConflictException({ code: 'INVALID_TRANSITION', message: 'An owner keeps the Admin role; ownership is not transferred in this release' });
     }
     return err instanceof Error ? err : new Error(String(err));
   }

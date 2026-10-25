@@ -86,7 +86,7 @@ export class EntitlementsService {
     }
   }
 
-  /** At acceptance, inside its transaction (the company row is locked by the caller): a free seat for this member. */
+  /** At acceptance or reactivation, inside its transaction (the caller holds the company seat lock): a free seat for this member. */
   async assertSeatAvailable(companyId: string, manager: EntityManager): Promise<void> {
     const e = await this.get(companyId, manager);
     if (!e.limits.teamSharing || !CAN_GROW.has(e.status)) {
