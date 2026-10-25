@@ -7,11 +7,14 @@ import { useAccessNotice } from '@/store/access-notice.store';
 import { isAccessRevoked } from '@/domain/auth-flow';
 import { signalCapabilityRefresh } from '@/domain/capability-signal';
 import { pinnedAxiosAdapter, shouldPin } from '@/lib/pinned-http';
+import { BUILD } from '@/lib/dev-flags';
+import { resolveApiBaseUrl, usesPinnedTransport } from '@/domain/build-variant';
 
-export const BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ??
-  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
-  'http://10.0.2.2:3000/api/v1';
+// Series 12: StockMind QA never falls back to the production URL in app.json (see domain/build-variant.ts).
+export const BASE_URL = resolveApiBaseUrl(BUILD, {
+  explicit: process.env.EXPO_PUBLIC_API_BASE_URL,
+  appConfig: Constants.expoConfig?.extra?.apiBaseUrl as string | undefined,
+});
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -24,7 +27,8 @@ export const api = axios.create({
   // In production, swap the transport to the SSL-pinned adapter so every
   // request is verified against the bundled certificate at the native layer.
   // In development, the default XMLHttpRequest adapter is used (no cert needed).
-  ...(shouldPin() ? { adapter: pinnedAxiosAdapter } : {}),
+  // StockMind QA talks only to its loopback/private-network backend and never uses the pinned transport.
+  ...(usesPinnedTransport(BUILD, shouldPin()) ? { adapter: pinnedAxiosAdapter } : {}),
 });
 
 // ── Request: attach bearer token + Accept-Language ──────────────────────────

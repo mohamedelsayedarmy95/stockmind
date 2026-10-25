@@ -10,7 +10,7 @@ import { useTheme } from '@/theme/useTheme';
 import { BRAND_GRADIENT } from '@/theme/colors';
 import { useSettingsStore, OperationMode } from '@/store/settings.store';
 import { haptics } from '@/lib/haptics';
-import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
+import { ONLINE_MODE_DEV_PREVIEW, IS_QA_BUILD, apiHostLabel } from '@/lib/dev-flags';
 import { BASE_URL } from '@/api/client';
 
 /** Operation-mode picker. Offline is production-ready; Online is a dev-only preview (see dev-flags). */
@@ -109,7 +109,7 @@ export default function ModePicker() {
                 icon="cloud-outline"
                 title={tr('onboarding.onlineTitle')}
                 sub={`${tr('onboarding.onlineDescDev')}\n${tr('online.apiHost', { host: apiHostLabel(BASE_URL) })}`}
-                badge={tr('onboarding.devPreview')}
+                badge={tr(IS_QA_BUILD ? 'onboarding.qaPreview' : 'onboarding.devPreview')}
               />
             ) : (
               <Card

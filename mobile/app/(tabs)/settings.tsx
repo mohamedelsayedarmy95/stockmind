@@ -15,7 +15,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLogout, useTerminateAllSessions } from '@/query/useAuth';
 import { haptics } from '@/lib/haptics';
 import { wipeAllUserData } from '@/lib/data-wipe';
-import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
+import Constants from 'expo-constants';
+import { ONLINE_MODE_DEV_PREVIEW, IS_QA_BUILD, apiHostLabel } from '@/lib/dev-flags';
 import { BASE_URL } from '@/api/client';
 import { currentScopeKey } from '@/sync/account-scope';
 import { openIntents, useOutboxStore } from '@/sync/outbox-store';
@@ -182,6 +183,21 @@ export default function SettingsScreen() {
               </View>
             </View>
           </GlassCard>
+
+          {IS_QA_BUILD ? (
+            <GlassCard>
+              <Text testID="qa-build-title" style={{ color: t.textPrimary, fontWeight: '700' }}>{tr('build.qaTitle')}</Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 4 }}>{tr('build.qaNotRelease')}</Text>
+              <Text testID="qa-build-network" style={{ color: t.textSecondary, fontSize: 12, marginTop: 6 }}>
+                {ONLINE_MODE_DEV_PREVIEW
+                  ? tr('build.serverConfigured', { host: apiHostLabel(BASE_URL) })
+                  : tr('build.localOnly')}
+              </Text>
+              <Text style={{ color: t.textMuted, fontSize: 12, marginTop: 4 }}>
+                {tr('build.version', { version: Constants.expoConfig?.version ?? '?' })}
+              </Text>
+            </GlassCard>
+          ) : null}
 
           {ONLINE_MODE_DEV_PREVIEW ? (
             <GlassCard>

@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
 import { BASE_URL } from '@/api/client';
-import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
+import { ONLINE_MODE_DEV_PREVIEW, IS_QA_BUILD, apiHostLabel } from '@/lib/dev-flags';
 import { useAccessNotice } from '@/store/access-notice.store';
 import {
   AuthFlowError,
@@ -175,7 +175,7 @@ export default function LoginScreen() {
               </Text>
               {ONLINE_MODE_DEV_PREVIEW ? (
                 <Text testID="api-host" style={{ color: t.textMuted, fontSize: 12, marginTop: 8 }}>
-                  {tr('onboarding.devPreview')} · {tr('online.apiHost', { host: apiHostLabel(BASE_URL) })}
+                  {tr(IS_QA_BUILD ? 'onboarding.qaPreview' : 'onboarding.devPreview')} · {tr('online.apiHost', { host: apiHostLabel(BASE_URL) })}
                 </Text>
               ) : null}
             </View>

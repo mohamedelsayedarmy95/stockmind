@@ -44,6 +44,7 @@
     "yourName": "اسمك",
     "startOffline": "ابدأ",
     "devPreview": "معاينة تطوير",
+    "qaPreview": "معاينة QA",
     "onlineDescDev": "سجّل الدخول لفريقك على الخادم الموضّح تحت. معاينة للتطوير."
   },
   "dashboard": {
@@ -319,6 +320,13 @@
     "placeholder": "اسأل عن مخزونك…",
     "send": "إرسال",
     "thinking": "جارٍ التفكير…"
+  },
+  "build": {
+    "qaTitle": "StockMind QA — نسخة اختبار",
+    "qaNotRelease": "دي مش نسخة للنشر. بياناتها على الموبايل ده بس، ومنفصلة عن تطبيق StockMind.",
+    "localOnly": "محلي بس: النسخة دي مفيهاش خادم.",
+    "serverConfigured": "المعاينة الأونلاين متاحة مع خادم الاختبار {{host}}.",
+    "version": "الإصدار {{version}}"
   },
   "online": {
     "apiHost": "الخادم: {{host}}",

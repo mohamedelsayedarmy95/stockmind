@@ -49,9 +49,33 @@ src/
 - **Type:** Inter (LTR) + Cairo (RTL). Layout mirrors automatically on language switch.
 - **Micro-interactions:** spring press on every button/card, selection haptic per slider step, heavy + success haptic + confetti on a completed stock operation.
 
-## Getting Started
+## Builds: Dev, standalone QA, public release (Series 12)
 
-> MMKV and Skia require a **dev build** — Expo Go will not work.
+| Build | Identity | JavaScript | Needs Metro / USB | Online |
+| --- | --- | --- | --- | --- |
+| **Old development client** | `io.stockmind.app` (debug) | loaded from Metro | **always** (USB `adb reverse tcp:8081`, or LAN) | dev preview flags |
+| **StockMind QA** (standalone) | `io.stockmind.app.qa`, label "StockMind QA" | embedded (Hermes) | **no** | optional, local backend on a loopback/private address only |
+| **Public release** | `io.stockmind.app` (release) | embedded | no | off — **NOT AUTHORIZED** (no AAB, no Play) |
+
+The debug/development build has no JavaScript inside it. Opened without Metro it shows "Cannot connect to Metro" /
+"Unable to load script ... index.android.bundle": that is how a React Native debug build works, not a crash. For everyday
+testing without a computer, use StockMind QA:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\qa-signing-init.ps1        # once: local QA signing key (outside Git)
+powershell -ExecutionPolicy Bypass -File scripts\qa-build.ps1               # build + inspect the QA APK (offline-only)
+powershell -ExecutionPolicy Bypass -File scripts\qa-build.ps1 -Online       # + Online Preview to 127.0.0.1:3000 (adb reverse)
+powershell -ExecutionPolicy Bypass -File scripts\qa-install.ps1 -Serial <serial>   # with the phone in your hands
+powershell -ExecutionPolicy Bypass -File scripts\dev-metro.ps1              # Metro for the development build
+```
+
+Contract and safeguards: `docs/handoff/SERIES_12_STANDALONE_QA_CONTRACT.md`. A QA build refuses to run with a
+`mobile/.env*` file present (it could inject build-time values such as a production URL).
+
+## Getting Started (development build)
+
+> MMKV and Skia require a **dev build** — Expo Go will not work. If `mobile/android` was last generated for StockMind QA
+> (`android/.stockmind-variant` exists), regenerate it first: `npx expo prebuild --platform android --clean`.
 
 ```bash
 # 1. Install

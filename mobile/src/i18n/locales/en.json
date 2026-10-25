@@ -44,6 +44,7 @@
     "yourName": "Your name",
     "startOffline": "Start",
     "devPreview": "DEV PREVIEW",
+    "qaPreview": "QA PREVIEW",
     "onlineDescDev": "Sign in to your team on the server below. Development preview."
   },
   "dashboard": {
@@ -319,6 +320,13 @@
     "placeholder": "Ask about your inventory…",
     "send": "Send",
     "thinking": "Thinking…"
+  },
+  "build": {
+    "qaTitle": "StockMind QA — test build",
+    "qaNotRelease": "Not a public release. Its data stays on this phone, separate from the StockMind app.",
+    "localOnly": "Local only: this build has no server.",
+    "serverConfigured": "Online Preview available with the test server {{host}}.",
+    "version": "Build {{version}}"
   },
   "online": {
     "apiHost": "Server: {{host}}",
