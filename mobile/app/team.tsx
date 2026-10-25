@@ -58,7 +58,7 @@ export default function TeamScreen() {
     );
   };
 
-  const confirm = (member: TeamMember, action: Exclude<TeamAction, 'reactivate' | 'change_role'>) =>
+  const confirm = (member: TeamMember, action: Exclude<TeamAction, 'reactivate' | 'change_role' | 'manage_access'>) =>
     Alert.alert(tr(`team.confirm.${action}.title`, { name: member.name }), tr(`team.confirm.${action}.body`, { name: member.name }), [
       { text: tr('common.cancel'), style: 'cancel' },
       { text: tr(`team.action.${action}`), style: action === 'revoke_sessions' ? 'default' : 'destructive', onPress: () => run(member, action) },
@@ -89,6 +89,7 @@ export default function TeamScreen() {
 
   const onAction = (member: TeamMember, action: TeamAction) => {
     void haptics.select();
+    if (action === 'manage_access') return router.push({ pathname: '/team-access', params: { memberId: member.id, name: member.name } });
     if (action === 'change_role') return chooseRole(member);
     if (action === 'reactivate') return run(member, 'reactivate');
     return confirm(member, action);

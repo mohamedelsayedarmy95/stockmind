@@ -174,6 +174,14 @@ interface Member { id: string; token: string }
       expect(shadow.snapshot().errors).toBeGreaterThan(0);
       setMode('enforce');
       expect((await http().get('/api/v1/warehouses').set(auth(staff.token))).status).toBeGreaterThanOrEqual(403);
+      (caps as any).loadPrincipal = async () => null; // no standing found: also a denial, never an allowance
+      // an endpoint with no warehouse in it has only the permission guard between the caller and the data
+      expect((await http().get('/api/v1/products').set(auth(owner.token))).status).toBe(403);
+      const none = await http().get(`/api/v1/stock/changes/${w1}`).set(auth(owner.token));
+      expect([403, 404]).toContain(none.status);
+      const noneWrite = await http().post('/api/v1/stock/inbound').set(auth(owner.token)).set('Idempotency-Key', randomUUID())
+        .send({ productId: product, warehouseId: w1, quantity: '1' });
+      expect([401, 403, 404]).toContain(noneWrite.status);
     } finally {
       (caps as any).loadPrincipal = original;
       setMode('shadow');

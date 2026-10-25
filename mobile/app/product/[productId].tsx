@@ -18,6 +18,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
 import { useActionKey } from '@/lib/action-key';
 import { activeSource } from '@/data/repository-provider';
+import { useCan } from '@/query/useCapabilities';
+import { CAP } from '@/domain/capabilities';
 import { Product } from '@/api/types';
 import { Warehouse, Store, StoreBalance } from '@/data/repositories';
 import { useNotes, useCreateNote } from '@/query/useNotes';
@@ -57,6 +59,7 @@ export default function ProductDetailScreen() {
   const t = useTheme();
   const { t: tr } = useTranslation();
   const router = useRouter();
+  const can = useCan(); // hides what the server would refuse; the server still decides
   const { productId } = useLocalSearchParams<{ productId: string }>();
 
   const { data: products } = useProducts();
@@ -285,24 +288,30 @@ export default function ProductDetailScreen() {
             <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800', flex: 1 }} numberOfLines={1}>
               {product.name}
             </Text>
-            <Pressable onPress={confirmDelete} hitSlop={12}>
-              <Ionicons name="trash-outline" size={22} color="#EF4444" />
-            </Pressable>
+            {can(CAP.DELETE_PRODUCT) ? (
+              <Pressable onPress={confirmDelete} hitSlop={12}>
+                <Ionicons name="trash-outline" size={22} color="#EF4444" />
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={{ gap: 14 }}>
             <TextInput value={name} onChangeText={setName} placeholder={tr('product.name')} placeholderTextColor={t.textMuted} autoCapitalize="words" style={field} />
             <TextInput value={sku} onChangeText={setSku} placeholder={tr('product.sku')} placeholderTextColor={t.textMuted} autoCapitalize="characters" style={field} />
             <TextInput value={barcode} onChangeText={setBarcode} placeholder={tr('product.barcode')} placeholderTextColor={t.textMuted} keyboardType="numbers-and-punctuation" style={field} />
-            <TextInput value={costPrice} onChangeText={setCostPrice} placeholder={tr('product.costPrice')} placeholderTextColor={t.textMuted} keyboardType="decimal-pad" style={field} />
+            {can(CAP.VIEW_COST) ? (
+              <TextInput value={costPrice} onChangeText={setCostPrice} placeholder={tr('product.costPrice')} placeholderTextColor={t.textMuted} keyboardType="decimal-pad" style={field} />
+            ) : null}
             <TextInput value={unitWeight} onChangeText={setUnitWeight} placeholder={tr('product.unitWeight')} placeholderTextColor={t.textMuted} keyboardType="decimal-pad" style={field} />
 
-            <PremiumButton
-              label={tr('common.save')}
-              onPress={saveChanges}
-              loading={updateProduct.isPending}
-              disabled={name.trim().length === 0 || sku.trim().length === 0}
-            />
+            {can(CAP.UPDATE_PRODUCT) ? (
+              <PremiumButton
+                label={tr('common.save')}
+                onPress={saveChanges}
+                loading={updateProduct.isPending}
+                disabled={name.trim().length === 0 || sku.trim().length === 0}
+              />
+            ) : null}
           </View>
 
           {breakdown && breakdown.length > 0 ? (
@@ -324,6 +333,7 @@ export default function ProductDetailScreen() {
             </GlassCard>
           ) : null}
 
+          {can(CAP.STOCK_TRANSFER, defaultWarehouseId ?? undefined) ? (
           <GlassCard>
             <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 6 }}>
               {tr('product.transferTitle')}
@@ -453,6 +463,7 @@ export default function ProductDetailScreen() {
               </View>
             )}
           </GlassCard>
+          ) : null}
 
           <GlassCard>
             <Text style={{ color: t.textSecondary, fontWeight: '600', marginBottom: 4 }}>

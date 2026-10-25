@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
 import { BRAND_GRADIENT } from '@/theme/colors';
 import { GuestBanner } from '@/components/GuestBanner';
+import { useNavigation } from '@/query/useCapabilities';
 
 const TAB_ICON_SIZE = 20;
 
@@ -15,6 +16,7 @@ export default function TabsLayout() {
   const t = useTheme();
   const { t: tr } = useTranslation();
   const insets = useSafeAreaInsets();
+  const nav = useNavigation(); // from the server's capabilities when online; everything when offline
 
   return (
     <View style={{ flex: 1 }}>
@@ -62,6 +64,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="scan"
         options={{
+          href: nav.scan ? undefined : null,
           title: tr('scan.title'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="scan" size={TAB_ICON_SIZE} color={color} />
@@ -80,6 +83,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="analytics"
         options={{
+          href: nav.analytics ? undefined : null,
           title: tr('analytics.title'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart" size={TAB_ICON_SIZE} color={color} />

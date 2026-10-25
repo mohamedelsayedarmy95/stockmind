@@ -18,6 +18,7 @@ import { SessionExpiredOverlay } from '@/components/SessionExpiredOverlay';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ONLINE_MODE_DEV_PREVIEW } from '@/lib/dev-flags';
 import { startOutboxRuntime } from '@/sync/outbox-drain';
+import { useCapabilityRuntime } from '@/query/useCapabilities';
 
 /** Redirects between onboarding, the auth flow and the app based on state. */
 function AuthGate() {
@@ -38,6 +39,9 @@ function AuthGate() {
   useEffect(() => {
     startOutboxRuntime();
   }, []);
+
+  // Online: keep the member's capability snapshot honest (start, foreground, server refusals). Offline: does nothing.
+  useCapabilityRuntime();
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -129,6 +133,10 @@ function AuthGate() {
       />
       <Stack.Screen
         name="team"
+        options={{ presentation: 'card', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="team-access"
         options={{ presentation: 'card', animation: 'slide_from_right' }}
       />
       <Stack.Screen

@@ -14,6 +14,7 @@ import { forgetSyncCache, resetWarehouseSync } from '@/sync/warehouse-sync';
 import { sessionScopeKey } from '@/sync/account-scope';
 import { forgetReferences } from '@/sync/reference-cache';
 import { useAccessNotice } from '@/store/access-notice.store';
+import { useCapabilities } from '@/store/capabilities.store';
 import { queryClient } from './queryClient';
 
 export interface RegisterInput {
@@ -29,6 +30,7 @@ export interface RegisterInput {
  */
 export function startOnlineSession(session: SessionPayload) {
   useAccessNotice.getState().dismiss(); // a successful sign-in answers the "access changed" notice
+  useCapabilities.getState().clear(); // never inherit another account's capabilities
   queryClient.clear();
   resetWarehouseSync();
   useAuthStore.getState().setSession({
@@ -44,6 +46,7 @@ export function startOnlineSession(session: SessionPayload) {
  * cache. Its unsent stock intents are kept, untouched and unsendable, until the same account signs in again.
  */
 function endSession() {
+  useCapabilities.getState().clear();
   const scope = sessionScopeKey();
   useAuthStore.getState().clear();
   queryClient.clear();

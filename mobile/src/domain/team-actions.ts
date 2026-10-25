@@ -18,7 +18,7 @@ export interface TeamMember {
   warehouses: 'all' | string[];
 }
 
-export type TeamAction = 'suspend' | 'reactivate' | 'remove' | 'revoke_sessions' | 'change_role';
+export type TeamAction = 'suspend' | 'reactivate' | 'remove' | 'revoke_sessions' | 'change_role' | 'manage_access';
 
 export interface TeamViewer {
   id: string;
@@ -30,7 +30,17 @@ export function activeOwnerCount(members: readonly TeamMember[]): number {
   return members.filter((m) => m.isOwner && m.status === 'active').length;
 }
 
+/**
+ * Warehouse access (Series 10) is offered for Staff members only (Admin and Manager already see every warehouse), whether active
+ * or suspended (a suspension is reversible, the assignments are kept), never for the viewer's own account.
+ */
 export function availableActions(viewer: TeamViewer, member: TeamMember, activeOwners: number): TeamAction[] {
+  const base = baseActions(viewer, member, activeOwners);
+  const mayAssign = viewer.id !== member.id && member.role === 'Staff' && member.status !== 'removed';
+  return mayAssign ? ['manage_access', ...base] : base;
+}
+
+function baseActions(viewer: TeamViewer, member: TeamMember, activeOwners: number): TeamAction[] {
   const self = viewer.id === member.id;
   if (self) return member.status === 'active' ? ['revoke_sessions'] : [];
   // Acting on an Admin member needs the owner (a company without any owner therefore offers nothing on Admins).

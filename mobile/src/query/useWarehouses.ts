@@ -14,7 +14,8 @@ export function useWarehouses() {
 export function useCreateWarehouse() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string }) => getRepositories().warehouses.create(input),
+    mutationFn: (input: { name: string; initialAccess?: Array<{ userId: string; profile: string }> }) =>
+      getRepositories().warehouses.create(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouses'] });
     },

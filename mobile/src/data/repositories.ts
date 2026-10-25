@@ -245,7 +245,8 @@ export interface ProductRepository {
 
 export interface WarehouseRepository {
   list(): Promise<Warehouse[]>;
-  create(input: { name: string }): Promise<Warehouse>;
+  /** `initialAccess` (online only, needs the right to manage team access) decides at creation who gets the warehouse: absent = nobody. */
+  create(input: { name: string; initialAccess?: Array<{ userId: string; profile: string }> }): Promise<Warehouse>;
   ensureDefault(): Promise<Warehouse>;
 }
 

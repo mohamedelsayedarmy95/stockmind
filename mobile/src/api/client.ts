@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/store/settings.store';
 import { sessionLock } from '@/lib/session-lock';
 import { useAccessNotice } from '@/store/access-notice.store';
 import { isAccessRevoked } from '@/domain/auth-flow';
+import { signalCapabilityRefresh } from '@/domain/capability-signal';
 import { pinnedAxiosAdapter, shouldPin } from '@/lib/pinned-http';
 
 export const BASE_URL =
@@ -60,6 +61,11 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+
+    // Series 10: "forbidden / not found" on a warehouse-bound route may mean the member's access just changed. Refresh what the
+    // app believes about it (coalesced); the refusal itself is still handled by the caller exactly as before.
+    const refused = error.response?.status;
+    if ((refused === 403 || refused === 404) && /\/(stock|warehouses|team)\b/.test(original?.url ?? '')) signalCapabilityRefresh();
 
     if (error.response?.status === 401 && original && !original._retry) {
       original._retry = true;

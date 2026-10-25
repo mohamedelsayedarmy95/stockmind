@@ -19,6 +19,7 @@ import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
 import { BASE_URL } from '@/api/client';
 import { currentScopeKey } from '@/sync/account-scope';
 import { openIntents, useOutboxStore } from '@/sync/outbox-store';
+import { useNavigation } from '@/query/useCapabilities';
 
 function SegmentedRow<T extends string>({
   options,
@@ -79,6 +80,7 @@ export default function SettingsScreen() {
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled);
   const user = useAuthStore((s) => s.user);
   const operationMode = useSettingsStore((s) => s.operationMode);
+  const nav = useNavigation();
   const setOperationMode = useSettingsStore((s) => s.setOperationMode);
   const logout = useLogout();
   const terminateAll = useTerminateAllSessions();
@@ -307,7 +309,7 @@ export default function SettingsScreen() {
             <PremiumButton label={tr('settings.wipeAction')} variant="ghost" onPress={confirmWipe} />
           </GlassCard>
 
-          {operationMode === 'online' && user?.role === 'Admin' ? (
+          {operationMode === 'online' && nav.team ? (
             <GlassCard>
               <Pressable
                 testID="open-team"

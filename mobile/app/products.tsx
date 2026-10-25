@@ -12,6 +12,8 @@ import { useTheme } from '@/theme/useTheme';
 import { BRAND_GRADIENT } from '@/theme/colors';
 import { useProducts } from '@/query/useProducts';
 import { Product } from '@/api/types';
+import { useCan } from '@/query/useCapabilities';
+import { CAP } from '@/domain/capabilities';
 
 function ProductRow({ item, onPress }: { item: Product; onPress: () => void }) {
   const t = useTheme();
@@ -29,7 +31,7 @@ function ProductRow({ item, onPress }: { item: Product; onPress: () => void }) {
         </View>
         {item.costPrice != null ? (
           <Text style={{ color: t.textSecondary, fontWeight: '700', fontSize: 13 }}>
-            {item.costPrice.toFixed(2)}
+            {Number(item.costPrice).toFixed(2)}
           </Text>
         ) : null}
         <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
@@ -42,6 +44,7 @@ export default function ProductsScreen() {
   const t = useTheme();
   const { t: tr } = useTranslation();
   const router = useRouter();
+  const can = useCan();
   const { data, isLoading } = useProducts();
 
   return (
@@ -66,21 +69,23 @@ export default function ProductsScreen() {
           <Text style={{ color: t.textPrimary, fontSize: 22, fontWeight: '800', flex: 1 }}>
             {tr('products.title')}
           </Text>
-          <Pressable
-            onPress={() => router.push('/product/new')}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.cardBorder,
-            }}
-          >
-            <Ionicons name="add" size={22} color={t.textPrimary} />
-          </Pressable>
+          {can(CAP.CREATE_PRODUCT) ? (
+            <Pressable
+              onPress={() => router.push('/product/new')}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.cardBorder,
+              }}
+            >
+              <Ionicons name="add" size={22} color={t.textPrimary} />
+            </Pressable>
+          ) : null}
         </View>
 
         <FlatList

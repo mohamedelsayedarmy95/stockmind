@@ -572,7 +572,8 @@
       "reactivate": "Reactivate",
       "remove": "Remove",
       "revoke_sessions": "Sign out everywhere",
-      "change_role": "Change role"
+      "change_role": "Change role",
+      "manage_access": "Warehouse access"
     },
     "confirm": {
       "suspend": {
@@ -620,5 +621,54 @@
     },
     "accessRevokedLogin": "This account is suspended or was removed from the company. Contact your administrator.",
     "accessNotice": "Your access to the company changed, so you were signed out. Actions waiting on this device are kept and will not be sent on their own; you will review them when you return."
+  },
+  "access": {
+    "title": "Warehouse access",
+    "back": "Back",
+    "loadError": "Could not load this member's access. Try again.",
+    "allWarehouses": "Admins and managers see every warehouse, so there is nothing to assign here.",
+    "whatItMeans": "What each choice means",
+    "notActive": "not active on this server",
+    "noMoney": "Prices and costs are not part of any choice here; they have a separate permission.",
+    "saved": "Saved. It applies from the member's next request.",
+    "pending": "{{count}} change(s) to save",
+    "noChanges": "No changes.",
+    "choice": {
+      "none": "No access"
+    },
+    "profile": {
+      "operator": "Operator",
+      "warehouse_manager": "Warehouse manager"
+    },
+    "effect": {
+      "view": "Sees balances and movements",
+      "receive": "Records receipts",
+      "issue": "Records dispatches",
+      "adjust": "Makes stock adjustments",
+      "transfer": "Transfers between warehouses he has access to",
+      "editWarehouse": "Edits the warehouse details"
+    },
+    "noneAssigned": {
+      "title": "No warehouse is available to you yet",
+      "body": "Ask an administrator to give you access to a warehouse and it will appear here."
+    },
+    "cp4": {
+      "title": "Who gets access to the new warehouse?",
+      "hint": "Default: nobody. Managers and administrators see it automatically.",
+      "guidance": "The new warehouse will be visible to managers and administrators only. Ask an administrator to give staff access to it."
+    },
+    "error": {
+      "network": "No connection. Nothing was changed.",
+      "conflict": "Someone changed this member's access since you opened it. It was reloaded; review it and save again.",
+      "notEnforced": "That choice has no effect on this server right now, so it was not saved.",
+      "exceeds": "You cannot grant more than you hold.",
+      "notApplicable": "This member already sees every warehouse.",
+      "notPermitted": "You are not allowed to manage team access. Nothing was changed.",
+      "inactive": "This member is not active. Reactivate them first.",
+      "self": "You cannot change your own access.",
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "That member or warehouse was not found.",
+      "generic": "Something went wrong. Nothing was changed."
+    }
   }
 }

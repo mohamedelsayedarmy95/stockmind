@@ -14,6 +14,8 @@ import { useWarehouses } from '@/query/useWarehouses';
 import { useStores } from '@/query/useStores';
 import { Warehouse } from '@/data/repositories';
 import { activeSource } from '@/data/repository-provider';
+import { useCan, useCapabilitySnapshot } from '@/query/useCapabilities';
+import { CAP, warehouseEmptyReason } from '@/domain/capabilities';
 
 function WarehouseRow({ item, onPress }: { item: Warehouse; onPress: () => void }) {
   const t = useTheme();
@@ -46,6 +48,10 @@ export default function WarehousesScreen() {
   const { t: tr } = useTranslation();
   const router = useRouter();
   const { data, isLoading, isError } = useWarehouses();
+  const can = useCan();
+  const snapshot = useCapabilitySnapshot();
+  // Online, an empty list for a member with no warehouse yet is not an error: say who can change it.
+  const noneAssigned = activeSource() === 'online' && warehouseEmptyReason(snapshot) === 'none-assigned';
 
   return (
     <ScreenBackground>
@@ -54,22 +60,24 @@ export default function WarehousesScreen() {
           <Text style={{ color: t.textPrimary, fontSize: 26, fontWeight: '800', flex: 1 }}>
             {tr('warehouses.title')}
           </Text>
-          <Pressable
-            onPress={() => router.push('/warehouse/new')}
-            accessibilityLabel={tr('warehouse.addTitle')}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: t.card,
-              borderWidth: 1,
-              borderColor: t.cardBorder,
-            }}
-          >
-            <Ionicons name="add" size={22} color={t.textPrimary} />
-          </Pressable>
+          {can(CAP.CREATE_WAREHOUSE) ? (
+            <Pressable
+              onPress={() => router.push('/warehouse/new')}
+              accessibilityLabel={tr('warehouse.addTitle')}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: t.card,
+                borderWidth: 1,
+                borderColor: t.cardBorder,
+              }}
+            >
+              <Ionicons name="add" size={22} color={t.textPrimary} />
+            </Pressable>
+          ) : null}
         </View>
 
         <FlatList
@@ -100,10 +108,10 @@ export default function WarehousesScreen() {
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
                 <GradientIconCircle icon="business-outline" size={72} iconSize={32} />
                 <Text style={{ color: t.textPrimary, fontWeight: '700', fontSize: 16 }}>
-                  {tr('warehouses.emptyTitle')}
+                  {tr(noneAssigned ? 'access.noneAssigned.title' : 'warehouses.emptyTitle')}
                 </Text>
-                <Text style={{ color: t.textMuted, textAlign: 'center', paddingHorizontal: 30 }}>
-                  {tr('warehouses.empty')}
+                <Text testID="warehouses-empty-text" style={{ color: t.textMuted, textAlign: 'center', paddingHorizontal: 30 }}>
+                  {tr(noneAssigned ? 'access.noneAssigned.body' : 'warehouses.empty')}
                 </Text>
               </View>
             ) : null

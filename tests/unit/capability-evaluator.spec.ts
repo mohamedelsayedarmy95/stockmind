@@ -178,3 +178,15 @@ describe('engine mode', () => {
     expect(capabilityMode({ CAPABILITY_MODE: '' } as unknown as NodeJS.ProcessEnv)).toBe('shadow');
   });
 });
+
+describe('A9: the mobile app only names capabilities the server knows', () => {
+  it('every value of the app's CAP table is in the server catalogue (a renamed or invented capability fails here)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs'); const path = require('path');
+    const text: string = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'src', 'domain', 'capabilities.ts'), 'utf8');
+    const block = text.slice(text.indexOf('export const CAP = {'), text.indexOf('} as const;', text.indexOf('export const CAP = {')));
+    const values = [...block.matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]);
+    expect(values.length).toBeGreaterThan(10);
+    for (const v of values) expect({ v, known: KNOWN_CAPABILITIES.has(v) }).toEqual({ v, known: true });
+  });
+});

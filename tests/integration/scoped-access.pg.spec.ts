@@ -492,6 +492,28 @@ interface Member { id: string; email: string; password: string; token: string }
     expect(await movementCount(w1)).toBe(before);
   });
 
+  it('A6: a pending authority change is ordered ahead of later writes by the member lock itself (not only by row locks)', async () => {
+    const mgr = await join('Staff', [w1]);
+    await access(owner, mgr.id, [{ warehouseId: w1, profile: 'warehouse_manager' }]).expect(200);
+    const before = await movementCount(w1);
+    const holder = db.createQueryRunner();
+    await holder.connect();
+    await holder.startTransaction();
+    try {
+      // an authority change has taken the member lock (exclusively) and revoked, but has not committed yet
+      await holder.query(`SELECT pg_advisory_xact_lock(hashtextextended('stockmind:member:' || $1::text, 0))`, [mgr.id]);
+      await holder.query(`UPDATE access_grants SET revoked_at = now(), revoke_reason = 'ordering test' WHERE user_id = $1 AND revoked_at IS NULL`, [mgr.id]);
+      const write = adjust(mgr, w1, '5').then((r) => r);
+      await untilLockWait(); // the write queues behind the pending change instead of racing past it
+      expect(await movementCount(w1)).toBe(before);
+      await holder.commitTransaction();
+      expect((await write).status).toBe(404);
+    } finally {
+      await holder.release();
+    }
+    expect(await movementCount(w1)).toBe(before);
+  });
+
   it('A6: a role change that commits while a write waits refuses the write (the capability is re-read inside the transaction)', async () => {
     const m2 = await join('Manager');
     const before = await movementCount(w1);

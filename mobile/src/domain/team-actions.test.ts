@@ -11,14 +11,22 @@ const owner = { id: 'o1', isOwner: true };
 const admin = { id: 'a2', isOwner: false };
 
 describe('Team actions offered to the viewer (the server stays the authority)', () => {
-  it('an active Staff or Manager member can be changed, signed out, suspended or removed', () => {
+  it('an active Staff or Manager member can be changed, signed out, suspended or removed; only Staff have warehouse access to manage', () => {
     for (const role of ['Staff', 'Manager'] as MemberRole[]) {
-      expect(availableActions(owner, member({ role }), 1)).toEqual(['change_role', 'revoke_sessions', 'suspend', 'remove']);
-      expect(availableActions(admin, member({ role }), 1)).toEqual(['change_role', 'revoke_sessions', 'suspend', 'remove']);
+      const lead = role === 'Staff' ? ['manage_access'] : [];
+      expect(availableActions(owner, member({ role }), 1)).toEqual([...lead, 'change_role', 'revoke_sessions', 'suspend', 'remove']);
+      expect(availableActions(admin, member({ role }), 1)).toEqual([...lead, 'change_role', 'revoke_sessions', 'suspend', 'remove']);
     }
   });
+  it('warehouse access is offered for a suspended Staff member, never for a removed one, an Admin, a Manager or yourself', () => {
+    expect(availableActions(owner, member({ status: 'suspended' }), 1)).toEqual(['manage_access', 'reactivate', 'remove']);
+    expect(availableActions(owner, member({ status: 'removed' }), 1)).toEqual(['reactivate']);
+    expect(availableActions(owner, member({ role: 'Manager' }), 1)).not.toContain('manage_access');
+    expect(availableActions(owner, member({ role: 'Admin', id: 'a9' }), 1)).not.toContain('manage_access');
+    expect(availableActions(owner, member({ id: 'o1' }), 1)).not.toContain('manage_access');
+  });
   it('a suspended member can be reactivated or removed; a removed one only reactivated', () => {
-    expect(availableActions(owner, member({ status: 'suspended' }), 1)).toEqual(['reactivate', 'remove']);
+    expect(availableActions(owner, member({ status: 'suspended' }), 1)).toEqual(['manage_access', 'reactivate', 'remove']);
     expect(availableActions(owner, member({ status: 'removed' }), 1)).toEqual(['reactivate']);
   });
   it('nobody gets lockout or demotion buttons for themselves; signing out everywhere is offered', () => {
@@ -28,7 +36,7 @@ describe('Team actions offered to the viewer (the server stays the authority)', 
   it('only the owner is offered anything on an Admin; a company with no owner offers nothing on Admins', () => {
     const otherAdmin = member({ id: 'a3', role: 'Admin' });
     expect(availableActions(admin, otherAdmin, 0)).toEqual([]);
-    expect(availableActions(owner, otherAdmin, 1)).toEqual(['change_role', 'revoke_sessions', 'suspend', 'remove']);
+    expect(availableActions(owner, otherAdmin, 1)).toEqual(['change_role', 'revoke_sessions', 'suspend', 'remove']); // an Admin has no assignments
   });
   it('the last active owner is protected; with another owner an owner can be suspended but never re-roled', () => {
     const other = member({ id: 'o2', role: 'Admin', isOwner: true });
