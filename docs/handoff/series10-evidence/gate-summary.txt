@@ -1,0 +1,18 @@
+Series 10 gate summary (last tested commit 2bb0053; product code: backend 807676a, mobile a8a6ab3; later commits docs/evidence only)
+Disposable PostgreSQL 15.19 (127.0.0.1:55433), a fresh database per run, synthetic data. Nothing touched Neon/Production or the physical phone.
+
+backend tsc: exit 0
+backend clean build (tsbuildinfo + dist removed): exit 0, dist/main.js present, 12/12 migrations compiled (1792610000000-ScopedAccess included)
+backend full suite, default mode (CAPABILITY_MODE unset = shadow), three consecutive fresh databases:
+  run 1: Test Suites: 3 skipped, 57 passed, 57 of 60 total | Tests: 3 skipped, 459 passed, 462 total | exit 0
+  run 2: Test Suites: 3 skipped, 57 passed, 57 of 60 total | Tests: 3 skipped, 459 passed, 462 total | exit 0
+  run 3: Test Suites: 3 skipped, 57 passed, 57 of 60 total | Tests: 3 skipped, 459 passed, 462 total | exit 0
+backend full suite, CAPABILITY_MODE=enforce exported for every legacy suite (extra run):
+  Test Suites: 3 skipped, 55 passed, 55 of 58 total | Tests: 3 skipped, 438 passed, 441 total | exit 0
+  (the two movement-history.security suites are excluded here: they compose the controllers WITHOUT the capability model, one is a frozen
+   production fixture; with the engine enforcing and no model present the guard denies by design, so they are not a parity signal)
+skipped (3): s0-cost-exposure.repro, auth-lookup.perf, capability-perf run only with S09_EVIDENCE_OUT / S10_EVIDENCE_OUT set (numbers in this folder)
+mobile tsc: exit 0 | mobile Jest: Test Suites: 20 passed, 20 total | Tests: 308 passed, 308 total
+Baseline before Series 10 (Series 09): backend 54 suites / 395 tests, mobile 18 / 273.
+
+Failures met on the way (all fixed before the final runs): see the report, section 5.

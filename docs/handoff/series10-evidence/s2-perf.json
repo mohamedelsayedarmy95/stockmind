@@ -1,48 +1,48 @@
 {
   "method": "local PostgreSQL 15 on the same host; sequential HTTP; alternating rounds; throttle counter replaced by a no-op",
-  "generatedAt": "2026-10-25T09:04:44.588Z",
+  "generatedAt": "2026-10-25T09:53:20.196Z",
   "guardedRead": {
     "route": "GET /stock/balance/:product/:warehouse (VIEW_BALANCE + warehouse scope)",
     "off": {
       "n": 600,
-      "medianMs": 3.742,
-      "p95Ms": 5.156,
-      "p99Ms": 8.201,
-      "meanMs": 3.96
+      "medianMs": 3.577,
+      "p95Ms": 4.969,
+      "p99Ms": 7.788,
+      "meanMs": 3.821
     },
     "shadow": {
       "n": 600,
-      "medianMs": 6.757,
-      "p95Ms": 8.244,
-      "p99Ms": 11.417,
-      "meanMs": 6.994
+      "medianMs": 6.666,
+      "p95Ms": 8.569,
+      "p99Ms": 11.244,
+      "meanMs": 6.941
     },
     "enforce": {
       "n": 600,
-      "medianMs": 5.327,
-      "p95Ms": 7.002,
-      "p99Ms": 9.911,
-      "meanMs": 5.571
+      "medianMs": 5.17,
+      "p95Ms": 6.638,
+      "p99Ms": 9.626,
+      "meanMs": 5.417
     },
-    "shadowAddsMedianMs": 3.016,
-    "enforceAddsMedianMs": 1.585,
-    "shadowAddsP95Ms": 3.088,
-    "enforceAddsP95Ms": 1.846
+    "shadowAddsMedianMs": 3.09,
+    "enforceAddsMedianMs": 1.593,
+    "shadowAddsP95Ms": 3.6,
+    "enforceAddsP95Ms": 1.669
   },
   "meCapabilities": {
     "owner": {
       "n": 300,
-      "medianMs": 3.29,
-      "p95Ms": 4.277,
-      "p99Ms": 8.146,
-      "meanMs": 3.46
+      "medianMs": 3.17,
+      "p95Ms": 4.166,
+      "p99Ms": 8.098,
+      "meanMs": 3.351
     },
     "scopedManager": {
       "n": 300,
-      "medianMs": 3.41,
-      "p95Ms": 4.24,
-      "p99Ms": 8.059,
-      "meanMs": 3.567
+      "medianMs": 3.274,
+      "p95Ms": 4.221,
+      "p99Ms": 8.429,
+      "meanMs": 3.424
     }
   },
   "grantLookup": {
@@ -54,48 +54,48 @@
       "Hash",
       "Seq Scan"
     ],
-    "executionMs": 0.231,
+    "executionMs": 0.155,
     "roundTripPerQueryMs": {
       "n": 1000,
-      "medianMs": 0.572,
-      "p95Ms": 0.806,
-      "p99Ms": 1.031,
-      "meanMs": 0.622
+      "medianMs": 0.549,
+      "p95Ms": 0.749,
+      "p99Ms": 1.029,
+      "meanMs": 0.604
     }
   },
   "contention": {
     "writers": 4,
     "writeAloneMs": {
       "n": 100,
-      "medianMs": 9.808,
-      "p95Ms": 12.366,
-      "p99Ms": 16.713,
-      "meanMs": 10.093
+      "medianMs": 9.51,
+      "p95Ms": 10.809,
+      "p99Ms": 13.481,
+      "meanMs": 9.705
     },
     "writeDuringRevocationsMs": {
-      "n": 1031,
-      "medianMs": 9.588,
-      "p95Ms": 29.275,
-      "p99Ms": 35.431,
-      "meanMs": 14.749
+      "n": 1040,
+      "medianMs": 9.942,
+      "p95Ms": 26.762,
+      "p99Ms": 35.752,
+      "meanMs": 14.583
     },
     "responsesByStatus": {
-      "201": 320,
-      "404": 711
+      "201": 335,
+      "404": 705
     },
     "revokeRequestMs": {
       "n": 12,
-      "medianMs": 28.449,
-      "p95Ms": 34.075,
-      "p99Ms": 34.075,
-      "meanMs": 27.874
+      "medianMs": 27.163,
+      "p95Ms": 31.91,
+      "p99Ms": 31.91,
+      "meanMs": 26.837
     },
     "grantRequestMs": {
       "n": 12,
-      "medianMs": 35.953,
-      "p95Ms": 44.532,
-      "p99Ms": 44.532,
-      "meanMs": 36.948
+      "medianMs": 36.133,
+      "p95Ms": 48.275,
+      "p99Ms": 48.275,
+      "meanMs": 37.8
     },
     "deadlocksDuringRun": 0
   },
