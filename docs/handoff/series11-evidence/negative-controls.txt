@@ -43,3 +43,24 @@ PASS 1 SUMMARY (honest): 13 of the 16 controls turned tests red. THREE WERE NOT 
 Fixes: the opposite-pairs test now treats AUTHORITY_BUSY as a failure; three new tests park a request on the company row, commit a
 revocation that does not need that row, then release it (legacy, PUT access, CP-4); controls N1/N4/N6 are re-defined below as
 single-layer variants (N1b, N4a, N4b), both-layer variants (N1, N4c) and N6/N6b/N6c.
+
+PASS 2 (re-defined controls; see the note above)
+N1  the granting administrator is not locked AT ALL (neither in the ordered set nor when the actor is loaded)
+      -> RED  [Tests:       1 failed, 25 passed, 26 total] jest exit 1  (59s)  restored=yes
+      failing: the same holds for a revoker that follows 
+N1b  the actor lock is taken late (only when the actor is loaded), outside the ordered set
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       26 passed, 26 total] jest exit 0  (58s)  restored=yes
+N4a  canonical id: the JavaScript side lower-cases nothing (the SQL side still casts)
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       26 passed, 26 total] jest exit 0  (58s)  restored=yes
+N4b  canonical id: the SQL side casts nothing (the JavaScript side still lower-cases)
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       26 passed, 26 total] jest exit 0  (58s)  restored=yes
+N4c  canonical id: neither side canonicalizes
+      -> RED  [Tests:       1 failed, 25 passed, 26 total] jest exit 1  (57s)  restored=yes
+      failing: an UPPER-CASE member id in the URL is the 
+N6  the legacy endpoint does not re-authorize its actor inside the transaction
+      -> RED  [Tests:       1 failed, 25 passed, 26 total] jest exit 1  (58s)  restored=yes
+      failing: an administrator revoked AFTER the request 
+N6b  the access endpoint does not check the actor capability inside the transaction
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       26 passed, 26 total] jest exit 0  (58s)  restored=yes
+N6c  CP-4 does not re-authorize the creating actor for warehouse creation (defence in depth: MANAGE_USERS is still checked per target)
+      -> STILL GREEN (NOT CAUGHT)  [Tests:       26 passed, 26 total] jest exit 0  (58s)  restored=yes

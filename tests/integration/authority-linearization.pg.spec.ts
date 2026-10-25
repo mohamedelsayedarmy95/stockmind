@@ -118,7 +118,8 @@ type Done<T> = { settled: boolean; res?: T };
     try {
       await qr.startTransaction();
       await qr.query(`SELECT pg_advisory_xact_lock(hashtextextended('stockmind:member:' || $1::uuid::text, 0))`, [memberId]);
-      await qr.query(`UPDATE users SET role = 'Staff', token_version = token_version + 1 WHERE id = $1`, [memberId]);
+      // Manager keeps every warehouse capability but loses MANAGE_USERS: only the administrative check can refuse such an actor
+      await qr.query(`UPDATE users SET role = 'Manager', token_version = token_version + 1 WHERE id = $1`, [memberId]);
       await qr.commitTransaction();
     } finally { await qr.release(); }
   };
@@ -308,7 +309,7 @@ type Done<T> = { settled: boolean; res?: T };
         const g = track(send(A, B).then((r) => r)); // passes the guards while A is still an administrator, then parks on the company row
         await park.parked();
         await protocolRevoke(A.id); // commits: it does not need the company row
-        expect((await rowOf(A.id)).role).toBe('Staff');
+        expect((await rowOf(A.id)).role).toBe('Manager');
         await park.release();
         await until(() => g.settled, 15_000, 'the request to finish');
         expect([401, 403]).toContain(status(g)); // the revocation committed first, so the change must see it
