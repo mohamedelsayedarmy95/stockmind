@@ -1,0 +1,31 @@
+﻿Series 09 negative controls: each run disables ONE protection in the working tree (restored with git checkout afterwards) and runs the matching specs on a fresh disposable PostgreSQL database. Every control must turn tests RED.
+
+M0 (S0) controller always includes cost -> Tests:       4 failed, 10 passed, 14 total
+    RED: NT-12 (PostgreSQL): cost price visibility over HTTP › Manager never receives the costPrice key from any product
+    RED: NT-12 (PostgreSQL): cost price visibility over HTTP › Staff never receives the costPrice key from any product
+    RED: NT-12 (PostgreSQL): cost price visibility over HTTP › a Manager may still record a cost at creation (write
+    RED: NT-12 (PostgreSQL): cost price visibility over HTTP › an explicit role grant of item.view_cost lifts the
+M1 JwtStrategy ignores status -> Tests:       1 failed, 13 passed, 14 total
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › status is enforced on its own: a
+M2 JwtStrategy ignores token_version -> Tests:       4 failed, 9 passed, 13 total
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › suspend: the very next request of the
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › revoke-sessions: every token of the
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › role change: needs the company-wide
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › the role is read from the database: a
+M3 role taken from the token claim -> Tests:       1 failed, 12 passed, 13 total
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › the role is read from the database: a
+M4 no in-transaction actor check (stock writes) -> Tests:       1 failed, 12 passed, 13 total
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › in-transaction re-check: a suspension
+M5 no in-transaction actor check (rotation) -> Tests:       1 failed, 12 passed, 13 total
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › in-transaction re-check also covers
+M6 suspend does not bump token_version / clear refresh -> Tests:       2 failed, 25 passed, 27 total
+    RED: membership policy: what an allowed action changes › suspend: status, immediate revocation of access tokens and of
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › suspend: the very next request of the
+M7 owner requirement for Admin targets removed -> Tests:       4 failed, 23 passed, 27 total
+    RED: membership policy: refusals › acting on an Admin needs an owner: an Admin who is not the owner cannot touch
+    RED: membership policy: refusals › a company without any owner (legacy, ambiguous) fails closed for Admin targets but
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › only the owner acts on an Admin: a
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › a company with no owner (legacy,
+M8 login ignores status -> Tests:       2 failed, 11 passed, 13 total
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › suspend: the very next request of the
+    RED: access lifecycle: immediate revocation and membership policy (PostgreSQL) › remove: access ends at once, the seat

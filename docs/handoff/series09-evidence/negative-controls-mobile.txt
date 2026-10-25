@@ -1,0 +1,11 @@
+﻿MM1 settle treats ACCESS_REVOKED like an expired session (auto-retry later) -> Tests:       3 failed, 270 passed, 273 total
+MM2 revoked queue is not held (rest stays PENDING and would be replayed) -> Tests:       1 failed, 272 passed, 273 total
+MM3 Team screen offers actions on an Admin to a non-owner -> Tests:       1 failed, 272 passed, 273 total
+MM4 the revoked-access message is missing in a language -> Tests:       1 failed, 272 passed, 273 total
+ M docs/product/README.md
+ M docs/product/STOCKMIND_ARCHITECTURE_DECISIONS.md
+ M docs/product/STOCKMIND_CODE_TO_CAPABILITY_GAP_MATRIX.md
+ M docs/product/STOCKMIND_IMPLEMENTATION_ROADMAP.md
+?? docs/handoff/SERIES_09_AUTHORIZATION_AND_PRIVACY_CONTRACT.md
+?? docs/handoff/series09-evidence/negative-controls-mobile.txt
+?? docs/handoff/series09-evidence/negative-controls.txt

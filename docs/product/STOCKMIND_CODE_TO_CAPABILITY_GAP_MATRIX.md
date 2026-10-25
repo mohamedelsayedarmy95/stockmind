@@ -105,15 +105,16 @@
 
 | # | الوصف | الخطورة | مستوى الدليل | الإجراء المقترح |
 |---|---|---|---|---|
-| D1 | `costPrice` بيتسلّم (مفكوك التشفير) لأي دور فيه `VIEW_PRODUCT` عبر `GET /products` | **عالية** (خصوصية مالية 3.4) | قراءة ثابتة (entity + service + handler، بلا serializer) | Slice S0 في الـ roadmap: DTO حاجب + `VIEW_COST` + اختبار سلبي؛ **أول حاجة تتأكد بطلب فعلي** قبل الإصلاح |
-| D2 | مفيش إيقاف/إزالة عضو ولا تغيير دور | عالية (Governance) | قراءة ثابتة (controller + entity) | S1 |
-| D3 | الدور من الـ JWT claim (نافذة ≤ 15 دقيقة) + الـ access token ما بيتأكدش من وجود المستخدم | متوسطة | قراءة ثابتة | S1: `status` + `token_version` أو lookup كل طلب |
+| D1 | `costPrice` بيتسلّم (مفكوك التشفير) لأي دور فيه `VIEW_PRODUCT` عبر `GET /products` | **عالية** (خصوصية مالية 3.4) | قراءة ثابتة (entity + service + handler، بلا serializer) — **اتأكد تشغيلياً في Series 09** (Staff استلم التكلفة في list وdetail) | Slice S0 في الـ roadmap: DTO حاجب + `VIEW_COST` + اختبار سلبي؛ **أول حاجة تتأكد بطلب فعلي** قبل الإصلاح. **✅ اتقفل في Series 09 (S0):** allowlist DTO + `item.view_cost` (Admin فقط افتراضياً) + NT-12؛ الدليل `series09-evidence/s0-{before,after}-fix.json` |
+| D2 | مفيش إيقاف/إزالة عضو ولا تغيير دور | عالية (Governance) | قراءة ثابتة (controller + entity) | S1. **✅ اتقفل في Series 09 (S1):** suspend/reactivate/remove/revoke-sessions/role change + `membership_events` + Team screen |
+| D3 | الدور من الـ JWT claim (نافذة ≤ 15 دقيقة) + الـ access token ما بيتأكدش من وجود المستخدم | متوسطة | قراءة ثابتة | S1: `status` + `token_version` أو lookup كل طلب. **✅ اتقفل في Series 09 (S1):** lookup بالـ PK كل طلب (status، `token_version`، الشركة، **الدور من الصف**) + فحص `FOR SHARE` جوه transaction الكتابة؛ +0.33 ms وسيط محلياً |
 | D4 | الكتالوج company-wide لكل الأدوار | متوسطة (3.4) | قراءة ثابتة | قرار منتج: كتالوج مشترك مقبول أم scoping بالـ SKU؟ (Q-04) |
 | D5 | `ApiStoreRepository.create` → endpoint مش موجود | منخفضة | قراءة ثابتة | يتصلح مع تصميم locations |
 | D6 | `register-device` بيستثني Manager (`@Roles(ADMIN, STAFF)`) | منخفضة-متوسطة | قراءة ثابتة | S3 (الإشعارات) |
 | D7 | refresh token واحد لكل مستخدم | متوسطة لو الأجهزة المتعددة بنفس الحساب | قراءة ثابتة، UNVERIFIED على جهازين | جلسات per-device (ADR B) أو التحقق على جهازين |
 | D8 | audit best-effort وخارج transaction الحركة | متوسطة (evidentiary) | قراءة ثابتة | ADR G |
 | D9 | `VIEW_AUDIT_LOG` بلا endpoint | منخفضة | قراءة ثابتة | S3/S4 |
+| **D10** | **(جديد، Series 09)** `audit_logs` كانت بتخزّن `costPrice` بالنص الصريح (request + response لـ create/update/image) — بيكسر تشفير التخزين لأي قارئ للـ audit | **عالية** | **مُثبت تشغيلياً** (4 صفوف في الاختبار) | **✅ الكتابة الجديدة اتقفلت (S0):** redaction في الـ interceptor وفي الـ sink. **الصفوف القديمة لسه ممكن تحتوي القيمة** في أي بيئة اشتغلت بالإصدار القديم — تنظيف مشغّل منفصل (غير منفّذ، يحتاج تفويض) |
 
 ---
 

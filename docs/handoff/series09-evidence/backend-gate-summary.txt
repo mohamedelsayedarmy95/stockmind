@@ -1,0 +1,7 @@
+﻿Series 09 backend gate summary (last tested commit 3b9bb69 = test-only change on top of product-code commit 00b494e; full suite, fresh disposable PostgreSQL 15.19 database per run, 127.0.0.1:55433)
+run 1 : Test Suites: 2 skipped, 54 passed, 54 of 56 total | Tests:       2 skipped, 395 passed, 397 total
+run 2 : Test Suites: 2 skipped, 54 passed, 54 of 56 total | Tests:       2 skipped, 395 passed, 397 total
+run 3 : Test Suites: 2 skipped, 54 passed, 54 of 56 total | Tests:       2 skipped, 395 passed, 397 total
+skipped (2): s0-cost-exposure.repro and auth-lookup.perf run only with S09_EVIDENCE_OUT set (their numbers are in this folder)
+backend: tsc exit 0; clean build (tsbuildinfo + dist removed): exit 0, dist/main.js present, 11/11 migrations compiled
+mobile: tsc exit 0; Test Suites: 18 passed, 18 total | Tests: 273 passed, 273 total
