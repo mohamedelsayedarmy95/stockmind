@@ -16,9 +16,11 @@ import { useAuthStore } from '@/store/auth.store';
 import { haptics } from '@/lib/haptics';
 import { BASE_URL } from '@/api/client';
 import { ONLINE_MODE_DEV_PREVIEW, apiHostLabel } from '@/lib/dev-flags';
+import { useAccessNotice } from '@/store/access-notice.store';
 import {
   AuthFlowError,
   LoginOutcome,
+  errorCodeOf,
   httpStatusOf,
   loginFailure,
   normalizeOtpInput,
@@ -35,6 +37,7 @@ const LOGIN_ERROR_KEY = {
   'invalid-credentials': 'auth.invalidCredentials',
   locked: 'online.locked',
   network: 'online.network',
+  'access-revoked': 'team.accessRevokedLogin',
   error: 'common.error',
 } as const;
 
@@ -48,6 +51,7 @@ export default function LoginScreen() {
   const setGuest = useAuthStore((s) => s.setGuest);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const accessRevoked = useAccessNotice((s) => s.revoked);
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [otp, setOtp] = useState('');
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -80,7 +84,7 @@ export default function LoginScreen() {
         onError: (err) => {
           void haptics.error();
           setErrorKey(
-            err instanceof AuthFlowError ? 'common.error' : LOGIN_ERROR_KEY[loginFailure(httpStatusOf(err))],
+            err instanceof AuthFlowError ? 'common.error' : LOGIN_ERROR_KEY[loginFailure(httpStatusOf(err), errorCodeOf(err))],
           );
         },
       },
@@ -135,6 +139,11 @@ export default function LoginScreen() {
   const errorText = errorKey ? (
     <Text testID="login-error" style={{ color: '#EF4444', fontSize: 13 }}>
       {tr(errorKey)}
+    </Text>
+  ) : accessRevoked ? (
+    // Series 09: signed out because the server revoked this member's access. Calm, factual, and says the queue is kept.
+    <Text testID="access-revoked-notice" style={{ color: t.textSecondary, fontSize: 13 }}>
+      {tr('team.accessNotice')}
     </Text>
   ) : null;
 

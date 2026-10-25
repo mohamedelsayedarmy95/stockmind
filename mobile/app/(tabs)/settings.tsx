@@ -307,6 +307,23 @@ export default function SettingsScreen() {
             <PremiumButton label={tr('settings.wipeAction')} variant="ghost" onPress={confirmWipe} />
           </GlassCard>
 
+          {operationMode === 'online' && user?.role === 'Admin' ? (
+            <GlassCard>
+              <Pressable
+                testID="open-team"
+                onPress={() => router.push('/team')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              >
+                <Ionicons name="people-outline" size={18} color={t.textSecondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: t.textSecondary, fontWeight: '600' }}>{tr('team.openFromSettings')}</Text>
+                  <Text style={{ color: t.textMuted, fontSize: 12 }}>{tr('team.openHint')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
+              </Pressable>
+            </GlassCard>
+          ) : null}
+
           <GlassCard>
             <Pressable
               onPress={() => router.push('/help')}

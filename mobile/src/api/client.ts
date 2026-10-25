@@ -3,6 +3,8 @@ import Constants from 'expo-constants';
 import { authAccessor } from '@/store/auth.store';
 import { useSettingsStore } from '@/store/settings.store';
 import { sessionLock } from '@/lib/session-lock';
+import { useAccessNotice } from '@/store/access-notice.store';
+import { isAccessRevoked } from '@/domain/auth-flow';
 import { pinnedAxiosAdapter, shouldPin } from '@/lib/pinned-http';
 
 export const BASE_URL =
@@ -45,7 +47,10 @@ async function refreshAccessToken(): Promise<string | null> {
     );
     authAccessor.setTokens(data.accessToken, data.refreshToken);
     return data.accessToken;
-  } catch {
+  } catch (err) {
+    // Series 09: a refusal that says "access revoked" is not an expired session. The tokens are cleared as before, but the
+    // person is told why, and queued work is kept for review (it is never wiped or replayed on its own).
+    if (isAccessRevoked(err)) useAccessNotice.getState().raise();
     authAccessor.clear();
     return null;
   }
@@ -80,6 +85,8 @@ api.interceptors.response.use(
         original.headers.Authorization = `Bearer ${newToken}`;
         return api(original);
       }
+      // The refresh failed for a plain reason but the request itself was refused as revoked (e.g. sessions revoked).
+      if (isAccessRevoked(error)) useAccessNotice.getState().raise();
     }
     return Promise.reject(error);
   },

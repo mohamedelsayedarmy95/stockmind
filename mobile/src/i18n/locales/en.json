@@ -408,7 +408,8 @@
         "plan-limit": "Not allowed on your plan.",
         "too-old": "Saved more than 7 days ago. Check it before sending.",
         "history-changed": "The server's current history no longer contains this confirmed action (database restored?).",
-        "history-mismatch": "The server's record for this action does not match what was sent."
+        "history-mismatch": "The server's record for this action does not match what was sent.",
+        "access-revoked": "Your access changed. Check this action, then send it again or discard it."
       },
       "maybeRecorded": "May already be recorded. It is resolved with the same request, never doubled.",
       "unknownOutcome": "Access was removed before the result was known. Ask your manager to check the stock history.",
@@ -467,7 +468,10 @@
         "whatHappened": "The server's history changed (for example, the database was restored). This action was confirmed earlier, but the server's current history no longer contains it. That does not prove it never happened, and it was NOT sent again.",
         "receiptTitle": "Original receipt (kept on this device)",
         "receiptNote": "This is what the server told this device earlier. It is not current stock.",
-        "kind": { "inbound": "Receive", "outbound": "Dispatch" },
+        "kind": {
+          "inbound": "Receive",
+          "outbound": "Dispatch"
+        },
         "product": "Product",
         "warehouse": "Warehouse",
         "quantity": "Quantity",
@@ -539,5 +543,82 @@
         "acknowledgeNote": "Dismissing only removes this reminder on this device. Stock does not change."
       }
     }
+  },
+  "team": {
+    "title": "Team",
+    "subtitle": "Who has access to the company",
+    "openFromSettings": "Team",
+    "openHint": "Manage who can use the company's data",
+    "you": "You",
+    "owner": "Owner",
+    "retry": "Try again",
+    "loadError": "Could not load the team. Check the connection and try again.",
+    "showRemoved": "Show removed members",
+    "hideRemoved": "Hide removed members",
+    "role": {
+      "Admin": "Admin",
+      "Manager": "Manager",
+      "Staff": "Staff"
+    },
+    "status": {
+      "active": "Active",
+      "suspended": "Suspended",
+      "removed": "Removed",
+      "suspendedHint": "Cannot sign in. You can reactivate them at any time.",
+      "removedHint": "Removed from the team. Their history is kept."
+    },
+    "action": {
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "remove": "Remove",
+      "revoke_sessions": "Sign out everywhere",
+      "change_role": "Change role"
+    },
+    "confirm": {
+      "suspend": {
+        "title": "Suspend {{name}}?",
+        "body": "Their access ends immediately; nothing they send afterwards is recorded. You can reactivate them later."
+      },
+      "remove": {
+        "title": "Remove {{name}} from the team?",
+        "body": "Their access ends immediately and their warehouse permissions are cleared. Their past activity stays on record."
+      },
+      "revoke_sessions": {
+        "title": "Sign {{name}} out everywhere?",
+        "body": "Every device will have to sign in again. The account itself stays active."
+      }
+    },
+    "changeRole": {
+      "title": "Change role for {{name}}",
+      "body": "Current role: {{role}}. It applies from their next request."
+    },
+    "ack": {
+      "title": "Access to every warehouse",
+      "body": "{{name}} will become {{role}}, which sees every warehouse of the company. Are you sure?",
+      "confirm": "Yes, I am sure"
+    },
+    "done": {
+      "suspend": "{{name}} is suspended. Their access has ended.",
+      "reactivate": "{{name}} is active again. They will need to sign in.",
+      "remove": "{{name}} was removed from the team.",
+      "revoke_sessions": "All sessions of {{name}} ended.",
+      "change_role": "The role of {{name}} was changed."
+    },
+    "error": {
+      "network": "No connection. Nothing was changed.",
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "That member was not found.",
+      "generic": "Something went wrong. Nothing was changed.",
+      "OWNER_REQUIRED": "Only the company owner can do that for an Admin.",
+      "LAST_OWNER": "This is the last active owner of the company; they cannot be suspended or removed.",
+      "CANNOT_MODIFY_SELF": "You cannot change your own access.",
+      "INVALID_TRANSITION": "That is not possible for the member's current state.",
+      "NO_CHANGE": "The member already has that role.",
+      "ACKNOWLEDGEMENT_REQUIRED": "Please confirm that this role gives access to every warehouse.",
+      "ACTOR_NOT_ACTIVE": "Your own access changed. Please sign in again.",
+      "TARGET_NOT_ACTIVE": "Reactivate the member first, then change their role."
+    },
+    "accessRevokedLogin": "This account is suspended or was removed from the company. Contact your administrator.",
+    "accessNotice": "Your access to the company changed, so you were signed out. Actions waiting on this device are kept and will not be sent on their own; you will review them when you return."
   }
 }

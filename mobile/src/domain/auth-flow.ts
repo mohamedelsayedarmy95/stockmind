@@ -91,10 +91,12 @@ export function twoFactorFailure(status: number | undefined, challengeAgeMs: num
   return 'error';
 }
 
-export type LoginFailure = 'invalid-credentials' | 'locked' | 'network' | 'error';
+export type LoginFailure = 'invalid-credentials' | 'locked' | 'network' | 'access-revoked' | 'error';
 
-export function loginFailure(status: number | undefined): LoginFailure {
+export function loginFailure(status: number | undefined, code?: string | undefined): LoginFailure {
   if (status === undefined) return 'network';
+  // Series 09: the member's access was suspended or removed. The server says so only after the password was right.
+  if (code === ACCESS_REVOKED_CODE) return 'access-revoked';
   if (status === 401 || status === 400) return 'invalid-credentials';
   if (status === 429 || status === 423) return 'locked';
   return 'error';
@@ -147,6 +149,20 @@ export function invitationFailure(status: number | undefined): InvitationFailure
   if (status === 409) return 'email-registered';
   if (status === 402) return 'no-seat';
   return 'error';
+}
+
+/** The machine-readable reason the server gives when a member's access was suspended/removed or their sessions revoked. */
+export const ACCESS_REVOKED_CODE = 'ACCESS_REVOKED';
+
+/** The `code` of an axios-style error body, when the server sent one; undefined otherwise. */
+export function errorCodeOf(err: unknown): string | undefined {
+  const code = (err as { response?: { data?: { code?: unknown } } } | null)?.response?.data?.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+/** True when the server refused because the member's access was revoked (not because a token merely expired). */
+export function isAccessRevoked(err: unknown): boolean {
+  return errorCodeOf(err) === ACCESS_REVOKED_CODE;
 }
 
 /** HTTP status of an axios-style error; undefined when no response arrived (offline, timeout, DNS). */

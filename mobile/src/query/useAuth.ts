@@ -13,6 +13,7 @@ import {
 import { forgetSyncCache, resetWarehouseSync } from '@/sync/warehouse-sync';
 import { sessionScopeKey } from '@/sync/account-scope';
 import { forgetReferences } from '@/sync/reference-cache';
+import { useAccessNotice } from '@/store/access-notice.store';
 import { queryClient } from './queryClient';
 
 export interface RegisterInput {
@@ -27,6 +28,7 @@ export interface RegisterInput {
  * fetched under one account is ever shown under another.
  */
 export function startOnlineSession(session: SessionPayload) {
+  useAccessNotice.getState().dismiss(); // a successful sign-in answers the "access changed" notice
   queryClient.clear();
   resetWarehouseSync();
   useAuthStore.getState().setSession({

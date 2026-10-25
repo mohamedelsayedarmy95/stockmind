@@ -31,6 +31,7 @@ export type IntentReason =
   | 'server' // 5xx: the server failed or a proxy gave up
   | 'busy' // 429: try later
   | 'auth' // 401: signed out or session expired; waits for the same account to sign in
+  | 'access-revoked' // 401 ACCESS_REVOKED (Series 09): the member was suspended/removed or sessions were revoked; a person decides
   | 'insufficient-stock' // 409
   | 'no-access' // 403/404: warehouse or product no longer accessible
   | 'invalid' // 400 and other 4xx
@@ -197,7 +198,7 @@ export function markSending(intent: StockIntent): StockIntent {
   return { ...intent, state: 'SENDING', attempts: intent.attempts + 1 };
 }
 
-export type SendOutcome = { ok: true; body: unknown } | { ok: false; status: number | undefined };
+export type SendOutcome = { ok: true; body: unknown } | { ok: false; status: number | undefined; code?: string };
 
 export function resultOf(body: unknown, now: number): IntentResult {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
@@ -240,6 +241,12 @@ export function settle(
   if (status === undefined || status === 408) return retryLater('network', true);
   if (status === 429) return retryLater('busy', false);
   if (status >= 500) return retryLater('server', true);
+  // Series 09: the member's access was revoked. Unlike an expired session this must NEVER be retried automatically: after a
+  // reactivation, replaying what was queued before the suspension would be the server acting on stale decisions. The intent
+  // is held for a person (retry unchanged, or discard). If an earlier attempt may have landed, only a review can say.
+  if (status === 401 && outcome.code === 'ACCESS_REVOKED') {
+    return final(intent.maybeCommitted ? 'NEEDS_REVIEW' : 'REJECTED', 'access-revoked');
+  }
   // The guard refused before anything ran; due again as soon as the same account has a session.
   if (status === 401) return { ...intent, state: 'PENDING', nextAttemptAt: now, lastError: fail('auth') };
   // The key claim is rolled back with the refused write: this key recorded nothing.
@@ -249,6 +256,22 @@ export function settle(
   // Access removed: if an earlier attempt may have landed, we cannot know whether it did.
   if (status === 403 || status === 404) return final(intent.maybeCommitted ? 'NEEDS_REVIEW' : 'REJECTED', 'no-access');
   return final('REJECTED', 'invalid');
+}
+
+/**
+ * The server said this account's access is revoked: everything still waiting for it is held for a person, with no further
+ * network attempt (each would be refused the same way, and none may be replayed on its own after a reactivation).
+ */
+export function holdQueueAfterRevocation(intents: readonly StockIntent[], scope: string, now: number): StockIntent[] {
+  return intents.map((i) =>
+    i.scope === scope && (i.state === 'PENDING' || i.state === 'SENDING')
+      ? {
+          ...i,
+          state: i.maybeCommitted || i.state === 'SENDING' ? ('NEEDS_REVIEW' as const) : ('REJECTED' as const),
+          lastError: { status: 401, reason: 'access-revoked' as const, at: now },
+        }
+      : i,
+  );
 }
 
 /** The next intent to send for this account, or how long to wait, or null when nothing is waiting. */
@@ -343,7 +366,8 @@ export function canDiscard(intent: StockIntent): boolean {
  */
 export function retryNow(intent: StockIntent, now: number): StockIntent | null {
   if (intent.state === 'PENDING') return { ...intent, nextAttemptAt: now };
-  if (intent.state === 'REJECTED' && intent.lastError?.reason === 'insufficient-stock') {
+  // A refusal for revoked access proves nothing was recorded; once access is restored the person may send it unchanged.
+  if (intent.state === 'REJECTED' && (intent.lastError?.reason === 'insufficient-stock' || intent.lastError?.reason === 'access-revoked')) {
     return { ...intent, state: 'PENDING', nextAttemptAt: now };
   }
   return null;

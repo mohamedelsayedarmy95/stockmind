@@ -1,7 +1,9 @@
 import { AppState } from 'react-native';
 import { api } from '@/api/client';
-import { httpStatusOf } from '@/domain/auth-flow';
-import { IntentKind, IntentPayload, markSending, nextToSend, SendOutcome, settle, StockIntent, wake } from '@/domain/outbox';
+import { errorCodeOf, httpStatusOf } from '@/domain/auth-flow';
+import {
+  holdQueueAfterRevocation, IntentKind, IntentPayload, markSending, nextToSend, SendOutcome, settle, StockIntent, wake,
+} from '@/domain/outbox';
 import { useAuthStore } from '@/store/auth.store';
 import { currentScopeKey } from './account-scope';
 import { enqueueIntent, getIntent, replaceIntents, updateIntent, useOutboxStore } from './outbox-store';
@@ -60,7 +62,7 @@ async function sendOne(intent: StockIntent): Promise<StockIntent> {
     });
     outcome = { ok: true, body: data };
   } catch (err) {
-    outcome = { ok: false, status: httpStatusOf(err) };
+    outcome = { ok: false, status: httpStatusOf(err), code: errorCodeOf(err) };
   }
   return updateIntent(sending.id, (current) => settle(current, outcome, Date.now())) ?? sending;
 }
@@ -77,6 +79,11 @@ async function runPass(): Promise<void> {
     }
     const settled = await sendOne(next.intent);
     const warehouseId = settled.payload.warehouseId;
+    if (settled.lastError?.reason === 'access-revoked') {
+      // Revoked access: hold everything still waiting for a person; nothing is sent again by itself (Series 09).
+      replaceIntents(holdQueueAfterRevocation(useOutboxStore.getState().intents, scope, Date.now()));
+      return;
+    }
     if (settled.state === 'CONFIRMED') onOwnWriteSucceeded(warehouseId);
     else if (settled.state === 'REJECTED' && settled.lastError?.reason === 'insufficient-stock') {
       onOwnWriteRejected(warehouseId, 'insufficient-stock');
