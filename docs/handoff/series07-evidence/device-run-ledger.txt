@@ -1,0 +1,34 @@
+# Series 07 device run (Huawei JSN-L22, debug build, local throwaway backend; synthetic data). Generated 2026-10-25T06:26:32+03:00
+
+## replacements (server)
+┌─────────┬────────────┬────────────┬────────────┬────────────┬──────────┬────────────┬────────────────┬────────────────┐
+│ (index) │ orig       │ repl       │ orig_mv    │ repl_mv    │ status   │ gen        │ repl_in_ledger │ orig_in_ledger │
+├─────────┼────────────┼────────────┼────────────┼────────────┼──────────┼────────────┼────────────────┼────────────────┤
+│ 0       │ '4ea564c5' │ 'c09e0a7b' │ '0603822d' │ 'd42541cc' │ 'absent' │ '1d194ac4' │ '1'            │ '0'            │
+└─────────┴────────────┴────────────┴────────────┴────────────┴──────────┴────────────┴────────────────┴────────────────┘
+## staff user's movements in W1 (server)
+┌─────────┬─────┬────────────┬─────────────┬─────────────┬────────────┬───────────────────────────────────────────────────────────────────────────────┐
+│ (index) │ rev │ type       │ qty         │ bal         │ id         │ notes                                                                         │
+├─────────┼─────┼────────────┼─────────────┼─────────────┼────────────┼───────────────────────────────────────────────────────────────────────────────┤
+│ 0       │ '4' │ 'OUTBOUND' │ '-4.000000' │ '47.000000' │ 'd42541cc' │ 'Replacement of action 4ea564c5 (absent from server history after a restore)' │
+└─────────┴─────┴────────────┴─────────────┴─────────────┴────────────┴───────────────────────────────────────────────────────────────────────────────┘
+## generation / floors
+{"generation":"1d194ac4-7038-4a43-8aba-74a01248f936"}
+┌─────────┬────────────┬─────┬───────┐
+│ (index) │ w          │ rev │ floor │
+├─────────┼────────────┼─────┼───────┤
+│ 0       │ 'f73440ea' │ '4' │ '2'   │
+│ 1       │ '43b58aa7' │ '1' │ '1'   │
+└─────────┴────────────┴─────┴───────┘
+## proxy log
+2026-10-24T22:05:36.123Z lookup upstream=200 ops=1
+2026-10-25T03:22:40.633Z lookup upstream=200 ops=1
+2026-10-25T03:23:17.685Z DROPPED response POST /api/v1/stock/replacements/outbound key=c09e0a7b-533b-4563-8476-0c9eda552f60 upstream=201
+2026-10-25T03:25:27.254Z lookup upstream=200 ops=2
+
+## Screens observed on the device (screenshots with an unrelated third-party chat-head overlay are kept only in _local-tools\evidence-s07, not in the repository)
+- Stock screen after the restore + rotation: banner "The server rebuilt its stock history. Figures were reloaded from scratch." and "1 actions need your review"; Oil 1L = 51 (server figure).
+- Pending actions: Dispatch · Oil 1L -4, "Needs review · The server's current history no longer contains this confirmed action", "Last receipt ... It was not re-sent automatically.", buttons "Review and replace" / "Acknowledge".
+- Review screen: original receipt (history a5816268, revision 3) shown apart from "Confirmed stock on the server 51"; "Server check: Not in the server's current history. Checked ... history 1d194ac4"; warning text; "Replace as a new action"; confirmation dialog "Replace this action? ... The server will check again and record a new movement only if the original is still missing."
+- Dropped response: "Replacement sent · the answer was lost" with "Retry the same request" (server had committed revision 4).
+- After force-stop and relaunch: stock Oil 1L = 47 (a single -4), review banner gone, Pending actions shows "Replaced · the server recorded a new movement for it. Original action 4ea564c5 was missing from the server history. Replaced by movement d42541cc."

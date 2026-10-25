@@ -6,8 +6,8 @@
 > التصنيفات: `VERIFIED / PARTIAL / UNVERIFIED / BLOCKED / FAILED / DEFERRED`.
 
 > ## ⚠ المكان الرسمي لهذا الملف (ACTIVE CANONICAL)
-> **الفرع:** `hardening/series06-release-safety` — **المسار:** `D:\Projects\StockMind-wt\series06-release-safety\docs\handoff\STOCKMIND_AI_BRIDGE.md`
-> **النسخ الأقدم غير سارية (stale):** على `preflight/series05-rc-admission` (v1.1 @ `e517d82`، worktree `series05-rc-preflight`) وعلى `integration/series04` (v1.0 @ `84faa31`، worktree `series04-integration`). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
+> **الفرع:** `feature/series07-recovery-integrity` — **المسار:** `D:\Projects\StockMind-wt\series07-recovery-integrity\docs\handoff\STOCKMIND_AI_BRIDGE.md`
+> **النسخ الأقدم غير سارية (stale):** على `hardening/series06-release-safety` (v1.2 @ `6d4613b`، worktree `series06-release-safety`)، وعلى `preflight/series05-rc-admission` (v1.1)، وعلى `integration/series04` (v1.0). ماتقراش منهم. نسخة الـ Desktop مطابقة لهذه النسخة بالـ SHA-256.
 
 ---
 
@@ -16,40 +16,41 @@
 | البند | القيمة |
 |---|---|
 | المشروع | StockMind (inventory / WMS SaaS) |
-| إصدار الملف | **v1.2** (بعد Series 06) |
-| آخر تحديث | **2026-10-24 22:52 +03:00** (Egypt Standard Time) |
-| الـ session | `bdd72b49-7508-48ee-87ac-66e7899a24da` (Claude Code Desktop، `claude-sonnet-5-5`؛ Series 02–04 بـ `claude-opus-5-5`). مفيش identifiers حساسة. |
-| المرحلة الحالية | **Series 06 — Release-Line Reconciliation & Migration Safety Hardening: مكتملة.** في انتظار قرارات الـ Director. |
+| إصدار الملف | **v1.3** (بعد Series 07) |
+| آخر تحديث | **2026-10-25 06:45 +03:00** (Egypt Standard Time) |
+| الـ session | Claude Code Desktop، `claude-sonnet-5-5`. تفويض Series 07 جه كامل في رسالة واحدة بعد ما أول رسالة (Continuation) قالت "attached" ومفيش مرفق؛ وقفت وسألت ولم أخمّن. مفيش identifiers حساسة. |
+| المرحلة الحالية | **Series 07 — Recovery Integrity & Safe Re-entry (S1 + S2): مكتملة (PASS للنطاق، الجهاز PARTIAL).** في انتظار قرارات الـ Director. |
 | الحالة | ACTIVE |
-| Canonical | `D:\Projects\StockMind-wt\series06-release-safety\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `hardening/series06-release-safety` |
-| Desktop mirror | `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_BRIDGE.md` (مطابق) |
-| **Verified baseline (مؤشر Git)** | الفرع `hardening/series06-release-safety`: **آخر commit كود/اختبارات/migrations = `9b1f9dd`** (قاعدة `e517d82`؛ commits الكود: `d12b810` ← `ba16cec` ← `9b1f9dd`). الـ gates النهائية اشتغلت على HEAD = `cac4f4e` والشجرة نضيفة (الفرق بينهم docs فقط، اتأكد: `git diff --name-only 9b1f9dd cac4f4e` ما فيهوش ملفات خارج `docs/`). بعد كده commit handoff واحد (التقرير + الـ master + الـ bridge). للتأكد في أي وقت: `git -C D:\Projects\StockMind-wt\series06-release-safety diff --name-only 9b1f9dd HEAD`. الملف مبيقدرش يكتب hash الـ commit بتاعه. |
+| Canonical | `D:\Projects\StockMind-wt\series07-recovery-integrity\docs\handoff\STOCKMIND_AI_BRIDGE.md` على `feature/series07-recovery-integrity` |
+| Desktop mirror | `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_BRIDGE.md` (مطابق بالـ SHA-256) |
+| **Verified baseline (مؤشر Git)** | الفرع `feature/series07-recovery-integrity` من `6d4613b`. commits الكود: **`cbad45b`** (backend: migration + S1 + S2) ← **`9a79b1c`** (mobile) ← **`b3d824f`** (إصلاح i18n اتكشف على الجهاز). **آخر commit كود/اختبارات = `b3d824f`** وعليه اشتغلت الـ gates (شجرة الكود نضيفة). أي commits بعده **docs وأدلة فقط** (التقرير، العقد، الـ runbook v0.3، الـ bridge، الـ master، `series07-evidence/`). للتأكد: `git -C D:\Projects\StockMind-wt\series07-recovery-integrity diff --name-only b3d824f HEAD` (لازم كلها تحت `docs/`). الملف مبيقدرش يكتب hash الـ commit بتاعه. |
 
 ---
 
 ## 01 — EXECUTIVE PROJECT STATUS
 
-- **آخر milestone مكتمل:** Series 06 (CP-1 + CP-2). التقرير: `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md`؛ المصفوفة: `docs/handoff/SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md`.
-- **CP-1 = PASS (6 من 6):** كل إصلاح من إصلاحات الـ production الستة (`e4cac4c` F4، `64f73b9` إخفاء credentials، `586c0a9` Google verified e-mail، `104b3e3` اعتماديات، `3849f93` A1، `bb071ed` A3) له spec تنفيذي على الـ candidate + negative control (تشيل الحماية فيفشل). 8 suites / 40 tests.
-- **CP-2 = PASS (على بيانات synthetic):** (A) الـ FCM migration ما بقاش يحتاج `uuid-ossp`؛ (B) `down()` للـ migrations `1792560000000` و`1792570000000` بقى fail-closed (يرفض قبل أي تعديل لو هيمسح دعوات/إيصالات/plans/صلاحيات معدّلة)؛ (C+D) migration جديدة `1792580000000`: trigger يرقّم أي حركة بلا revision، إصلاح NULL الموجودة، unique partial index بفحص تكرار مسبق؛ (E) مقارنة schema بين تثبيت جديد، وترقية من baseline الـ production المُعاد بناؤه، وبيئة اتشغّل فيها نص FCM القديم.
-- **الاختبارات:** Backend على PostgreSQL حقيقية، **3 تشغيلات متتالية على قواعد جديدة: 50/50 suites، 313/313 tests** (exit 0 ×3). `tsc` وbuild النضيف exit 0 (9 من 9 migrations). Mobile `tsc` exit 0 وJest 14/14 suites، 203/203. الاعتماديات/lockfiles/إعدادات التطبيق مطابقة للمرحلة السابقة.
-- **جاهزية:** **RC:** جاهز لتخطيط تنفيذ الـ release line، بشرط قرارات قسم 08 (ما اتدمجش حاجة). **Production: NO-GO.**
-- **اللي لسه مفتوح (مهم):** R12 (TLS `rejectUnauthorized:false`)، S1+S2 (الاسترداد)، منح صلاحيات المخازن الجديدة، plans العملاء، فحص مسبق على Neon ما اتنفّذش، وجهازين/iOS/Redis/Google Sign-In.
+- **آخر milestone:** Series 07. التقرير: `docs/handoff/SERIES_07_RECOVERY_INTEGRITY_REPORT.md`؛ العقد: `docs/handoff/SERIES_07_RECOVERY_CONTRACT.md`؛ الـ runbook: v0.3 (§14 إجراء المشغّل، §15 العمليات المتعايشة).
+- **S1 = VERIFIED:** إعادة إدخال العملية الضايعة بقت **تعويض (replacement)** بيقرره **السيرفر جوه transaction واحدة**: claim مفتاح التعويض، إعادة فحص الصلاحية (FOR SHARE)، تطابق الـ generation، **fence (tombstone) على مفتاح الأصل** كـ test-and-set ذرّي، فحص الـ ledger بمعرّف حركة الإيصال، الكتابة العادية، provenance دائم. تعويض واحد لكل أصل، ولا تعويض والأصل موجود، وتكرار الطلب = حركة واحدة. الـ re-entry القديم (غير المحمي) اتشال من التطبيق.
+- **S2 = VERIFIED مع حد صريح:** `history_generation` per-company بيتبعت مع `/stock/changes` (no-store، جزء من الـ body فالـ ETag/304 ما بيخبّيهوش) ومع الـ lookup وإيصالات الكتابة؛ تغيّره = snapshot + reset حتى لو الـ revisions اتكررت؛ العملاء القدام بياخدوا reset واحد من أرضية الـ rotation. التغيير الوحيد بيتم بـ **rotation** مصادَق (Admin، `MANAGE_RECOVERY`، flag `RECOVERY_OPERATIONS_ENABLED`، سبب + تأكيد حرفي، سجل append-only). **الـ marker جوه نفس القاعدة فبيتراجع مع restore: مفيش كشف تلقائي لـ restore؛ الكشف بيعتمد على إن المشغّل ينفّذ الـ rotation.**
+- **الاختبارات:** Backend على PostgreSQL حقيقية **×3 على قواعد جديدة: 51/51 suites، 347/347** (313 + 32 recovery + 2 migration). `tsc` 0 وبناء نضيف (10 migrations). Mobile `tsc` 0 وJest **16/16، 252/252**. Negative controls: backend 6/6 أحمر، mobile 4 أحمر. **جهاز Huawei:** تدفق كامل (اكتشاف تغيّر السجل ← مراجعة ← تأكيد ← رد ضايع ← force-stop ← حسم تلقائي = حركة واحدة).
+- **جهاز:** PARTIAL — زرار Retry، سيرفر بطيء، الواجهة العربية، تبديل الحساب، سحب الصلاحية، ضغطتين، حالات الرفض، جهازين = **لم تُجرَّب**.
+- **جاهزية:** **Production: NO-GO** (R12، فحص Neon المسبق، سياسة تشغيل الـ rotation، release line، ترقية الأجهزة، مراجعة مستقلة…). RC: مفيش تغيير في حالته (promotion مؤجّل).
 
 ---
 
 ## 02 — DIRECTOR & AI COLLABORATION CONTRACT
 
-**الأدوار:** **Director** = صاحب المنتج والسلطة النهائية على الموافقات. **ChatGPT** = مراجع ومخطط مستقل بلا وصول للـ filesystem، وتوصياته استشارية. **Claude** = Lead Engineer على الجهاز: يفحص الـ repo، ينفّذ المعتمد، يختبر، يحافظ على الـ state، ويكتب تقارير قابلة للتحقق. اقتراح مكتوب في الملف ده **مش إذن** ببدء مرحلة.
+**الأدوار:** **Director** = صاحب المنتج والسلطة النهائية على الموافقات. **ChatGPT** = مراجع ومخطط مستقل بلا وصول للـ filesystem، وتوصياته استشارية. **Claude** = Lead Engineer على الجهاز: يفحص الـ repo، ينفّذ المعتمد، يختبر، يحافظ على الـ state، ويكتب تقارير قابلة للتحقق. اقتراح مكتوب في الملف ده **مش إذن** ببدء مرحلة. **رسالة "attached" من غير مرفق = وقف وسؤال، مش تخمين.**
 
-**شروط الموافقة (لازم Director صراحةً ومن جديد):** أي Android AAB أو Google Play/Internal Testing؛ أي Production deploy/promotion/migration/config أو اتصال بقاعدة Production/Neon؛ أي merge أو force-push على `main` أو `rc4/release-candidate` أو branches الإصدار، وإنشاء/تحريك branch release؛ مشاركة كود المشروع مع موديل خارجي (`APPROVE-DELEGATION` / `APPROVE-COUNCIL` / `APPROVE-EXTERNAL-REVIEW` بكتابته هو؛ RA-4 غير ممنوح؛ الـ Council degraded)؛ خدمات مدفوعة؛ تثبيت بصلاحيات admin. مسموح بدون سؤال داخل المرحلة المعتمدة: Debug APK + ADB + جهاز حقيقي، worktrees معزولة، commit/push (بدون force) على فروع feature/integration/preflight/hardening.
+**شروط الموافقة (لازم Director صراحةً ومن جديد):** أي Android AAB أو Google Play/Internal Testing؛ أي Production deploy/promotion/migration/config أو اتصال بقاعدة Production/Neon؛ أي merge أو force-push على `main` أو `rc4/release-candidate` أو branches الإصدار، وإنشاء/تحريك branch release؛ مشاركة كود المشروع مع موديل خارجي (`APPROVE-DELEGATION` / `APPROVE-COUNCIL` / `APPROVE-EXTERNAL-REVIEW` بكتابته هو؛ RA-4 غير ممنوح؛ الـ Council degraded)؛ خدمات مدفوعة؛ تثبيت بصلاحيات admin. مسموح بدون سؤال داخل المرحلة المعتمدة: Debug APK + ADB + جهاز حقيقي (**البصمة دايماً للـ Director**)، worktrees معزولة، commit/push (بدون force) على الفرع المفوَّض.
 
 **Mandatory start/end protocol** (التفاصيل: `docs/handoff/STOCKMIND_AI_CONTINUITY.md`):
-- **البداية:** `AGENTS.md` ← الـ master ← **الـ bridge ده (النسخة الرسمية فقط، قسم 00)** ← التقرير/الـ checkpoint المطلوب فقط. فحص Git ضيق (الأوامر في الـ master). لو تعارض، الـ Git يكسب والملفات تتصحح.
+- **البداية:** `AGENTS.md` ← الـ master ← **الـ bridge ده (النسخة الرسمية فقط، قسم 00)** ← التقرير/العقد/الـ checkpoint المطلوب فقط. فحص Git ضيق (الأوامر في الـ master). لو تعارض، الـ Git يكسب والملفات تتصحح.
 - **النهاية (كل milestone):** حدّث الأقسام 00–10 وأضف سطراً لـ 11، أضف commits ونتايج فعلية وفشلاً إن حصل، حدّد الخطوة التالية، حدّث الـ master، انسخ للـ Desktop، **وتحقق من SHA-256 كامل لكل زوج**، وبلّغ بأمانة عن أي فشل حفظ.
 - **نقل المكان الرسمي:** لما الشغل يتحرك لفرع/worktree جديد، انقل الـ bridge والـ master للفرع الجديد واكتب صراحةً في الأعلى إن النسخ القديمة stale.
 - **مؤشر Git:** اكتبه كـ "verified baseline" بتاريخه وبـ commits docs اللاحقة؛ ماتكتبش HEAD كأنه حالي.
-- **التحقق من البناء:** `exit 0` لوحده مش كفاية: امسح `*.tsbuildinfo` وافحص `dist/main.js` وعدد الـ migrations المترجمة (حصل في Series 06 build ناقص بـ exit 0).
+- **التحقق من البناء:** `exit 0` لوحده مش كفاية: امسح `*.tsbuildinfo` وافحص `dist/main.js` وعدد الـ migrations المترجمة.
+- **اختبار الجهاز بيكشف حاجات Jest مش بيكشفها** (Series 07: تعارض مفاتيح i18n).
 
 **سياسة توفير الـ tokens:** قراءة ضيقة، أقل عدد أدوات، لا subagents أو Council بدون سبب وموافقة، والـ bridge بيشاور على المستندات الكبيرة.
 
@@ -57,11 +58,10 @@
 
 ## 03 — CURRENT TASK
 
-- **المهمة المعتمدة (اكتملت):** Series 06 — CP-1 + CP-2 فقط، على فرع تطوير معزول، Production NO-GO.
-- **الهدف:** (1) استراتيجية release line مثبتة بالدليل؛ (2) إثبات تكافؤ سلوكيات إصلاحات الـ production الستة؛ (3) تقوية الـ migrations بدون فقد بيانات أو توسيع صلاحيات؛ (4) اختبارات حقيقية؛ (5) تحديث الـ handoff.
-- **المخرجات (اتسلّمت):** `SERIES_06_RELEASE_SAFETY_REPORT.md` · `SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md` · runbook v0.2 · 3 migrations معدّلة + migration جديدة + helper · `release-safety.migration.pg.spec.ts` (17) · `tests/equivalence/production-bb071ed/` (40) · bridge v1.2 + master + نسخة Desktop.
-- **الحالة:** **مكتملة.** القبول: كل إصلاح من الستة له دليل تنفيذي ونتيجة فعلية؛ وgates الـ DB/backend/mobile خضرا؛ ولا merge/branch إصدار/deploy/اتصال بـ Production.
-- **مستبعد (ما اتعملش):** S1/S2، CP-4/CP-5، billing، Viewer role، multi-org، أي تغيير في كود التطبيق أو الاعتماديات، Council/موديل خارجي، AAB/Play، لمس `main` المتّسخ أو RC أو branches الإصدار.
+- **المهمة المعتمدة (اكتملت):** Series 07 — **S1 + S2 فقط**، على worktree/فرع معزول، Production NO-GO. التفويض كان رسالة Director كاملة (موجودة في المحادثة).
+- **الهدف:** (1) منع تكرار re-entry بالخطأ أو بالتزامن لعمليات اتأكدت وغابت بعد restore؛ (2) هوية history generation صريحة تخلّي العملاء يعيدوا بناء حالتهم ويفحصوا إيصالاتهم، من غير ادّعاء كشف restore تلقائي.
+- **المخرجات (اتسلّمت):** migration `1792590000000`؛ backend (`stock-replacement.service`, `history-generation.service`, lookup/sync/controllers)؛ mobile (`replacement.ts`، شاشة `outbox-review`، cursor بـ generation)؛ `recovery-integrity.pg.spec.ts` (32) + اختبارات mobile (49)؛ التقرير + العقد + runbook v0.3؛ أدلة الجهاز؛ bridge v1.3 + master + Desktop.
+- **مستبعد (ما اتعملش):** dashboard المدير، هرمية المخازن، UI الفريق، صلاحيات المنتجات، approval workflows (الـ Director بيجهّز مقترح منفصل)، CP-4/CP-5، billing، Viewer، multi-org، تعديل الاعتماديات، TLS/Google، Neon/Production، AAB/Play، Council/موديل خارجي، أي merge، لمس `main` المتّسخ.
 
 ---
 
@@ -69,15 +69,14 @@
 
 | Commit | نوعه | التغيير |
 |---|---|---|
-| `d12b810` | fix(migrations) | `1722345600000`: `gen_random_uuid()` بدل `uuid_generate_v4()`؛ `down()` fail-closed في `1792560000000` و`1792570000000`؛ **جديد** `1792580000000-StockRevisionGuard`؛ **جديد** `src/shared/db/migration-guards.ts`؛ **جديد** `release-safety.migration.pg.spec.ts` (يحل محل `rc-admission.migration.pg.spec.ts`) |
-| `ba16cec` | test | `tests/equivalence/production-bb071ed/` (specs الـ production الأصلية بتعديلات setup فقط + فحص lockfile + فحص wiring) + دليل التعديلات |
-| `9b1f9dd` | docs(migrations) | تعليق دقيق في migration الـ FCM (بدون تغيير سلوك) |
-| `cac4f4e` | docs | التقرير، المصفوفة، runbook v0.2 |
-| (آخر commit) | docs | bridge v1.2 + master + تعديل التقرير (حادثة الـ build) |
+| `cbad45b` | feat(recovery) | migration `1792590000000-RecoveryIntegrity` (+down fail-closed)، `StockReplacementService`، `HistoryGenerationService`، `RecoveryController`، `ReplaceOperationCommand/Handler`، `ReplaceOperationDto`/`RotateGenerationDto`، `getChanges` (generation/floor/no-store)، lookup (generation، superseded، coexisting)، `StockService.applyMovementInTransaction` (نفس الكتابة)، `MANAGE_RECOVERY`، exception filter بـ `code`، `warehouse-access.hasFullAccess`؛ `recovery-integrity.pg.spec.ts`؛ تعديل `release-safety.migration.pg.spec.ts` (+2، `undoGuard`)؛ fixture في `stock-cache.consistency.spec` |
+| `9a79b1c` | feat(mobile) | `stock-sync` (generation)، `outbox.ts` (REPLACED، lookup الجديد)، `replacement.ts`، `outbox-reconcile.ts`، `outbox-replacement.ts`، `outbox-review.tsx`، قائمة outbox/banner، i18n ar/en، إزالة `reentryDraft`/`reentryOf`، `PremiumButton testID` |
+| `b3d824f` | fix(mobile) | تغيير اسم namespace الـ i18n إلى `reviewFlow` + اختبار منع المفاتيح المكررة (**اتكشف على الجهاز**) |
+| (commits docs) | docs | التقرير، العقد، runbook v0.3، bridge v1.3، master، `series07-evidence/` |
 
-- **Migrations/API:** migration جديدة واحدة (`1792580000000`)، ولا تغيير في API أو كود التطبيق أو الاعتماديات. الـ migrations بقت 9.
-- **اتساب كما هو عمداً:** كل كود التطبيق والموبايل، `integration/series04`، `rc4`، `main` المتّسخ، فرع Series 05، الـ Production.
-- التفاصيل والأسباب: التقرير §2 و§4.
+- **Migrations/API:** migration جديدة واحدة (10 إجمالاً)؛ API بإضافات فقط + endpoints جديدة (replacements, recovery). **اعتماديات: صفر تغيير.**
+- **اتساب كما هو:** Series 06 migrations، `integration/series04`، RC، `main` المتّسخ، فرع Series 06 و05، الـ Production.
+- أدوات خارج الـ repo (`_local-tools\scripts`): `start-backend-s07.ps1`, `start-metro-s07.ps1`, `lossy-proxy-s07.mjs`, `s07-slice.mjs`, `s07-negative-controls.ps1` — محلية ومؤقتة.
 
 ---
 
@@ -86,104 +85,103 @@
 | الفحص | النتيجة | المستوى |
 |---|---|---|
 | Backend `tsc --noEmit` | exit 0 | build |
-| Backend build نضيف (بعد مسح `*.tsbuildinfo` و`dist`) | exit 0، `dist/main.js`، **9/9 migrations** + `migration-guards.js` | build |
-| Mobile `tsc --noEmit` + Jest | exit 0 · **14/14 suites، 203/203** | unit |
-| اختبارات التكافؤ | **8 suites، 40/40** | unit |
-| `release-safety.migration.pg.spec.ts` لوحده | **17/17** | real PG 15.19 |
-| **Backend PG كامل ×3 على قواعد جديدة (HEAD `cac4f4e`، شجرة نضيفة)** | **50/50 suites، 313/313 tests** في كل تشغيلة، exit 0 ×3 (~33 ث) | real PG |
-| حزم/lockfiles/إعدادات | مطابقة لـ `e517d82` (`git diff --stat` فاضي) | — |
-| Negative control (CP-1) | M1–M6: كل حماية تتشال ← الـ spec أحمر (2/5، 2/6، 5/6، 1/1، 3/8، 6/8 فشلوا) | mutation |
-| Negative control (CP-2) | N1–N5: تشيل uuid-fix/guards/trigger/unique/pre-check ← أحمر (16، 4، 3، 8، 6 فشلوا) | mutation |
+| Build نضيف (بعد مسح `*.tsbuildinfo` و`dist`) | exit 0، `dist/main.js` ✓، **10/10 migrations**، `migration-guards.js` ✓ | build |
+| `recovery-integrity.pg.spec.ts` | **32/32** | real PG 15.19 |
+| `release-safety.migration.pg.spec.ts` | **19/19** (17 + تحقق الإضافة + fail-closed down) | real PG |
+| **Backend PG كامل ×3 على قواعد جديدة (HEAD `b3d824f`)** | **51/51 suites، 347/347 tests** في كل تشغيلة، exit 0 ×3 | real PG |
+| Mobile `tsc` + Jest | exit 0 · **16/16 suites، 252/252** | unit |
+| Negative controls backend | N1–N6 كلها أحمر (4، 2، 1، 3، 1، 1 فشل) | mutation |
+| Negative controls mobile | 4 أحمر + تجربة واحدة ما غيّرتش النتيجة (guard مكرر) اتسجلت | mutation |
+| Device (Huawei JSN-L22، debug، Metro، backend محلي مؤقت) | تدفق S1+S2 كامل: اكتشاف ← مراجعة ← تأكيد ← رد ضايع (الـ proxy) ← force-stop ← حسم؛ المخزون 51→47 (حركة واحدة)؛ provenance في `stock_replacements` | **device** (جهاز واحد + سكربتات API؛ **مش اختبار جهازين**) |
 
-- **الحساب:** Series 05 كان 42 suites / 264 tests؛ −1/−8 (spec قديم اتشال) +1/+17 +8/+40 = **50 / 313** ✓.
-- **فشل أثناء التطوير (أخطاء كتابتي للاختبارات/الأدوات، مش المنتج؛ مفصّلة في التقرير §5):** نوع helper، template literal فاضي بسبب PowerShell، mutation M6 أول مرة ما اتترجمتش، مسار `__dirname` بعد نقل ملف، ترميز سكربت. **و build ناقص بـ exit 0 بسبب `tsbuildinfo` قديم** (اتكشف بفحص `dist`). وتصحيح استنتاج: TypeORM `0.3.31` بينفّذ migration بـ timestamp أقدم (كنت فاكر العكس). **ولا تشغيلة كاملة فشلت ولا flaky.**
-- **ما لم يُختبر:** الجهاز، جهازين، iOS، Redis حقيقي، Google Sign-In بعد تغيير مسار التحقق، Neon/Production (حالة الـ migrations الفعلية، وجود جدول FCM، الصلاحيات، إصدار PG)، `rejectUnauthorized:true` ضد Neon، أداء الـ backfill على جداول كبيرة، deadlock مع transfers قديمة متعاكسة.
-- **الـ Evidence:** `docs/handoff/series06-evidence/equivalence-adaptation-diff.txt`؛ لوجات `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s06_*.log` و`s06-final3.summary.txt`.
+- **فشل أثناء التطوير (مفصّل في التقرير §5):** تسريب `details` في exception filter (اتكشف بـ `health.contract.spec` واتصلح)، fixtures/اختبارات (شكل `RETURNING`، hash غير ثابت، `running_balance=0`)، **تعارض مفاتيح i18n اتكشف على الجهاز فقط**، تلف ترميز ملف من PowerShell (اتصلح وفُحص الـ diff)، junction مع Metro، token الجهاز انتهى. **ولا full-suite فشلت بعد الإصلاحات، ولا flaky.**
+- **ما لم يُختبر:** Neon/Production؛ جهازين؛ iOS؛ Redis حقيقي؛ Google Sign-In؛ على الجهاز: Retry، سيرفر بطيء، العربي، تبديل الحساب، سحب الصلاحية، حالات الرفض؛ الإجراء §14 على restore حقيقي؛ أداء الـ rotation على شركة كبيرة؛ مراجعة خارجية.
+- **الـ Evidence:** `docs/handoff/series07-evidence/` (`device-run-ledger.txt`، 4 لقطات، `backend-gate-summary.txt`، `negative-controls-backend.txt`)؛ لقطات الجهاز الكاملة محليّاً في `_local-tools\evidence-s07\`؛ لوجات `stockmind_gate_s07_*.log`.
 
 ---
 
 ## 06 — GIT & ENVIRONMENT STATE
 
-- **الفرع الرسمي:** `hardening/series06-release-safety` (worktree `D:\Projects\StockMind-wt\series06-release-safety`) — baseline `9b1f9dd` + docs. حالة الرفع على `origin`: في الرد النهائي للـ session (`git ls-remote --heads origin hardening/series06-release-safety`).
-- **باقي الـ worktrees (VERIFIED نهاية المرحلة، لم تتغيّر):** `preflight/series05-rc-admission` @ `e517d82` · `integration/series04` @ `84faa31` · `rc4/release-candidate` @ `1447ade` · `main` @ `45d9e18` (origin `5b32df3`) · production reported `release/prod-hotfix-f4` @ `bb071ed` (ref على origin بنفس الـ SHA) · `feature/series03-sync` @ `55348a6` · `feature/shared-warehouse` @ `02c53f5` · `mobile/offline-outbox` @ `ac9ba6b`.
-- **ملفاتك المتّسخة في `main` (VERIFIED بالـ SHA-256 إنها ما اتغيّرتش):** معدّل: `DEPLOYMENT_CHECKLIST.md`، `tests/integration/notification.flow.spec.ts`. غير متتبّع: `.ai-handoff/`، `PHASE_7_CHECKLIST.md`، `scripts/`، `tests/integration/stock-cache.invalidation.spec.ts`، `Glossy Neon Inventory Analytics Icon.png`. **ثلاثة منها بتتعارض مع ملفات tracked في الـ candidate**؛ ماتدمجش في ذلك الـ tree. 3 commits محلية غير مرفوعة في `main` (`6967d46`, `bcf5832`, `45d9e18`) موجودة جوه الـ RC والـ candidate.
-- **خدمات:** PostgreSQL المؤقت اتوقف والقواعد المؤقتة اتحذفت (13)؛ 3000/3001/8081/55433 فاضية؛ `adb reverse` ما اتلمسش.
-- **بيئة:** Node `v26.7.0`، npm `11.19.0`، TypeORM `0.3.31`، PostgreSQL `15.19`، git `2.56.0`. `node_modules` junctions على worktrees تانية (قراءة فقط).
-- **قيود الأدوات:** `freellmapi` كان `ECONNREFUSED` في بداية الـ session (ما اتأعاد فحصه، ولا اتستخدم). الـ Council degraded (RA-4 غير ممنوح). ما استُخدم أي تفويض خارجي.
-- **تغيير في أدوات/تبعيات/config:** مفيش.
+- **الفرع الرسمي:** `feature/series07-recovery-integrity` (worktree `D:\Projects\StockMind-wt\series07-recovery-integrity`) — baseline كود `b3d824f` + docs. حالة الرفع على `origin`: في الرد النهائي (`git ls-remote --heads origin feature/series07-recovery-integrity`).
+- **باقي الـ worktrees (لم تتغيّر):** `hardening/series06-release-safety` @ `6d4613b` (stale handoff) · `preflight/series05-rc-admission` @ `e517d82` · `integration/series04` @ `84faa31` · `rc4/release-candidate` @ `1447ade` · `main` @ `45d9e18` (origin `5b32df3`) · production reported `release/prod-hotfix-f4` @ `bb071ed`.
+- **ملفاتك المتّسخة في `main`:** لم تُلمس (راجع Series 06 للتفاصيل: 3 ملفات بتتعارض + 3 commits محلية).
+- **خدمات:** PostgreSQL المؤقت (127.0.0.1:55433) **لسه شغّال** (لإعادة تشغيل الاختبارات) بقواعد scratch `stockmind_gate_s07_*` و`stockmind_s04_s07dev`؛ backend/proxy/Metro اتوقفوا؛ `adb reverse` اتشال. التطبيق على الجهاز لسه في وضع **online** بجلسة Staff B المحلية — ارجع Offline من Settings لو عايز بياناتك الأوفلاين (الـ profile "Device Tester" ما اتمسحش).
+- **بيئة:** Node `v26.7.0`، TypeORM `0.3.31`، PostgreSQL `15.19`. `node_modules`: الـ backend junction على `shared-warehouse`، والـ mobile **نسخة حقيقية** (Metro مش بيحلّ junction عبر worktree).
+- **قيود الأدوات:** `freellmapi` ECONNREFUSED (ما استُخدم). Council degraded (RA-4 غير ممنوح). تغيير في أدوات/تبعيات/config: مفيش.
+- **ملاحظة:** overlay تطبيق تاني (Messenger chat head) ظهر على الجهاز وغطّى جزء من الـ nav؛ ما اتلمسش.
 
 ---
 
-## 07 — RISKS, BUGS & DEFERRED WORK  (التفاصيل: التقرير §6)
+## 07 — RISKS, BUGS & DEFERRED WORK  (التفاصيل: التقرير §7، العقد §5)
 
 | # | الخطورة | الحالة | الوصف | الإجراء |
 |---|---|---|---|---|
-| ~~R-down~~ | — | **اتقفل** | `down()` مدمّر وبيوسّع صلاحيات Staff | fail-closed (VERIFIED) |
-| ~~R-uuid~~ | — | **اتقفل** | الاعتماد على `uuid-ossp` | شالناه (VERIFIED) |
-| ~~R-nullrev~~ | — | **اتقفل** | حركات بلا revision بعد rollback التطبيق | trigger + إصلاح + unique index (VERIFIED) |
-| R1/R2 | عالية | **مفتوح** | restore يتعكس بعد re-entry ← duplicate؛ عنصر `history-changed` ما بيتعادش فحصه | S1 + S2 (runbook §11) قبل تفعيل المخازن المشتركة |
-| R12 | عالية قبل Production | **مفتوح — قرار** | `rejectUnauthorized:false` لما `DB_SSL=true` في `app.module.ts` و`data-source.ts` (مطابق في production)؛ لم يُختبر ضد Neon | تفويض تقييم على branch غير إنتاجي |
-| R7 | متوسطة | مفتوح | مخزن جديد بعد الـ rollout مش ظاهر للـ Staff + مفيش UI للمنح (وبيمنع `down()` كمان) | CP-4 قرار منتج |
-| R8 | متوسطة | مفتوح | كل الشركات `free`؛ enforcement بدون تثبيت plans يمنع الإضافات | ماتفعّلش `ENTITLEMENTS_ENFORCED` قبل CP-5 |
-| N2 | متوسطة | CONFIRMED (مقصود) | `1792580000000` بترفض الـ boot لو في تكرار revisions | الفحص المسبق (runbook §13) |
-| N3 | متوسطة | UNVERIFIED | القايمة المسبقة على Neon ما اتنفّذتش | تفويض مشغّل مصرّح |
-| R5 | متوسطة | مفتوح (قرار) | الـ production branch مش ancestor؛ دمج يدوي = 11 ملف / 21 hunk | الخيار A (المصفوفة §7) |
-| R6 | متوسطة | مفتوح (قرار) | 3 ملفات متّسخة بتتعارض + 3 commits محلية هتتنشر مع الـ RC | قرارك |
-| N1/N4/N5 | منخفضة | HYPOTHESIS/CONFIRMED | deadlock مع transfers قديمة؛ boot متزامن بأكتر من instance؛ `register()` بيسجّل رسالة خطأ ممكن تحمل إيميل | مراقبة |
-| — | — | UNVERIFIED | الجهاز، جهازين، iOS، Redis، Google Sign-In (تغيّر مسار التحقق وبقى بلا فحص إبطال)، حالة Production | بدون |
+| ~~R1/R2~~ | — | **اتقلّل (S1+S2)** | re-entry غير محمي + عنصر history-changed ما بيتعادش فحصه | تعويض بقرار السيرفر الذرّي + إعادة فحص + REPLACED/duplicate-risk (VERIFIED). **ما اتقفلش بالكامل: L1** |
+| **L1** | عالية قبل Production | مفتوح — **قيد معماري** | restore بيرجّع الـ generation والـ provenance والـ tombstone كمان؛ مفيش منع لتكرار عبر تواريخ فيزيائية؛ فقط كشف (coexisting) + إجراءات مشغّل | سياسة تشغيل معتمدة + بروفة |
+| **R-ops** | عالية | مفتوح | الـ rotation خطوة يدوية ممكن تتنسي؛ مفيش اكتشاف؛ مفيش 2FA step-up؛ مفيش مسار SQL مختبَر لو الـ API واقع؛ ما اتدرّبش على قاعدة حقيقية | بروفة على قاعدة غير إنتاجية بتفويضك |
+| L4 | متوسطة | مفتوح | عميل قديم ممكن يعمل re-entry عادي ما يتربطش بالأصل؛ عميل بلا anchor/generation واقف بالظبط على الـ floor مش بيتكشف | ترقية الأجهزة قبل تفعيل المخازن المشتركة |
+| L3 | منخفضة | مقبول | تفاصيل الأصل ادّعاء عميل (مفيش تصعيد صلاحية) | — |
+| R12 | عالية قبل Production | مفتوح — قرار | `rejectUnauthorized:false` لما `DB_SSL=true` | تفويض تقييم على branch Neon غير إنتاجي |
+| R7/R8 | متوسطة | مفتوح | منح المخازن الجديدة، plans العملاء | CP-4/CP-5 (قرار منتج) |
+| N2/N3 | متوسطة | UNVERIFIED | `1792580000000` بترفض boot لو تكرار revisions؛ قايمة الفحص المسبق (§13) ما اتنفّذتش على Neon | تفويض مشغّل |
+| R5/R6 | متوسطة | مفتوح — قرار | release line (11 ملف/21 hunk)؛ 3 ملفات `main` متّسخة + 3 commits محلية | الخيار A (Series 06 §7) |
+| — | منخفضة | UNVERIFIED | جمع إنجليزي "1 actions" في الـ banner (قبل Series 07)؛ حالات الجهاز غير المُجرّبة؛ مراجعة خارجية | — |
 
-**مؤجل (DEFERRED):** execution الـ release line، RC promotion، production deploy، AAB/Play، billing، iOS، Redis حقيقي، تبنّي اللوجو، S1/S2، CP-4/5/6، Viewer role، multi-org، واجهة فريق على الموبايل.
+**مؤجّل (DEFERRED):** execution الـ release line، RC promotion، production deploy، AAB/Play، billing، iOS، Redis حقيقي، تبنّي اللوجو، S5/S6 (retention/تقرير المدير)، CP-4/5/6، Viewer، multi-org، واجهة فريق، dashboard المدير (مقترحك المنفصل).
 
 ---
 
 ## 08 — DIRECTOR APPROVALS REQUIRED
 
-1. **(الرئيسي) استراتيجية الـ release line:** الخيار **A** (موصى به): فرع release **جديد** من الـ candidate + `git merge -s ours --no-ff bb071ed` ثم fast-forward لفرع production (عملية إصدار بموافقتك). ومعاه **تجميد أي hotfix جديد** على فرع production. بدائل: B دمج يدوي (21 hunk)، D فرع production جديد مع تغيير مصدر النشر. (C force-push مرفوض.) الأدلة: المصفوفة §7.
-2. **ملفاتك المتّسخة** (3 ملفات متعارضة) و**الـ 3 commits المحلية** (FCM/Redis/checklist) اللي هتتنشر مع الـ RC: commit/backup وقرار أي نسخة تبقى.
-3. **تفويض فحص قراءة فقط** على قاعدة Production/Neon بقايمة runbook §13 (إيه اتطبّق، جدول FCM، إصدار PG، الصلاحيات، تكرار revisions) بواسطة مشغّل مصرّح، مع backup/restore point قبل أول boot.
-4. **R12:** تفويض تقييم `rejectUnauthorized:true` ضد branch Neon **غير إنتاجي**.
-5. **المرحلة التالية** (قسم 09) أو بديلها.
-6. أي حاجة تخص Production / AAB / Google Play / Internal Testing: ممنوعة لحد أمر منفصل.
+1. **المرحلة التالية** (قسم 09) أو بديلها.
+2. **سياسة تشغيل الـ rotation** (مين ينفّذها، امتى، التوثيق) — الـ runbook v0.3 §14 مسودة فقط؛ وهل تريد step-up (2FA) أو مسار CLI؟
+3. **تفويض بروفة** على قاعدة **غير إنتاجية** (فرع Neon مؤقت إن وافقت): restore + rotation + قياس + قايمة §13 + تقييم R12.
+4. **استراتيجية الـ release line** (Series 06 §8، الخيار A الموصى به) + ملفاتك المتّسخة + الـ 3 commits المحلية.
+5. هل تريد **مراجعة خارجية** لـ S1/S2 (`APPROVE-EXTERNAL-REVIEW` بكتابتك + موافقة native على كل خطوة)؟ لحد الآن ما حصلتش.
+6. **الجهاز:** هل تريد الإبقاء على التطبيق في وضع online (حساب Staff محلي) أم الرجوع Offline؟
+7. أي حاجة تخص Production / AAB / Google Play / Internal Testing: ممنوعة لحد أمر منفصل.
 
 ---
 
 ## 09 — NEXT RECOMMENDED ENGINEERING TASK  (توصية فقط — مش مُصرَّح بها)
 
-**Series 07 — Recovery safeguards S1 + S2** (runbook §11) + قرار CP-4 (منح المخازن) في نفس الحزمة.
-- **ليه:** أكبر فجوة تقنية قدام تفعيل المخازن المشتركة (R1/R2)، ومستقلة عن ميكانيكا الـ release line اللي محتاجة موافقاتك.
-- **الشروط المسبقة:** قرارك على قسم 08 بند 5؛ worktree جديد من `hardening/series06-release-safety`؛ PG المؤقت.
-- **الحدود:** مفيش merge أو deploy أو Production/Neon أو AAB/Play؛ gates كاملة (3 تشغيلات PG متتالية + mobile)؛ ما تلمسش `main` المتّسخ.
-- **القبول:** (S1) قبل ما شاشة الـ re-entry تبعت، التطبيق يعمل `lookup` للـ key الأصلي ويمنع لو `present`؛ (S2) السيرفر يعرض `historyEpoch` بيتغيّر بإجراء مشغّل ويخلّي الأجهزة تعيد فحص الإيصالات فوراً؛ اختبارات domain وPG وجهاز؛ تحديث التقرير والـ bridge.
+**Series 08 — Operational readiness of recovery (بدون Production):**
+(أ) بروفة كاملة لإجراء §14 على قاعدة غير إنتاجية (restore فعلي + rotation + قياس زمن + فحوصات §3 + قايمة §13)؛ (ب) تقييم R12 (`rejectUnauthorized:true`) في نفس البيئة؛ (ج) جهازين حقيقيين على سيناريو التعويض (متزامن + سحب صلاحية + عربي + Retry + سيرفر بطيء)؛ (د) قرار الـ release line وتنفيذه كتخطيط.
+- **الشروط:** تفويضك للبيئة غير الإنتاجية؛ worktree جديد من `feature/series07-recovery-integrity`؛ PG المؤقت.
+- **القبول:** وثيقة بروفة بأرقام فعلية، وفجوات الجهاز في §07 تتقفل أو تتصنّف، وقرار مكتوب على الـ release line.
+- **بدائل:** CP-4/CP-5؛ مقترح dashboard المدير بتاعك (بعد ما تبعته)؛ مراجعة خارجية.
 
 ---
 
 ## 10 — MESSAGE FOR CHATGPT
 
-**اللي حصل:** Series 06 خلصت. **CP-1 PASS 6/6**: كل إصلاح أمني من الـ production ليه spec تنفيذي على الـ candidate، ومعمول له negative control، وتعديلات الـ specs الأصلية setup فقط (دليل مولَّد: صفر assertion اتشال أو اتعدّل). **CP-2 PASS** على بيانات synthetic: شلنا اعتماد `uuid-ossp`، وخلّينا `down()` fail-closed، وأضفنا migration `1792580000000` (trigger + إصلاح + unique index). 3 تشغيلات PG كاملة خضرا (50/50 suites، 313/313).
+**اللي حصل:** Series 07 خلصت للنطاق المفوَّض. **S1:** التعويض بقى قرار سيرفر ذرّي (fence على مفتاح الأصل + قفل generation + فحص ledger) بدل re-entry العميل اللي كان بيعمل حركة جديدة بدون أي حاجز. **S2:** `history_generation` per-company مع rotation مصادَق وموثّق، والعميل بيبعت generation مع الـ cursor. 347/347 backend ×3، 252/252 mobile، 6+4 negative controls، وتدفق كامل على Huawei.
 
 **نقاط ضعف محتملة (راجعها):**
-1. كل أدلة الـ DB على PostgreSQL مؤقتة وبيانات **مُعاد بناؤها** لـ baseline الـ production المبلّغ عنه؛ مفيش لمس لـ Neon، فحالته الفعلية UNVERIFIED (القايمة المسبقة لم تُنفَّذ).
-2. تكافؤ إصلاح Google: السلوك المحمي (email_verified/401) اتأكد، لكن مسار التحقق اتغيّر (Firebase Admin ← google-auth-library) وبقى بلا فحص إبطال؛ ما اتجرّبش على جهاز.
-3. `exit 0` للبناء كان مضلّلاً مرة (cache قديم) واتصلح بفحص `dist`: ناقش لو عايز خطوة build تمسح الـ buildinfo.
-4. الـ trigger بيغطي الكتابة بدون revision لكن **rollback التطبيق لسه غير مدعوم كاستراتيجية رجوع** (الإصدار القديم مايعرفش الـ idempotency ولا صلاحيات المخازن).
-5. ما حصلتش مراجعة خارجية مستقلة ولا اختبار جهاز في المرحلة دي.
+1. **الـ generation مش بيكتشف restore.** هو بيتراجع مع القاعدة؛ الكشف = إجراء مشغّل يدوي (قد يُنسى). هل المشغّل البشري كافي كـ control، ولا محتاجين marker خارجي (خدمة منفصلة/متغيّر بيئة/Neon branch id) كجزء من التصميم؟
+2. **L1:** restore بيرجّع provenance وtombstone، فالتعويض ممكن يتكرر عبر التواريخ. اللي عندنا كشف (coexisting) مش منع. هل ده مقبول لـ Production ولا محتاجين سجل recovery خارجي دائم؟
+3. التعويض بيثق في تفاصيل الأصل اللي بيبعتها العميل (مفيش تصعيد صلاحيات، لكن مفيش تحقق). كمية التعويض = كمية الإيصال دايماً.
+4. الـ fence بيحط tombstone في `stock_idempotency_keys` (نفس جدول الـ idempotency) — عشان `down()` fail-closed و`lookup` يفهموه. هل الأفضل جدول منفصل؟ (ربحنا ذرّية بنفس الـ PK على حساب خلط معاني.)
+5. عميل قديم على سيرفر جديد: يعمل re-entry عادي ولا حاجة تربطه بالأصل؛ بنقلّل لكن ما بنمنعش.
+6. اختبار الجهاز كشف bug i18n فاتت على Jest؛ ده معناه إن تغطية الواجهة بـ Jest محدودة (مفيش component tests). مفيش اختبار جهازين ولا عربي على الجهاز.
+7. ما حصلتش مراجعة خارجية.
 
 **أسئلة تحسمها قبل توصيتك:**
-- هل الخيار A (`-s ours` + fast-forward) كافٍ أم تفضّل B/D؟ وهل المصفوفة كافية كشرط له؟
-- هل مقبول إن `1792580000000` توقف الـ boot لو في تكرار (بدل أن تكمل)؟ وهل تحب فحصه خطوة manual قبل الـ deploy؟
-- أولوية R12 (TLS) مقابل Series 07 (S1/S2)؟ وهل تقييم TLS على branch Neon غير إنتاجي مقبول ضمن مرحلة مستقلة؟
-- هل نكتفي بالـ unique partial index أم نضيف `NOT NULL` على `revision` بعد فترة؟
-- معايير قبول Series 07 كافية؟
+- هل Series 08 (بروفة تشغيلية + R12 + جهازين) هي الأولوية الصح، ولا CP-4 (منح المخازن) أو مقترح dashboard المدير؟
+- هل الـ rotation يحتاج step-up (2FA/تأكيد تاني) أو CLI لوحده؟ وهل flag `RECOVERY_OPERATIONS_ENABLED` كافي كـ guard؟
+- هل مدة صلاحية الفحص (دقيقتين) وإيصال 7 أيام مناسبين؟
+- هل نمنع التعويض لعمليات outbound الكبيرة أو فوق حد معيّن بدون موافقة المدير (مقترح مش مُنفَّذ)؟
 
-**في الـ prompt التنفيذي القادم ضمّن:** اسم المرحلة، الفرع الأساسي (`hardening/series06-release-safety`)، acceptance بالأرقام، الموافقات المسموحة، والممنوعات (AAB/Play/Production/merge على main أو RC أو branch إصدار). وأشِر إن Claude يقرأ الـ bridge من المكان الرسمي (قسم 00).
+**في الـ prompt التنفيذي القادم ضمّن:** اسم المرحلة، الفرع الأساسي (`feature/series07-recovery-integrity`)، acceptance بالأرقام، الموافقات المسموحة (خصوصاً أي بيئة غير إنتاجية)، والممنوعات (AAB/Play/Production/merge). وأشِر إن Claude يقرأ الـ bridge من المكان الرسمي (قسم 00). **ولو فيه مرفق، تأكد إنه فعلاً اتبعت.**
 
 ---
 
 ## 11 — CHANGELOG (append-only)
 
 - **2026-10-24 20:40 +03:00 — v1.0:** إنشاء الـ bridge أثناء الـ onboarding على `integration/series04` (HEAD وقتها `eb19ab0`).
-- **2026-10-24 22:03 +03:00 — v1.1:** نهاية Series 05. نقل المكان الرسمي إلى `preflight/series05-rc-admission`. الحكم: RC CONDITIONAL GO / Production NO-GO.
-- **2026-10-24 22:52 +03:00 — v1.2:** نهاية Series 06. نقل المكان الرسمي إلى `hardening/series06-release-safety` (baseline كود `9b1f9dd`). CP-1 PASS 6/6، CP-2 PASS (synthetic)، PG ×3 = 50/313. النسخ على فرع Series 05 و`integration/series04` stale. مفيش merge ولا release branch ولا deploy.
+- **2026-10-24 22:03 +03:00 — v1.1:** نهاية Series 05. نقل المكان الرسمي إلى `preflight/series05-rc-admission`. RC CONDITIONAL GO / Production NO-GO.
+- **2026-10-24 22:52 +03:00 — v1.2:** نهاية Series 06. نقل المكان الرسمي إلى `hardening/series06-release-safety`. CP-1 PASS 6/6، CP-2 PASS (synthetic)، PG ×3 = 50/313.
+- **2026-10-25 06:45 +03:00 — v1.3:** نهاية Series 07. نقل المكان الرسمي إلى `feature/series07-recovery-integrity` (baseline كود `b3d824f`). S1 تعويض ذرّي من السيرفر، S2 history generation مع rotation مصادَق (بدون ادّعاء كشف restore تلقائي)، PG ×3 = 51/347، mobile 252، جهاز: تدفق كامل (PARTIAL). النسخ على فروع Series 06/05/04 stale. مفيش merge ولا release branch ولا deploy ولا لمس لـ Production/Neon.
 
 ---
 
@@ -191,16 +189,16 @@
 
 | الموضوع | المسار |
 |---|---|
-| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series06-release-safety\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
-| تعليمات الـ agents | `D:\Projects\StockMind-wt\series06-release-safety\AGENTS.md` |
-| تقرير Series 06 | `...\series06-release-safety\docs\handoff\SERIES_06_RELEASE_SAFETY_REPORT.md` |
-| مصفوفة تكافؤ الـ production + استراتيجية الـ release line | `...\docs\handoff\SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md` · الدليل: `...\docs\handoff\series06-evidence\` |
-| Recovery runbook (v0.2، مسودة) | `...\docs\handoff\STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` |
-| Series 05 (preflight) | `...\docs\handoff\SERIES_05_RC_PREFLIGHT_REPORT.md` |
-| Series 04 checkpoint + evidence الجهاز | `...\docs\handoff\SERIES_04_CHECKPOINT.md` و`...\series04-evidence\` |
+| Master continuity (الرسمي) | `D:\Projects\StockMind-wt\series07-recovery-integrity\docs\handoff\STOCKMIND_AI_CONTINUITY.md` · نسخة: `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md` |
+| تعليمات الـ agents | `D:\Projects\StockMind-wt\series07-recovery-integrity\AGENTS.md` |
+| تقرير Series 07 | `...\series07-recovery-integrity\docs\handoff\SERIES_07_RECOVERY_INTEGRITY_REPORT.md` |
+| عقد Series 07 (API، transaction، ضمانات، trust model) | `...\docs\handoff\SERIES_07_RECOVERY_CONTRACT.md` |
+| أدلة Series 07 (جهاز، gates، negative controls) | `...\docs\handoff\series07-evidence\` · لوجات: `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s07_*.log` · لقطات كاملة: `_local-tools\evidence-s07\` |
+| Recovery runbook (v0.3، مسودة) | `...\docs\handoff\STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` |
+| Series 06 (تقرير، مصفوفة الإصلاحات الـ production، release line) | `...\docs\handoff\SERIES_06_RELEASE_SAFETY_REPORT.md` · `SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md` |
+| Series 05 / 04 | `SERIES_05_RC_PREFLIGHT_REPORT.md` · `SERIES_04_CHECKPOINT.md` + `series04-evidence\` |
 | Series 03 checkpoint (backup) | `D:\StockMind_Backups\Checkpoints\SERIES_03_CHECKPOINT_2026-10-20.md` (SHA-256 `B555D4D2…26A6`) |
 | Series 02 وما قبله (قراءة فقط) | `D:\Projects\StockMind\.ai-handoff\` |
-| لوجات الاختبار | `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s06_*.log` |
 | دليل المستخدم / resume / تنضيف C: | `C:\Users\Name\Desktop\StockMind_Handoff\` |
 | قواعد التفويض العامة | `C:\Users\Name\.claude\ORCHESTRATION.md` |
 | اللوجو (محجوز، لا يُعدَّل) | `D:\Projects\StockMind\Glossy Neon Inventory Analytics Icon.png` |

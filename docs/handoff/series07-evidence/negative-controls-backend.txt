@@ -1,0 +1,12 @@
+﻿N1-no-original-key-fence: Tests:       4 failed, 28 passed, 32 total
+
+N2-no-generation-check: Tests:       2 failed, 30 passed, 32 total
+
+N3-no-ledger-check-by-movement-id: Tests:       1 failed, 31 passed, 32 total
+
+N4-generation-not-compared-in-sync: Tests:       3 failed, 29 passed, 32 total
+
+N5-no-floor-for-legacy-clients: Tests:       1 failed, 31 passed, 32 total
+
+N6-no-coexistence-flag: Tests:       1 failed, 31 passed, 32 total
+

@@ -1,9 +1,9 @@
 # STOCKMIND — AI CONTINUITY (canonical)
 
-> **ACTIVE canonical location (since Series 06, 2026-10-24):** `docs/handoff/STOCKMIND_AI_CONTINUITY.md` on branch **`hardening/series06-release-safety`**, worktree `D:\Projects\StockMind-wt\series06-release-safety`.
-> **The copies of this file and of the bridge on `preflight/series05-rc-admission` (worktree `series05-rc-preflight`) and on `integration/series04` (worktree `series04-integration`) are OLDER and stale.** Do not read them as current.
+> **ACTIVE canonical location (since Series 07, 2026-10-25):** `docs/handoff/STOCKMIND_AI_CONTINUITY.md` on branch **`feature/series07-recovery-integrity`**, worktree `D:\Projects\StockMind-wt\series07-recovery-integrity`.
+> **The copies of this file and of the bridge on `hardening/series06-release-safety` (worktree `series06-release-safety`), `preflight/series05-rc-admission` (worktree `series05-rc-preflight`) and `integration/series04` (worktree `series04-integration`) are OLDER and stale.** Do not read them as current.
 > **Portable copy (identical to the canonical file):** `C:\Users\Name\Desktop\StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md`.
-> **Last updated:** 2026-10-24 (after Series 06, release-line reconciliation and migration safety hardening).
+> **Last updated:** 2026-10-25 (after Series 07, recovery integrity: safe replacement S1 and history generation S2).
 >
 > This file is a map, not proof. **Git history and the code win over this file.** Labels: VERIFIED, PARTIAL, UNVERIFIED,
 > NOT DONE.
@@ -18,8 +18,8 @@
 3. Check reality before acting:
    ```powershell
    git -C D:\Projects\StockMind worktree list
-   git -C D:\Projects\StockMind-wt\series06-release-safety status -sb
-   git -C D:\Projects\StockMind-wt\series06-release-safety log --oneline -10
+   git -C D:\Projects\StockMind-wt\series07-recovery-integrity status -sb
+   git -C D:\Projects\StockMind-wt\series07-recovery-integrity log --oneline -10
    git -C D:\Projects\StockMind status --porcelain=v1
    ```
 4. If anything here conflicts with Git or the code, trust the repo, fix this file, and say so.
@@ -40,7 +40,7 @@
 Update only on meaningful state changes. Do not rewrite the whole file for small edits.
 
 **Copy-ready startup line for any AI:**
-> Before any work on StockMind, read `D:\Projects\StockMind-wt\series06-release-safety\docs\handoff\STOCKMIND_AI_CONTINUITY.md` (branch `hardening/series06-release-safety`; the `series05-rc-preflight` and `series04-integration` copies are stale) or the Desktop copy `StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md`). Follow its start/end protocol and its approval boundaries.
+> Before any work on StockMind, read `D:\Projects\StockMind-wt\series07-recovery-integrity\docs\handoff\STOCKMIND_AI_CONTINUITY.md` (branch `feature/series07-recovery-integrity`; the `series06-release-safety`, `series05-rc-preflight` and `series04-integration` copies are stale) or the Desktop copy `StockMind_Handoff\STOCKMIND_AI_CONTINUITY_MASTER.md`). Follow its start/end protocol and its approval boundaries. If a message says something is "attached" and nothing is, stop and ask; do not guess the scope.
 
 ---
 
@@ -90,25 +90,29 @@ Update only on meaningful state changes. Do not rewrite the whole file for small
   6. `1792473600000` TotpLastAcceptedStep
   7. `1792560000000` SharedWarehouseFoundation (warehouse access, invitations, idempotency keys, revisions)
   8. `1792570000000` CompanyEntitlements
+  9. `1792580000000` StockRevisionGuard (Series 06: revision trigger, repair, unique index)
+  10. `1792590000000` RecoveryIntegrity (Series 07: `companies.history_generation`, `warehouses.history_floor_revision`, `history_generation_events`, `stock_replacements`; fail-closed `down()`)
 
   Series 03 and 04 added none.
 - **Key API contracts** (details: `docs/handoff/SERIES_04_CHECKPOINT.md` §3):
   - `POST /stock/{inbound,outbound,adjustment,transfer}` with `Idempotency-Key`. A replay returns `replayed:true`; the same key with a different body gets 422; insufficient stock gets 409.
   - `GET /stock/changes/:w?since&anchor&limit` returns a delta, or a snapshot with `reset` when the cursor is invalid.
   - `POST /stock/operations/lookup` returns present / absent / indeterminate / unavailable.
+  - **Series 07:** `GET /stock/changes/:w` also takes `generation` and returns `generation`, `resetReason` (no-store); `POST /stock/operations/lookup` returns `{generation, operations[]}` with `superseded` and `coexisting-replacement`; `POST /stock/replacements/{inbound,outbound}` (Idempotency-Key required; structured 409 `code`s); Admin-only `POST /recovery/history-generation/rotate` (+ `GET`), off unless `RECOVERY_OPERATIONS_ENABLED=true`. Write responses carry `historyGeneration`. Full contract: `docs/handoff/SERIES_07_RECOVERY_CONTRACT.md`.
   - Team (Admin only): `POST/GET/DELETE /team/invitations`, `GET /team/members`, `PUT /team/members/:id/warehouses`, `GET /team/entitlements`. Public: `POST /auth/accept-invitation`.
 - **Environments.**
   - Production: Render service from `release/prod-hotfix-f4` @ `bb071ed`, auto-deploy off (**reported, UNVERIFIED this series**). Production has none of Series 02–04.
   - The mobile release build shows online mode as "Cloud sync coming soon".
   - **Online Preview** works only in a `__DEV__` build with `EXPO_PUBLIC_ONLINE_MODE=1` and an explicit `EXPO_PUBLIC_API_BASE_URL` (`mobile/src/lib/dev-flags.ts`), against a **local** backend.
 
-## C. Engineering state (2026-10-24, after Series 06)
+## C. Engineering state (2026-10-25, after Series 07)
 
 **Branches** (all pushed except local `main`; nothing merged into RC/main; nothing deployed):
 
 | Ref | HEAD | Worktree | Notes |
 |---|---|---|---|
-| **`hardening/series06-release-safety`** | verified code baseline **`9b1f9dd`** (migrations, guard helper and tests on top of `e517d82`); later commits are docs only: `git diff --name-only 9b1f9dd HEAD` | `D:\Projects\StockMind-wt\series06-release-safety` | **ACTIVE working line and canonical handoff.** Series 06: CP-1 production equivalence (6/6) + CP-2 migration hardening. Migrations and tests only; no app code, API or dependency changed |
+| **`feature/series07-recovery-integrity`** | verified code baseline **`b3d824f`** (`cbad45b` backend, `9a79b1c` mobile, `b3d824f` i18n fix, all on top of `6d4613b`); later commits are docs/evidence only: `git diff --name-only b3d824f HEAD` | `D:\Projects\StockMind-wt\series07-recovery-integrity` | **ACTIVE working line and canonical handoff.** Series 07: S1 safe replacement + S2 history generation (backend, mobile, migration `1792590000000`). No dependency changed. `mobile/node_modules` here is a real copy (Metro does not resolve a junction across worktrees) |
+| `hardening/series06-release-safety` | `6d4613b` (code baseline `9b1f9dd`) | `D:\Projects\StockMind-wt\series06-release-safety` | Series 06: CP-1 production equivalence (6/6) + CP-2 migration hardening. **Not modified by Series 07; its handoff files are stale** |
 | `preflight/series05-rc-admission` | `e517d82` (code baseline `e20cf93`) | `D:\Projects\StockMind-wt\series05-rc-preflight` | Series 05 preflight (report, runbook v0.1, tests). **Not modified by Series 06.** Its handoff files are stale |
 | `integration/series04` | `84faa31` (last code commit `d69f6e8`) | `D:\Projects\StockMind-wt\series04-integration` | The RC candidate. **Not modified by Series 05 or 06.** Its handoff files are stale |
 | `feature/series03-sync` | `55348a6` | `D:\Projects\StockMind-wt\series03-backend` | parent `02c53f5` |
@@ -131,6 +135,8 @@ Ancestry notes:
 | 02 | Team invitations, Admin/Manager/Staff roles, Staff warehouse grants enforced server-side, idempotent stock writes, per-warehouse revision cursor (delta/snapshot), entitlements behind a flag; mobile online preview (login, 2FA, invitation, live stock, Idempotency-Key) |
 | 03 | Cursor anchors and explicit reset; durable encrypted offline outbox (receipt/dispatch only), account scope, pending/rejected UI, revoked-warehouse purge, offline relaunch cache, tour fix |
 | 04 | Integration branch; **P0 restore reconciliation**: lookup endpoint, receipts "re-checking", "Needs review · history changed" never re-sent, human re-entry with a ledger note; 60 s timeouts with an 8 s "Sending…"; lookup excluded from audit; supertest listen-once harness fix |
+| 05–06 | RC admission preflight; release-line reconciliation (production hotfix behaviours 6/6 on the candidate), fail-closed `down()`, revision trigger + unique index (details in their reports) |
+| 07 | **S1:** server-enforced replacement of an operation the history lost (one transaction: key claim, access, generation, fence on the original key, ledger check, write, provenance); unsafe client re-entry removed; review screen. **S2:** per-company `history_generation` in sync/lookup/receipts, authenticated + audited rotation (Admin, flag-gated), legacy-client floor. Contract, report, runbook v0.3 |
 
 **Capability status**
 
@@ -149,6 +155,9 @@ Ancestry notes:
 | `down()` of `1792560000000`/`1792570000000` | **fail-closed** since Series 06: refuses, changing nothing, when it would delete invitations, idempotency records, plans or customised grants. No override; going back = restore a backup or fix forward | VERIFIED (PG) |
 | Movements written without a revision (older release) | numbered by a DB trigger under the warehouse lock; unique `(warehouse, revision)`; existing NULLs repaired. **Application rollback is still unsupported as a way back** (degraded mode) | VERIFIED (PG, concurrent writers) |
 | Production hotfix (`bb071ed`) behaviours present in the candidate | **VERIFIED 6/6** (executable specs + negative controls: `tests/equivalence/production-bb071ed/`, 40 tests). Not mergeable mechanically (11 files / 21 conflict hunks); recommended strategy = ancestry-preserving merge on a NEW branch (not executed) | Series 06 matrix |
+| Safe replacement of an operation the history lost (S1): one replacement per original, never while the original is present, repeat/concurrent requests = one movement, late original refused, stale generation refused, revoked access refused, provenance recorded | **VERIFIED (PG)**; **device PARTIAL** (one full flow incl. dropped response + app kill) | Series 07 `recovery-integrity.pg.spec.ts` (32), negative controls 6/6, `series07-evidence/` |
+| History generation (S2): changes only by an authenticated, audited operator rotation; carried in sync/lookup/receipts; a change resets clients even when revisions repeat; ETag/304 cannot hide it; legacy clients reset once from the floor | **VERIFIED (PG + device)**. **A database marker does NOT detect a restore by itself (it rolls back with the DB): the operator rotation after a restore is the control** | Series 07; contract §6 |
+| Original and replacement coexisting after a later restore/import | **Flagged** (lookup `coexisting-replacement`, mobile `duplicate-risk`, runbook §15 SQL); **not preventable** across physical histories | Series 07 PG + mobile unit |
 | "Catching up" state on device | PARTIAL (unit only) | — |
 | Online transfer on device | UNVERIFIED | — |
 | Two physical devices | NOT DONE | — |
@@ -158,15 +167,17 @@ Ancestry notes:
 | Team-management UI on mobile | NOT DONE (API only) | — |
 | Offline↔online data migration, multi-org, Viewer role, billing | NOT DONE | — |
 
-**Latest verified gates** (Series 06, code baseline `9b1f9dd`; Series 05 numbers in brackets):
+**Latest verified gates (Series 07, code baseline `b3d824f`):** backend real PG 15, **3 consecutive fresh-DB full runs: 51/51 suites, 347/347 tests** (313 + 32 recovery + 2 migration); backend `tsc` 0 and a clean build with 10/10 migrations compiled; mobile `tsc` 0 and Jest **16/16 suites, 252/252**; `package.json`/lockfiles identical to Series 06; backend negative controls 6/6 red, mobile 4 red; one Huawei device run (debug build, local throwaway backend, synthetic data; **one phone + API scripts, not a two-phone test**). Evidence: `docs/handoff/series07-evidence/`.
+**Series 06 gates (code baseline `9b1f9dd`; Series 05 numbers in brackets):**
 - Backend real PG 15, **3 consecutive fresh-DB full runs: 50/50 suites, 313/313 tests** [Series 05: 42/42, 264/264]. Arithmetic: 264 − 8 (old characterization spec) + 17 (release-safety) + 40 (equivalence) = 313.
 - Backend `tsc` 0 and a clean build with **9/9 migrations** compiled. Mobile `tsc` 0 and Jest **203/203**. `package.json`, lockfiles, app and tsconfig files identical to Series 05.
 - No full-suite run failed in Series 06. Development-time test-authoring errors and one incomplete-build incident are listed honestly in `SERIES_06_RELEASE_SAFETY_REPORT.md` §5.
 - No device test in Series 06 (no app code changed). Device evidence remains `docs/handoff/series04-evidence/`.
 
 **Risks and known issues:**
-- Re-entry after a restore that is later undone would duplicate the action; a `history-changed` item is never re-checked. Runbook: `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` (draft). Safeguards S1–S6 are proposals, none built.
+- **Series 07 (S1/S2 built):** a restore rolls back the generation, the provenance and the fence too; database-local uniqueness cannot prevent duplicates across physical histories (detection only: coexisting-replacement). The operator's rotation after a restore is a manual step that can be forgotten and is not detected; it has no step-up, no tested SQL path if the API is down, and was never rehearsed on a real database. Old clients can still re-enter normally (unlinked to the original); a client with neither anchor nor generation sitting exactly on the rotation floor is not detected. Original details in a replacement are client claims (no privilege escalation). Details: `SERIES_07_RECOVERY_CONTRACT.md` §5, report §7. S5/S6 (retention, manager report) remain proposals.
 - Restore detection assumes point-in-time restores; receipts are kept 7 days.
+- Jest cannot catch UI/i18n integration bugs (a duplicate i18n key was found only on the device in Series 07; a duplicate-key test now guards locale files). No component tests exist.
 - `stock_idempotency_keys` has no cleanup job.
 - Migrations (Series 06): the three Series 05 hazards are closed in code and tests (fail-closed `down()`; no `uuid-ossp` dependency; DB-enforced revisions). Still true: application rollback is a degraded mode, not a way back; `1792580000000` makes the boot fail if duplicate `(warehouse, revision)` pairs exist; the read-only pre-deploy checklist (runbook §13) has NOT been run on any real database; the FCM migration's `CREATE TABLE` fails if the table already exists. Never run `migration:revert` on production.
 - **R12 (open, needs a decision before Production):** `ssl: { rejectUnauthorized: false }` when `DB_SSL=true`, in `src/app.module.ts` and `src/config/data-source.ts`, identical in production. Not tested against Neon.
@@ -242,7 +253,8 @@ Ancestry notes:
   - **Need OAuth:** GitHub plugin and several marketing/engineering connectors.
   - **Available but unused:** Maestro, Android MCP, computer-use, browser pane.
 - **Checkpoints and evidence:**
-  - Series 06 (tracked, this branch): `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md`, `docs/handoff/SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md`, `docs/handoff/series06-evidence/`; the recovery runbook is v0.2; logs in `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s06_*.log` and `s06-final3.summary.txt`.
+  - Series 07 (tracked, this branch): `docs/handoff/SERIES_07_RECOVERY_INTEGRITY_REPORT.md`, `SERIES_07_RECOVERY_CONTRACT.md`, `docs/handoff/series07-evidence/` (device ledger and screenshots without third-party overlays, gate summaries, negative controls); logs in `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s07_*.log`; full device screenshots in `_local-tools\evidence-s07\`.
+  - Series 06 (tracked, on `hardening/series06-release-safety`): `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md`, `docs/handoff/SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md`, `docs/handoff/series06-evidence/`; the recovery runbook is v0.2; logs in `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s06_*.log` and `s06-final3.summary.txt`.
   - Series 05 (tracked, preflight branch): `docs/handoff/SERIES_05_RC_PREFLIGHT_REPORT.md` and `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md`; test logs in `D:\Projects\StockMind-wt\_local-tools\logs\stockmind_gate_s05_*.log` and `s05-final3.summary.txt`.
   - Series 04 (tracked): `docs/handoff/SERIES_04_CHECKPOINT.md` + `docs/handoff/series04-evidence/`.
   - Series 03 backup: `D:\StockMind_Backups\Checkpoints\SERIES_03_CHECKPOINT_2026-10-20.md` (SHA-256 `B555D4D2…26A6`).
@@ -252,21 +264,25 @@ Ancestry notes:
 
 ## G. Next actions
 
-Series 06 (release-line reconciliation + migration safety) is **done**: CP-1 PASS (6/6 production fixes), CP-2 PASS (synthetic data). RC readiness: ready for release-line execution **planning**, subject to the Director's decisions. Production = **NO-GO**. Details: `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md`.
+**Series 07 (recovery integrity: S1 safe replacement + S2 history generation) is done:** PASS for its scope on a development environment, device PARTIAL. Production = **NO-GO**. Details: `docs/handoff/SERIES_07_RECOVERY_INTEGRITY_REPORT.md` and `SERIES_07_RECOVERY_CONTRACT.md`. (Series 06 is also done: CP-1 6/6, CP-2 PASS; `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md`.)
 
 1. **Waiting for the Director's decisions** (report §8): the release-line strategy (recommended: Option A, an ancestry-preserving `-s ours` merge on a NEW branch, then a fast-forward; not executed) plus a hotfix freeze on the production branch; the Director's dirty `main` files and the 3 unpushed local commits; authorisation of the read-only pre-deploy checks on the real database (runbook §13); authorisation to assess R12 (TLS) against a non-production branch.
-2. **Recommended next phase (not authorized): Series 07 = recovery safeguards S1 + S2** (runbook §11) together with the CP-4 decision on warehouse grants, in a new branch from `hardening/series06-release-safety`. It is the largest remaining gap before shared warehouses can be enabled.
+2. **Recommended next phase (not authorized): Series 08 = operational readiness of recovery, no Production:** rehearse runbook §14 (restore, rotation, measurement, §13 checklist) on a NON-production database the Director authorizes (a temporary Neon branch if allowed); assess R12 there; a two-device run of the replacement scenarios (concurrent, revoked access, Arabic, Retry, slow server); and the release-line decision. Alternatives: CP-4/CP-5, the Director's manager-dashboard proposal (not yet received), or an external review of S1/S2 (needs the Director's own `APPROVE-EXTERNAL-REVIEW`). New branch from `feature/series07-recovery-integrity`.
+   Open Director decisions from Series 07: the rotation operating policy (who/when; step-up or CLI?), whether the replacement flow needs extra limits (e.g. manager approval above a quantity; proposed, not built), whether the app stays in online mode on the Huawei (it is signed in as a local Staff test user; the offline "Device Tester" profile is untouched).
 3. Then: entitlements grandfathering (CP-5), two-device / iOS / Redis / Google Sign-In checks, a mobile team-management screen, Viewer role, multi-org.
 4. **Deferred until approved:** production deploy, executing the release line, RC promotion, AAB/Play, billing, iOS build (needs macOS/EAS), real Redis, logo adoption.
-5. **First minimal verification commands for the next session:** the four `git` commands in the protocol, then `Test-Path D:\Projects\StockMind-wt\_local-tools\pg15\pgsql\bin\pg_ctl.exe`. The local PostgreSQL is stopped; its scratch databases were dropped.
+5. **First minimal verification commands for the next session:** the four `git` commands in the protocol, then `Test-Path D:\Projects\StockMind-wt\_local-tools\pg15\pgsql\bin\pg_ctl.exe`. After Series 07 the local PostgreSQL is **still running** on 127.0.0.1:55433 with scratch databases `stockmind_gate_s07_*` and `stockmind_s04_s07dev`; the backend, proxy and Metro are stopped and `adb reverse` was removed. Stop it with `pg_ctl -D D:\Projects\StockMind-wt\_local-tools\pgdata-s04 stop` when finished.
+6. **Device notes (Series 07):** the 4-hour device access token expires during long pauses and needs the Director's fingerprint twice (cold start/reload, then re-authenticate). A reload re-runs the biometric gate. `mobile/node_modules` must be a real copy for Metro. Series 07 device scripts: `_local-tools\scripts\{start-backend-s07,start-metro-s07}.ps1`, `lossy-proxy-s07.mjs`, `s07-slice.mjs` (seed, rotate, gen, replacements, proof, restore-to), `s07-negative-controls.ps1`.
 ## H. Where to look (read only what the task needs)
 
 | Need | Read |
 |---|---|
+| Series 07 verdict, invariants, scenarios, tests, device run, risks, next task | `docs/handoff/SERIES_07_RECOVERY_INTEGRITY_REPORT.md` |
+| Series 07 API/DB contract, transaction and lock order, guarantees and limits, generation trust model, client behaviour, rollout | `docs/handoff/SERIES_07_RECOVERY_CONTRACT.md` |
 | Series 06 verdict, migration changes, tests, remaining risks, Director decisions | `docs/handoff/SERIES_06_RELEASE_SAFETY_REPORT.md` |
 | Which production fix is where in the candidate, with its test; release-line strategy options and evidence | `docs/handoff/SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md` |
 | RC admission verdict, ancestry, security gates, corrective phases (Series 05) | `docs/handoff/SERIES_05_RC_PREFLIGHT_REPORT.md` |
-| What operators do after a database restore; duplicate investigation; fail-closed down(); pre-deploy read-only checklist | `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` (v0.2 draft, not an approved Production policy) |
+| What operators do after a database restore (incl. §14 history-generation rotation and §15 coexisting replacements); duplicate investigation; fail-closed down(); pre-deploy read-only checklist | `docs/handoff/STOCKMIND_DATABASE_RECOVERY_RUNBOOK.md` (v0.3 draft, not an approved Production policy) |
 | Integration, P0 contract, gates, device evidence | `docs/handoff/SERIES_04_CHECKPOINT.md` |
 | Series 03 outbox/anchors | Series 03 backup (path in section F) |
 | Series 02 APIs, migrations, cost model | `D:\Projects\StockMind\.ai-handoff\SERIES_02_CHECKPOINT.md` (read only) |
@@ -282,3 +298,4 @@ Series 06 (release-line reconciliation + migration safety) is **done**: CP-1 PAS
 - **2026-10-24:** onboarding on a new Claude account. Added `docs/handoff/STOCKMIND_AI_BRIDGE.md` (ChatGPT↔Claude bridge, Egyptian Arabic) with a Desktop mirror. Corrected the `integration/series04` HEAD in section C (`322e8a0` → `eb19ab0`; docs-only since `d69f6e8`). No code, tests, branches or tools changed.
 - **2026-10-24 (Series 05):** RC admission preflight on the new isolated branch `preflight/series05-rc-admission` (worktree `series05-rc-preflight`). Verdict CONDITIONAL GO (RC) / NO-GO (Production). Added the report, the recovery runbook, a migration-safety spec and an invitation-expiry test, and fixed a spec-order dependency in the test harness. **The canonical handoff files moved to this branch**; the copies on `integration/series04` are stale. No application code or migration changed; nothing merged or deployed.
 - **2026-10-24 (Series 06):** release-line reconciliation and migration safety hardening on the new isolated branch `hardening/series06-release-safety` (worktree `series06-release-safety`). CP-1: the six production hotfix behaviours pass as executable specs on the candidate (40 tests, negative controls red). CP-2: the FCM migration no longer needs `uuid-ossp`; `down()` of `1792560000000` and `1792570000000` is fail-closed; new migration `1792580000000` (revision trigger, repair, unique partial index); 17-test migration suite replaces the Series 05 characterization spec. Backend PG ×3: 50/50 suites, 313/313 tests. **The canonical handoff files moved to this branch**; the copies on the Series 05 and Series 04 branches are stale. Nothing merged, no release branch created, nothing deployed.
+- **2026-10-25 (Series 07):** recovery integrity on the new isolated branch `feature/series07-recovery-integrity` (worktree `series07-recovery-integrity`, from `6d4613b`). S1: server-enforced replacement (migration `1792590000000`, `stock_replacements`, fence on the original key, structured 409 refusals), the unfenced client re-entry removed, review screen. S2: per-company `history_generation` in sync/lookup/receipts, Admin-only flag-gated audited rotation, legacy floor; trust model stated (a DB marker does not detect a restore; the operator step is the control). Backend PG ×3: 51/51 suites, 347/347; mobile 252/252; negative controls 6 + 4; one Huawei device run (PARTIAL). A duplicate i18n key found only on the device was fixed and guarded. **The canonical handoff files moved to this branch**; the copies on the Series 06, 05 and 04 branches are stale. Nothing merged, no release branch, nothing deployed, no Production/Neon access. The Director's first message said a mandate was "attached" but none was; work waited for the full mandate.

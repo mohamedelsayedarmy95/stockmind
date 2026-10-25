@@ -1,7 +1,7 @@
 # STOCKMIND — DATABASE RECOVERY RUNBOOK
 
-> **الحالة:** مسودة تشغيلية v0.2 — 2026-10-24 — اتكتبت في Series 05 (RC admission preflight) واتحدّثت في Series 06 (أقسام 3 و5 و8 و11 و13)؛ التحديثات مبنية على migrations جديدة وأدلة اختبار PostgreSQL.
-> **مش** سياسة Production معتمدة. الـ re-entry البشري هو **سلوك التطوير الحالي** المقبول للـ preflight، والـ Director هو اللي يعتمد السياسة النهائية.
+> **الحالة:** مسودة تشغيلية **v0.3** — 2026-10-25 — اتكتبت في Series 05 (RC admission preflight)، واتحدّثت في Series 06 (أقسام 3 و5 و8 و11 و13) وفي **Series 07** (أقسام 5 و6 و11 و12 + أقسام جديدة **14 و15**: إجراء المشغّل بعد restore بـ history generation، وكشف العمليات المتعايشة)؛ التحديثات مبنية على migrations جديدة وأدلة اختبار PostgreSQL ومرّة على جهاز.
+> **مش** سياسة Production معتمدة. **التعويض (replacement) بدل الـ re-entry القديم هو سلوك التطوير الحالي** (Series 07: السيرفر هو اللي يقرر جوه transaction، والإنسان هو اللي يطلب)، والـ Director هو اللي يعتمد السياسة النهائية. **Production = NO-GO.**
 > مبني على الكود الفعلي (`integration/series04`، آخر commit كود `d69f6e8`)، وأي SQL هنا **معلّم** بحالته: `VERIFIED` (اتجرّب على PostgreSQL مؤقتة) أو `NOT RUN` (اتراجع على الكود بس).
 > أي restore أو repair على Production يحتاج **موافقة صريحة من الـ Director**. الملف ده مش تصريح بتنفيذ حاجة.
 
@@ -143,7 +143,7 @@ FROM pre_ledger p JOIN stock_movements s ON s.warehouse_id = p.warehouse_id AND 
 ### ج) حدود التطبيق الحالية (مهمة للمشغّل)
 
 - الإيصالات بتتحفظ **7 أيام** (`CONFIRMED_RETENTION_MS`)، بحد أقصى 500 عنصر. الأقدم مش بيتصالح.
-- عنصر في حالة `history-changed` **ما بيتعاد فحصه** (`recheckCandidates` و`applyLookup` بيشتغلوا على `CONFIRMED` فقط). لو الـ restore اتعكس بعدين، الجهاز مش هيعرف.
+- **(Series 07)** عنصر `history-changed` بيتعاد فحصه: مرة كل تشغيل (الفحص الهادئ لكل الإيصالات بيشمل العمليات الضايعة والمتعوّضة)، وكل مرة تفتح شاشة المراجعة. لو الأصل رجع (`present`) بيرجع CONFIRMED ويتسقط أي قرار تعويض ما اتبعتش؛ لو اتعوّض ورجع الأصل جنبه بيتعلّم **duplicate-risk**. (الكلام القديم هنا — إن `history-changed` ما بيتعادش فحصه — كان وصف Series 05–06 وبقى قديم.)
 - الكشف بيتم لما الجهاز يعمل poll لمخزنه بالـ anchor (تقريباً كل 45 ثانية على شاشات المخزون)، **ومرة لكل حساب في كل تشغيل للتطبيق** للإيصالات المحفوظة. جهاز ما عملش poll لسه وقت الـ restore ممكن يفضل يعرض إيصال "confirmed" لحد ما يتقفل ويتفتح التطبيق.
 - **استنتاج من قراءة `getChanges` (ما اتجرّبش على جهاز):** المستخدم اللي cursor بتاعه أقدم من نقطة الـ restore، وحركته عند الـ cursor لسه سليمة، الـ anchor بتاعه بيطابق فمش بيتعلّم reset؛ بيكمّل delta عادي. إيصالاته الضايعة تتعرف بعدين فقط عند فحص بدء التطبيق (القسم 11 / S2).
 
@@ -152,8 +152,8 @@ FROM pre_ledger p JOIN stock_movements s ON s.warehouse_id = p.warehouse_id AND 
 ## 6. اللي هيشوفه المستخدمون وإزاي تبلّغهم
 
 - شاشة المخزون هتتصلّح لوحدها (snapshot ثم deltas).
-- العمليات اللي ضاعت هتظهر في شاشة الـ outbox كـ **"Needs review · history changed"** مع آخر إيصال كدليل، وبخيارين: **Acknowledge** أو **Re-enter** (بمفتاح جديد وملاحظة في الـ ledger: `Re-entry of action <أول 8 حروف> (missing from server history after a reset)`).
-- رسالة مقترحة للمستخدمين: *"حصلت استعادة لقاعدة البيانات. بعض عملياتك الأخيرة ممكن تظهر 'Needs review'. ماتعيدش إدخالها قبل ما تتأكد من المدير."*
+- العمليات اللي ضاعت هتظهر في شاشة الـ outbox كـ **"Needs review · history changed"** مع آخر إيصال كدليل، وبخيارين: **Acknowledge** أو **Review and replace** (Series 07). التعويض بيفتح شاشة مراجعة: بتسأل السيرفر أول، وبتعرض الإيصال القديم **منفصل** عن الرصيد المؤكد، ولو الأصل لسه غايب ومفيش غموض بتطلب تأكيد صريح، والسيرفر بيعيد الفحص جوه transaction ويسجّل حركة جديدة ملاحظتها `Replacement of action <أول 8 حروف> (absent from server history after a restore)` + سطر في `stock_replacements`. الـ re-entry القديم (شاشة الحركة بـ `reentryOf`) اتشال.
+- رسالة مقترحة للمستخدمين: *"حصلت استعادة لقاعدة البيانات. بعض عملياتك الأخيرة ممكن تظهر 'Needs review'. ماتعوّضهاش قبل ما تتأكد من المدير: لو الضياع كان مقصود (rollback) التعويض هيكرر العملية."*
 
 ---
 
@@ -245,12 +245,12 @@ WHERE sm.user_id = :'user' AND sm.product_id = :'product' AND sm.warehouse_id = 
 
 ## 11. حالات فشل محتاجة safeguards برمجية (مش بيحلها runbook وحده)
 
-> مفيش واحدة منها بتمنع **قبول الـ RC** (الـ online mode dev preview فقط، وبيتأكد في الكود من `__DEV__` + متغيرين). لكنها **شروط قبل تفعيل الـ shared warehouses / الـ online mode على Production**. **S3 وS4 اتنفّذوا في Series 06** (migration `1792580000000` وحمايات الـ `down()`)؛ S1 وS2 وS5 وS6 لسه مقترحات.
+> مفيش واحدة منها بتمنع **قبول الـ RC** (الـ online mode dev preview فقط، وبيتأكد في الكود من `__DEV__` + متغيرين). لكنها **شروط قبل تفعيل الـ shared warehouses / الـ online mode على Production**. **S3 وS4 اتنفّذوا في Series 06** (migration `1792580000000` وحمايات الـ `down()`)؛ **S1 وS2 اتنفّذوا في Series 07** (migration `1792590000000`)؛ S5 وS6 لسه مقترحات.
 
 | # | الحالة | ليه الـ runbook مش كفاية | acceptance criteria مقترحة |
 |---|---|---|---|
-| S1 | عنصر `history-changed` ما بيتعاد فحصه، فلو الـ restore اتعكس والمستخدم عمل re-entry يحصل duplicate | المستخدم مش هيعرف | قبل ما شاشة الـ re-entry تبعت، التطبيق يعمل `lookup` للـ key الأصلي؛ لو `present` يمنع ويشرح. اختبار domain + اختبار PG + تجربة جهاز |
-| S2 | مفيش "restore marker" من السيرفر (history epoch)؛ الكشف بيعتمد على poll الجهاز أو بدء التطبيق، وجهاز cursor بتاعه أقدم من نقطة الـ restore مش بيتعلّم | نافذة زمنية يعرض فيها الجهاز إيصال confirmed قديم | السيرفر يعرض `historyEpoch` بيتغيّر بإجراء مشغّل، ويتبعت مع `/stock/changes`؛ تغيّره يخلّي الجهاز يعيد فحص كل الإيصالات فوراً. اختبار PG بيحاكي restore بدون رجوع cursor |
+| S1 ✔ **تم (Series 07)** | عنصر `history-changed` ما بيتعاد فحصه، فلو الـ restore اتعكس والمستخدم عمل re-entry يحصل duplicate | المستخدم مش هيعرف | **اتنفّذ على السيرفر مش على العميل:** `POST /stock/replacements/{inbound,outbound}` بيقرر جوه transaction (fence على مفتاح الأصل + فحص الـ ledger + generation + صلاحية)؛ العميل بيفحص ويشرح ويطلب تأكيد. اختبارات: PG (32 spec، سباقات + timeout + replay + أمان)، domain، جهاز. **حدود:** `SERIES_07_RECOVERY_CONTRACT.md` §5 |
+| S2 ✔ **تم (Series 07)** | مفيش "restore marker" من السيرفر؛ الكشف بيعتمد على poll الجهاز أو بدء التطبيق | نافذة زمنية يعرض فيها الجهاز إيصال confirmed قديم | `history_generation` per-company بيتبعت مع `/stock/changes` ومع الـ lookup وإيصالات الكتابة؛ بيتغيّر **بإجراء المشغّل فقط** (rotation موثَّق، Admin، flag). **مش بيكتشف restore تلقائياً** (بيتخزّن في نفس القاعدة): نموذج الثقة في العقد §6، والإجراء في §14 هنا |
 | S3 ✔ **تم (Series 06)** | تفرّد `(warehouse_id, revision)` كان بيعتمد على بروتوكول القفل فقط | — | unique partial index + فحص تكرار مسبق في `1792580000000`؛ اختبارات: بيئة production-reconstruction وتزامن 24 كاتب ومحاولة إدخال مكرر مرفوضة |
 | S4 ✔ **تم (Series 06)** | `down()` مدمّر + rollback التطبيق بيسيب NULL revisions | — | `down()` fail-closed (بدون override)، وtrigger يرقّم الحركات بلا revision، وإصلاح أوتوماتيك داخل الـ migration. القسم 8 |
 | S5 | `stock_idempotency_keys` بلا retention/cleanup | بتكبر، وأي cleanup لازم يتوافق مع فترة الإيصالات (7 أيام) ونافذة الـ restore | سياسة retention موثقة ≥ فترة الجهاز + نافذة الـ restore؛ job بيسيب الـ lookup يشتغل بالـ movement id (متحقق منه في الـ spec) |
@@ -262,6 +262,7 @@ WHERE sm.user_id = :'user' AND sm.product_id = :'product' AND sm.warehouse_id = 
 
 - الكود: `src/infrastructure/repositories/operation-lookup.service.ts`، `stock.service.ts` (`getChanges`)، `mobile/src/domain/outbox.ts` (`applyLookup`, `recheckCandidates`, `reentryDraft`, `prune`).
 - الاختبارات: `tests/integration/operation-lookup.pg.spec.ts`، `sync-cursor-reset.pg.spec.ts`، `release-safety.migration.pg.spec.ts`، و`tests/equivalence/production-bb071ed/`.
+- Series 07: `src/infrastructure/repositories/stock-replacement.service.ts`، `history-generation.service.ts`، `operation-lookup.service.ts`، migration `1792590000000-RecoveryIntegrity.ts`، `mobile/src/domain/replacement.ts`؛ الاختبارات `tests/integration/recovery-integrity.pg.spec.ts`؛ العقد `docs/handoff/SERIES_07_RECOVERY_CONTRACT.md`؛ التقرير `docs/handoff/SERIES_07_RECOVERY_INTEGRITY_REPORT.md`.
 - التقارير: `docs/handoff/SERIES_04_CHECKPOINT.md` §2، `SERIES_05_RC_PREFLIGHT_REPORT.md`، `SERIES_06_RELEASE_SAFETY_REPORT.md`، `SERIES_06_PRODUCTION_EQUIVALENCE_MATRIX.md`.
 - سياسة الموافقات: `docs/handoff/STOCKMIND_AI_CONTINUITY.md` قسم E.
 
@@ -295,3 +296,41 @@ SELECT warehouse_id, revision, count(*) FROM stock_movements WHERE revision IS N
 2. شغّل **instance واحدة** بس في أول boot (مفيش advisory lock حوالين الـ migrations، قسم الفرضيات في تقرير Series 06).
 3. `uuid-ossp` **لم يعد شرطاً**: مفيش migration بيستخدمه.
 4. بعد الـ boot: فحوصات القسم 3 (أ) و(ب) و(ج) لازم تطلع صفر صفوف، والـ trigger `trg_stock_movements_assign_revision` والـ index `uq_stock_movements_warehouse_revision` موجودين.
+5. **(Series 07)** `1792590000000` additive: تضيف `companies.history_generation` و`warehouses.history_floor_revision` وجدولين فاضيين. لازم بعد الـ boot: `SELECT count(*) FROM history_generation_events` و`stock_replacements` = 0 على أول deploy، وكل شركة ليها generation مميّز. `down()` بيرفض بعد أول rotation أو تعويض. (NOT RUN على أي قاعدة حقيقية.)
+
+---
+
+## 14. بعد restore: إجراء المشغّل بـ history generation (Series 07 — مرحلة تطوير، **مش** سياسة Production)
+
+> **ليه:** الـ generation متخزّن في نفس قاعدة البيانات فالـ restore بيرجّعه. اللي بيعمل الفرق إن المشغّل **يقول صراحةً** إن restore حصل، بعمل rotation بيولّد generation عشوائي جديد. من غيره، العملاء بيرجعوا لآليات الكشف القديمة (القسم 5-ج) ولا حاجة بتنبّه إن الخطوة اتنسيت.
+
+1. وقف الـ API (القسم 0). الاحتفاظ بنسخة ما قبل الـ restore وجمع الأدلة (القسم 4).
+2. الاستعادة + فحوصات القسم 3 (أ–د). أي صف ← وقف وتصعيد (القسم 9).
+3. تشغيل الـ API **بدون** فتحه للمستخدمين، بـ `RECOVERY_OPERATIONS_ENABLED=true` (وإلا الـ endpoint بيرد `403 recovery-disabled`).
+4. دخول حساب **Admin** للشركة المتأثرة (كل شركة بتحتاج rotation خاص بيها)، ثم:
+   `POST /api/v1/recovery/history-generation/rotate` بـ body: `{"reason":"<من/إيه/نقطة الـ restore/رقم الحادثة، 20–500 حرف>","confirm":"ROTATE_HISTORY_GENERATION"}`.
+   الرد فيه `previousGeneration` و`generation` الجديد و`warehouseFloors`. سجّلهم في سجل الأدلة (القسم 10). الحدث بيتخزّن في `history_generation_events` (append-only) وفي الـ audit log.
+5. **إعادة `RECOVERY_OPERATIONS_ENABLED=false`** وإعادة تشغيل الـ API، ثم فتحه للمستخدمين.
+6. النتيجة المتوقعة على الأجهزة: أول poll لكل مخزن بيرجع snapshot بـ `reset` (سبب `generation`)، الأرقام بتتحمّل من السيرفر، وكل الإيصالات بتتعاد فحصها. العمليات الضايعة تظهر "Needs review". العملاء القدام (قبل Series 07) بياخدوا reset واحد من الـ floor.
+7. كل مستخدم بيراجع بنفسه (القسم 6). **ماتعمل تعويض بدل المستخدم ولا SQL يدوي على الحركات.**
+
+**لو الخطوة 4 اتنسيت:** مفيش اكتشاف تلقائي. العملاء بيعتمدوا على الـ anchor/cursor وفحص بدء التطبيق (قد يعرض جهاز إيصال "confirmed" قديم لحد ما يتعاد فحصه). التعويض لسه بيرفض لو الأصل موجود، لكن مفيش حاجز generation. اعمل rotation متأخر فور ما تلاحظ؛ الفعل متاح في أي وقت وآمن (مجرد إعادة بناء على الأجهزة).
+
+**حدود الإجراء (لازم تتقال للـ Director):** مفيش مسار SQL مختبَر للـ rotation لو الـ API نفسه مش بيشتغل؛ مفيش step-up 2FA؛ كل شركة rotation لوحدها؛ الـ rotation مش بيصلّح بيانات ولا بيكشف حركات ضايعة (ده القسم 4).
+
+## 15. تعويض اتعمل ثم restore تاني: الأصل والتعويض متعايشين
+
+**ليه ممكن:** restore تاني أو إعادة استيراد المشغّل للصفوف الضايعة (القسم 4) ممكن يرجّع الأصل جنب تعويضه. تفرّد الـ DB بيحمي تاريخ واحد بس؛ اللي بيحصل بعد استرجاع صورة بيرجّع الـ provenance كمان لحالتها وقتها.
+
+**الكشف (لو الصفّين والحركتين لسه موجودين):** الـ lookup بيرجّع `present` بـ `reason:'coexisting-replacement'` للمفتاحين، والتطبيق بيعلّم العملية **duplicate-risk** (مش بيحذف ولا بيعدّل ولا بيتجاهل). استعلام المشغّل (اتجرّب في `recovery-integrity.pg.spec.ts`):
+
+```sql
+SELECT r.company_id, r.actor_user_id, r.original_key, r.replacement_key, r.original_movement_id, r.replacement_movement_id
+FROM stock_replacements r
+WHERE EXISTS (SELECT 1 FROM stock_movements o WHERE o.id = r.original_movement_id)
+  AND EXISTS (SELECT 1 FROM stock_movements n WHERE n.id = r.replacement_movement_id);
+```
+
+**الإجراء:** نفس القاعدة الذهبية: **ماتمسحش ولا تعدّل**. سجّل الأزواج في سجل التصعيد، وصحّح بـ **حركة adjustment مسجّلة بموافقة المدير** (القسم 7). لو الأصل رجع والتعويض ضاع: الرصيد صح (الأصل مطبّق مرة)، والتطبيق بيعلّمها `replacement-missing`.
+
+**ما لا يمكن اكتشافه:** لو الـ provenance نفسه (مع الـ tombstone) اترجع لحالة قبل التعويض، مفيش دليل على التعويض في السيرفر؛ الأصل ممكن يبان `present` والتعويض `absent` وده شكل "سجل عادي". الحماية الوحيدة وقتها هي الإجراءات (القسم 4 جمع الأدلة قبل أي restore).

@@ -1,0 +1,5 @@
+﻿stockmind_gate_s07_final1 : Test Suites: 51 passed, 51 total ; Tests:       347 passed, 347 total
+stockmind_gate_s07_final2 : Test Suites: 51 passed, 51 total ; Tests:       347 passed, 347 total
+stockmind_gate_s07_final3 : Test Suites: 51 passed, 51 total ; Tests:       347 passed, 347 total
+stockmind_gate_s07_rec4 : Test Suites: 1 passed, 1 total ; Tests:       32 passed, 32 total
+stockmind_gate_s07_mig1 : Tests:       19 passed, 19 total
