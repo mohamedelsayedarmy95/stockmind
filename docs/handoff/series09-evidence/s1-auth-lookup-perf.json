@@ -1,0 +1,29 @@
+{
+  "method": "A/B alternating rounds on one endpoint (GET /team/entitlements), local PostgreSQL 15 on the same host, sequential requests",
+  "generatedAt": "2026-10-25T05:37:42.538Z",
+  "claimsOnly": {
+    "n": 1000,
+    "medianMs": 2.047,
+    "p95Ms": 2.929,
+    "p99Ms": 6.47,
+    "meanMs": 2.237
+  },
+  "databaseBacked": {
+    "n": 1000,
+    "medianMs": 2.372,
+    "p95Ms": 3.113,
+    "p99Ms": 7.652,
+    "meanMs": 2.53
+  },
+  "addedMedianMs": 0.325,
+  "addedP95Ms": 0.184,
+  "lookupAlone": {
+    "n": 2000,
+    "medianMs": 0.229,
+    "p95Ms": 0.298,
+    "p99Ms": 0.371,
+    "meanMs": 0.241
+  },
+  "lookupPlan": "Index Scan on users_pkey",
+  "caveat": "Same-host database: a network hop to a hosted database adds its round-trip time (1-20 ms typical) to the lookup. There is deliberately no cache, because a cache would reintroduce the revocation delay."
+}
