@@ -221,6 +221,23 @@ interface Member { id: string; email: string; password: string; token: string; r
     expect(await rowOf(staff.id)).toMatchObject({ status: 'active', token_version: 1 });
   });
 
+  it('signing yourself out everywhere, or changing your password, ends your own sessions at once and nobody else\'s (NT-37)', async () => {
+    const a = await join('Staff');
+    const b = await join('Staff');
+    await http().get('/api/v1/products').set(auth(a.token)).expect(200);
+    await http().post('/api/v1/auth/sessions/terminate-all').set(auth(a.token)).send({}).expect(200);
+    expect((await http().get('/api/v1/products').set(auth(a.token))).body.code).toBe('ACCESS_REVOKED'); // not "after 15 minutes"
+    await http().get('/api/v1/products').set(auth(b.token)).expect(200); // the colleague is untouched
+
+    const c = await login(a).expect(200);
+    const next = password();
+    await http().post('/api/v1/auth/change-password').set(auth(c.body.accessToken)).send({ currentPassword: a.password, newPassword: next }).expect(200);
+    expect((await http().get('/api/v1/products').set(auth(c.body.accessToken))).status).toBe(401);
+    await http().get('/api/v1/products').set(auth(b.token)).expect(200);
+    a.password = next;
+    await login(a).expect(200);
+  });
+
   // ------------------------------------------------------------------------------------------- role change
 
   it('role change: needs the company-wide acknowledgement to broaden; old tokens die, the refresh token renews under the new role', async () => {
@@ -268,6 +285,8 @@ interface Member { id: string; email: string; password: string; token: string; r
     for (const who of [manager, staff]) {
       await act(who, staff.id, 'suspend').expect(403);
       await http().get(`/api/v1/team/members/${staff.id}/events`).set(auth(who.token)).expect(403);
+      await http().get('/api/v1/team/members').set(auth(who.token)).expect(403); // NT-32: member e-mails are not for them
+      await http().patch(`/api/v1/team/members/${staff.id}/role`).set(auth(who.token)).send({ role: 'Staff' }).expect(403);
     }
     await act(otherOwner, staff.id, 'suspend').expect(404);
     await act(owner, otherOwner.id, 'suspend').expect(404);
