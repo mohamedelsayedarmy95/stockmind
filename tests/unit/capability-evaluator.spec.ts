@@ -180,7 +180,7 @@ describe('engine mode', () => {
 });
 
 describe('A9: the mobile app only names capabilities the server knows', () => {
-  it('every value of the app's CAP table is in the server catalogue (a renamed or invented capability fails here)', () => {
+  it('every value of the CAP table of the app is in the server catalogue (a renamed or invented capability fails here)', () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const fs = require('fs'); const path = require('path');
     const text: string = fs.readFileSync(path.join(__dirname, '..', '..', 'mobile', 'src', 'domain', 'capabilities.ts'), 'utf8');
