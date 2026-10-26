@@ -9,7 +9,8 @@ import {
 } from '@/data/repositories';
 import { httpStatusOf } from '@/domain/auth-flow';
 import { writeRejectionOf } from '@/domain/idempotent-write';
-import { onOwnWriteRejected, onOwnWriteSucceeded } from '@/sync/warehouse-sync';
+import { onOwnWriteRejected, onOwnWriteSucceeded, useWarehouseEntry } from '@/sync/warehouse-sync';
+import { isCachedStockVisible } from '@/domain/balance-truth';
 import { queryKeys } from './queryClient';
 import { useCurrentScopeKey } from '@/sync/account-scope';
 import { BASE_URL } from '@/api/client';
@@ -26,12 +27,18 @@ function reportOnlineWrite(warehouseIds: string[], error?: unknown) {
 
 /** On-hand vs reserved vs issuable — what a dispatch may actually consume. */
 export function useAvailability(productId?: string, warehouseId?: string) {
-  return useQuery({
-    queryKey: [...queryKeys.availability(productId ?? '', warehouseId ?? ''), activeSource()],
+  const scope = useCurrentScopeKey();
+  const online = activeSource() === 'online';
+  const entry = useWarehouseEntry(warehouseId, online);
+  const query = useQuery({
+    queryKey: [...queryKeys.availability(productId ?? '', warehouseId ?? ''), activeSource(), scope, BASE_URL],
     enabled: Boolean(productId && warehouseId),
     queryFn: (): Promise<AvailabilitySnapshot> =>
       getRepositories().stock.availability(productId as string, warehouseId as string),
   });
+  const denied = online && productId && entry && !isCachedStockVisible(entry, productId);
+  // TanStack retains old availability data after an error too; every stock figure must obey the same deny overlay.
+  return { ...query, data: denied ? undefined : query.data };
 }
 
 export function useStoreBreakdown(productId?: string, warehouseId?: string) {
