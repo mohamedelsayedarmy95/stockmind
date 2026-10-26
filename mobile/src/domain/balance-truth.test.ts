@@ -58,6 +58,29 @@ describe('resolveBalance', () => {
     expect(resolve({ query: failed(404) })).toEqual({ state: 'unknown', reason: 'no-access' });
   });
 
+  it.each([403, 404])('direct %s overrides a cached balance, including a cached zero and retained query data', (errorStatus) => {
+    for (const cached of [sync(), sync({ balances: {} }), sync({ lastError: 'network' }), sync({ status: 'catching-up' })]) {
+      const truth = resolve({ sync: cached, query: { ...failed(errorStatus), data: ok('55').data } });
+      expect(truth).toEqual({ state: 'unknown', reason: 'no-access' });
+      expect(knownQuantity(truth)).toBeNull();
+      expect(issuableOnline(truth, 10)).toBe(0);
+      expect(balanceLine(truth, () => '')).toEqual({ key: 'balance.unknown.no-access' });
+    }
+  });
+
+  it('a pending/successful query is not a fresh denial; authorized cached figures stay usable', () => {
+    expect(resolve({ sync: sync(), query: { status: 'pending', errorStatus: 403 } }))
+      .toEqual({ state: 'confirmed', quantity: 55, source: 'server' });
+    expect(resolve({ query: { ...ok('3'), errorStatus: 404 } })).toEqual({ state: 'confirmed', quantity: 3, source: 'server' });
+    expect(resolve({ sync: sync(), query: ok('99', 'another-product', W2) }))
+      .toEqual({ state: 'confirmed', quantity: 55, source: 'server' }); // only the correctly scoped sync figure is used
+  });
+
+  it.each([undefined, 500, 503])('transport/server failure %s keeps the legitimate last-known figure and timestamp', (errorStatus) => {
+    expect(resolve({ sync: sync({ lastError: 'network' }), query: failed(errorStatus) }))
+      .toEqual({ state: 'last-known', quantity: 55, asOf: 1_700_000_000_000 });
+  });
+
   it('never reuses an unrelated warehouse or product figure', () => {
     expect(resolve({ query: ok('99', P, W2) })).toEqual({ state: 'unknown', reason: 'mismatch' });
     expect(resolve({ query: ok('99', 'prod-2', W) })).toEqual({ state: 'unknown', reason: 'mismatch' });

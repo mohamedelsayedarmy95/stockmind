@@ -60,6 +60,11 @@ export function resolveBalance(input: BalanceInput): BalanceTruth {
   const { productId, warehouseId, sync, query } = input;
   if (!warehouseId) return { state: 'unknown', reason: 'no-warehouse' };
 
+  // A fresh direct refusal outranks every cached figure, even before the independent warehouse poll sees it.
+  if (query.status === 'error' && (query.errorStatus === 403 || query.errorStatus === 404)) {
+    return { state: 'unknown', reason: 'no-access' };
+  }
+
   if (input.online && sync && sync.warehouseId === warehouseId) {
     // The member lost access to this warehouse: never show its figure, not even the cached one.
     if (sync.lastError === 'denied') return { state: 'unknown', reason: 'no-access' };
@@ -88,7 +93,6 @@ export function resolveBalance(input: BalanceInput): BalanceTruth {
     if (input.online && sync && sync.warehouseId === warehouseId && sync.lastError) return { state: 'unknown', reason: 'unreachable' };
     return { state: 'loading' };
   }
-  if (query.errorStatus === 403 || query.errorStatus === 404) return { state: 'unknown', reason: 'no-access' };
   return { state: 'unknown', reason: 'unreachable' };
 }
 
