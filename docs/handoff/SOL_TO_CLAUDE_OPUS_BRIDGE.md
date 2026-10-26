@@ -35,6 +35,7 @@
 13. راجعت diff والاختبارات بمهارة code-quality: تغيير production واحد، source signature ثابت، لا weakening للـexisting tests. عملت code commit `ea0d638`، وأعدت full mobile/tsc/PG على نفس الـcommit بعد restoration: كلها PASS.
 14. وقفت cluster المهمة بـ`pg_ctl -D ...\pgdata-sol-f13 -m fast -w stop`؛ exit 0. احتفظت بالـscratch DBs والـlogs، لا cleanup أو تعديل للـcluster القديمة.
 15. جمعت compact evidence من logs بدون request bodies أو credentials؛ جهزت documentation-only commit للـbridge والأدلة. تحقق final commit/remote موصوف في قسم 08؛ آخر كود اختُبر هو `ea0d638`.
+16. الـbridge والأدلة اتعملهم commit `cf7bc61f11a804c790889bb6c32cdc8a168b87e7` واترفعوا بordinary push لفرع Sol فقط. `git ls-remote` طابق SHA المحلي، وworktree كانت clean؛ الملف موجود فعلياً في committed tree. المراجعة الأخيرة دي تحديث documentation-only لتسجيل نجاح التسليم، بلا تغيير code/tests. canonical Series 13 لسه `e36ae97` وclean، وdirty main بنفس قائمة الحالة الأولية. `pg_ctl status` أكد no server running.
 
 ## 03 — Engineering Decisions
 - التحقيق لازم يثبت state transition من المسارات الفعلية قبل تصنيف CONFIRMED.
@@ -113,7 +114,8 @@
 - Final implementation / last fully tested code commit: **`ea0d63814913d30bdffe1fd226add071c2365f8c`**. final-mobile/final-pg/tsc شغالة عليه فعلياً؛ كل commit بعده في المهمة documentation/evidence فقط.
 - الـhandoff والأدلة في documentation-only commit الحاوي للنسخة دي؛ self hash مش ممكن يتحط جوه نفس commit. استخرج الـfinal handoff commit بالضبط بـ`rtk git -C D:\Projects\StockMind-wt\sol-f13-balance-authorization log -1 --format=%H -- docs/handoff/SOL_TO_CLAUDE_OPUS_BRIDGE.md`، وطابقه مع final report.
 - الفرع: `review/sol-f13-balance-authorization`؛ worktree: `D:\Projects\StockMind-wt\sol-f13-balance-authorization`. المتغيرات المحلية: dependency junctions وignored raw test logs فقط؛ لا env/key/APK artifacts.
-- Snapshot وقت كتابة الملف: code committed، bridge/evidence جاهزين للـdocs commit؛ الإقفال يتطلب clean tracked/untracked status وordinary push لفرع Sol فقط ثم local/remote SHA equality. النتيجة الفعلية النهائية مذكورة في final report؛ لا يُستنتج push ناجح من الجملة دي لوحدها.
+- **Verified pushed handoff checkpoint:** `cf7bc61f11a804c790889bb6c32cdc8a168b87e7` (bridge + evidence)، local HEAD = `git ls-remote origin refs/heads/review/sol-f13-balance-authorization`، worktree clean، والـbridge موجود في `git ls-tree HEAD`. الكود قبله `ea0d638`، وكل اللي بعده تحت `docs/` فقط.
+- النسخة الحالية تضيف سجل التحقق ده في docs-only follow-up؛ الـfinal handoff commit الحاوي لها يُستخرج بالأمر المذكور فوق. للتحقق من حالة push الحالية مستقلاً: قارن `rtk git -C <worktree> rev-parse HEAD` مع `rtk git -C <worktree> ls-remote --heads origin refs/heads/review/sol-f13-balance-authorization`، وافحص `status --short`. final report يحتوي الـSHA النهائي بعد رفع تحديث التوثيق ده.
 - Cluster المهمة **STOPPED**؛ scratch data/logs متروكة؛ لا worktree حذف أو DB cleanup.
 - **لم يتم أي merge** أو تعديل protected branches.
 
