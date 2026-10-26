@@ -10,7 +10,7 @@ let mockScope: string | null;
 const mockGet = jest.fn();
 jest.mock('react-native', () => ({ AppState: { addEventListener: jest.fn() } }));
 jest.mock('expo-router', () => ({ useFocusEffect: jest.fn() }));
-jest.mock('../api/client', () => ({ api: { get: (...args: unknown[]) => mockGet(...args) } }));
+jest.mock('../api/client', () => ({ BASE_URL: 'http://127.0.0.1:3000/api/v1', api: { get: (...args: unknown[]) => mockGet(...args) } }));
 jest.mock('../sync/account-scope', () => ({ currentScopeKey: () => mockScope }));
 jest.mock('../store/secure-storage', () => ({ getStorage: () => ({
   getString: (key: string) => mockDisk.get(key),
@@ -19,6 +19,7 @@ jest.mock('../store/secure-storage', () => ({ getStorage: () => ({
 }) }));
 
 import { forgetSyncCache, resetWarehouseSync, syncWarehouse, useWarehouseSyncStore } from '../sync/warehouse-sync';
+import { warehouseCacheKey } from '../sync/warehouse-cache';
 
 const P = 'p'; const W = 'w';
 const A = scopeKey({ api: '127.0.0.1', companyId: 'tenant-a', userId: 'staff-a' });
@@ -27,7 +28,7 @@ const snapshot = {
   warehouseId: W, mode: 'snapshot', revision: '1', anchor: 'm1', hasMore: false, movements: [],
   balances: [{ productId: P, baseQuantity: '55', reservedQuantity: '0', availableQuantity: '55' }],
 };
-const cache = (scope: string) => JSON.parse(mockDisk.get(`stockmind-sync-v1|${scope}`) ?? '{}');
+const cache = (scope: string) => JSON.parse(mockDisk.get(warehouseCacheKey(scope)) ?? '{}');
 const syncInput = () => {
   const e = useWarehouseSyncStore.getState().entries[W];
   return e ? { ...e.sync, lastError: e.lastError, lastSuccessAt: e.lastSuccessAt } : null;
@@ -58,7 +59,7 @@ it.each([403, 404])('direct %s is visible before a poll; the later poll purges t
     mockGet.mockRejectedValueOnce({ response: { status } });
     await syncWarehouse(W);
     expect(syncInput()).toMatchObject({ balances: {}, revision: null, lastError: 'denied', lastSuccessAt: null });
-    expect(cache(A).warehouses[W]).toBeUndefined();
+    expect(cache(A).warehouses[W]).toMatchObject({ sync: { balances: {}, revision: null }, deniedWarehouse: true });
   } finally { qc.clear(); }
 });
 
@@ -69,7 +70,7 @@ it('poll denial is retained as no-access even when a direct query still has succ
   expect(resolveBalance({ online: true, productId: P, warehouseId: W, sync: syncInput(),
     query: { status: 'success', data: { productId: P, warehouseId: W, baseQuantity: '55' } } }))
     .toEqual({ state: 'unknown', reason: 'no-access' });
-  expect(cache(A).warehouses).toEqual({});
+  expect(cache(A).warehouses[W]).toMatchObject({ sync: { balances: {}, revision: null }, deniedWarehouse: true });
 });
 
 it('relaunch without network hydrates the last-known figure and preserves its confirmation time', async () => {
@@ -95,7 +96,7 @@ it('account/tenant reset does not hydrate another scope, and sign-out deletes on
   forgetSyncCache(B);
   expect(cache(A).warehouses[W]).toBeDefined();
   forgetSyncCache(A);
-  expect(mockDisk.has(`stockmind-sync-v1|${A}`)).toBe(false);
+  expect(mockDisk.has(warehouseCacheKey(A))).toBe(false);
 });
 
 it('a poll in flight before a tenant switch cannot repopulate the new account state or cache', async () => {

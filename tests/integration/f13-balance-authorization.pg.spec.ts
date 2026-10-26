@@ -96,4 +96,22 @@ const TAG = randomBytes(4).toString('hex');
     await http().get(`/api/v1/stock/balance/${productId}/${warehouseId}`).set(auth(other.body.accessToken)).expect(404);
     await http().get(`/api/v1/stock/changes/${warehouseId}`).set(auth(other.body.accessToken)).expect(404);
   });
+
+  it('F13-CACHE-LIFETIME: a product-specific 404 can coexist with valid access to the warehouse', async () => {
+    await http().put(`/api/v1/team/members/${staffId}/warehouses`).set(auth(ownerToken)).send({ warehouseIds: [warehouseId] }).expect(200);
+    await http().get(`/api/v1/stock/balance/${randomUUID()}/${warehouseId}`).set(auth(staffToken)).expect(404);
+    await http().get(`/api/v1/stock/changes/${warehouseId}`).set(auth(staffToken)).expect(200);
+    const balance = await http().get(`/api/v1/stock/balance/${productId}/${warehouseId}`).set(auth(staffToken)).expect(200);
+    expect(balance.body.baseQuantity).toBe('55.000000');
+  });
+
+  it('F13-CACHE-LIFETIME: warehouse revocation denies direct/poll reads, and a legitimate re-grant restores both', async () => {
+    await http().put(`/api/v1/team/members/${staffId}/warehouses`).set(auth(ownerToken)).send({ warehouseIds: [] }).expect(200);
+    await http().get(`/api/v1/stock/balance/${productId}/${warehouseId}`).set(auth(staffToken)).expect(404);
+    await http().get(`/api/v1/stock/changes/${warehouseId}`).set(auth(staffToken)).expect(404);
+    await http().put(`/api/v1/team/members/${staffId}/warehouses`).set(auth(ownerToken)).send({ warehouseIds: [warehouseId] }).expect(200);
+    await http().get(`/api/v1/stock/changes/${warehouseId}`).set(auth(staffToken)).expect(200);
+    const balance = await http().get(`/api/v1/stock/balance/${productId}/${warehouseId}`).set(auth(staffToken)).expect(200);
+    expect(balance.body.baseQuantity).toBe('55.000000');
+  });
 });

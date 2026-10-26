@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { create } from 'zustand';
-import { api } from '@/api/client';
-import { getStorage } from '@/store/secure-storage';
+import { api, BASE_URL } from '@/api/client';
+import type { BalanceResponse } from '@/api/types';
 import { httpStatusOf } from '@/domain/auth-flow';
 import { WriteRejection } from '@/domain/idempotent-write';
 import { ChangesResponse, initialSyncState, WarehouseSyncState } from '@/domain/stock-sync';
 import { PollError, pollWarehouse, syncDisplay } from '@/domain/sync-runner';
-import { currentScopeKey } from './account-scope';
+import { currentScopeKey, useCurrentScopeKey } from './account-scope';
+import { forgetWarehouseCache, readWarehouseCache, writeWarehouseCache } from './warehouse-cache';
 
 /**
  * Online stock state per warehouse, reconciled from GET /stock/changes/:warehouseId. Polls run on app foreground,
@@ -25,62 +26,39 @@ export interface WarehouseSyncEntry {
   /** When the last poll completed without error (epoch ms). */
   lastSuccessAt: number | null;
   rejection: WriteRejection | null;
+  deniedWarehouse: boolean;
+  deniedProducts: string[];
 }
 
 interface SyncStore {
+  scope: string | null;
+  server: string;
   entries: Record<string, WarehouseSyncEntry>;
 }
 
-export const useWarehouseSyncStore = create<SyncStore>(() => ({ entries: {} }));
+export const useWarehouseSyncStore = create<SyncStore>(() => ({ scope: null, server: BASE_URL, entries: {} }));
 
 /** 30–60 s per the backend contract; polling (not sockets) because the free backend instance sleeps. */
 export const STOCK_SCREEN_POLL_MS = 45_000;
 
-// ── Per-account cache ────────────────────────────────────────────────────────
-const CACHE_PREFIX = 'stockmind-sync-v1|';
-
-interface CachedWarehouse {
-  sync: WarehouseSyncState;
-  lastSuccessAt: number;
-}
-
-function readCache(scope: string): Record<string, CachedWarehouse> {
-  try {
-    const raw = getStorage().getString(CACHE_PREFIX + scope);
-    const doc = raw ? (JSON.parse(raw) as { warehouses?: Record<string, CachedWarehouse> }) : null;
-    return doc?.warehouses ?? {};
-  } catch {
-    return {}; // a cache is disposable: the next poll rebuilds it from the server
-  }
-}
-
-function writeCache(scope: string, warehouseId: string, entry: CachedWarehouse) {
-  const warehouses = { ...readCache(scope), [warehouseId]: entry };
-  getStorage().set(CACHE_PREFIX + scope, JSON.stringify({ warehouses }));
-}
-
-function dropCached(scope: string, warehouseId: string) {
-  const { [warehouseId]: _dropped, ...rest } = readCache(scope);
-  getStorage().set(CACHE_PREFIX + scope, JSON.stringify({ warehouses: rest }));
-}
-
 /** On an explicit sign-out: the figures can be fetched again; they should not stay on the device. */
-export function forgetSyncCache(scope: string | null) {
-  if (scope) getStorage().delete(CACHE_PREFIX + scope);
-}
+export const forgetSyncCache = forgetWarehouseCache;
 
 function entryOf(warehouseId: string): WarehouseSyncEntry {
-  const live = useWarehouseSyncStore.getState().entries[warehouseId];
-  if (live) return live;
   const scope = currentScopeKey();
-  const cached = scope ? readCache(scope)[warehouseId] : undefined;
+  const store = useWarehouseSyncStore.getState();
+  const live = store.scope === scope && store.server === BASE_URL ? store.entries[warehouseId] : undefined;
+  if (live) return live;
+  const cached = scope ? readWarehouseCache(scope)[warehouseId] : undefined;
   return {
-    // Older caches lack fields added since; fill them from the initial state.
-    sync: cached ? { ...initialSyncState(warehouseId), ...cached.sync } : initialSyncState(warehouseId),
+    // A previous runtime's snapshot is last-known until THIS runtime receives a valid server poll.
+    sync: cached ? { ...cached.sync, status: 'catching-up' } : initialSyncState(warehouseId),
     inFlight: false,
-    lastError: null,
+    lastError: cached?.deniedWarehouse ? 'denied' : null,
     lastSuccessAt: cached?.lastSuccessAt ?? null,
     rejection: null,
+    deniedWarehouse: cached?.deniedWarehouse ?? false,
+    deniedProducts: cached?.deniedProducts ?? [],
   };
 }
 
@@ -102,16 +80,72 @@ export function onHistoryReset(listener: (warehouseId: string) => void): () => v
 
 function patch(warehouseId: string, change: Partial<WarehouseSyncEntry>) {
   const entry = { ...entryOf(warehouseId), ...change };
-  useWarehouseSyncStore.setState((s) => ({ entries: { ...s.entries, [warehouseId]: entry } }));
+  const scope = currentScopeKey();
+  useWarehouseSyncStore.setState((s) => ({ scope, server: BASE_URL, entries: { ...(s.scope === scope && s.server === BASE_URL ? s.entries : {}), [warehouseId]: entry } }));
+}
+
+function persist(warehouseId: string) {
+  const scope = currentScopeKey();
+  if (!scope) return;
+  try {
+    writeWarehouseCache(scope, warehouseId, entryOf(warehouseId));
+  } catch (err) {
+    // If a deny cannot be written, discard the old stock document instead of leaving an unmarked snapshot to revive.
+    forgetWarehouseCache(scope);
+    throw err;
+  }
 }
 
 const running = new Map<string, Promise<void>>();
 const again = new Set<string>();
 /** Bumped on sign-out so a poll that was in flight cannot write the previous user's data back. */
 let generation = 0;
+const accessVersions = new Map<string, number>();
+
+function ensureScope() {
+  const store = useWarehouseSyncStore.getState();
+  if (store.scope !== currentScopeKey() || store.server !== BASE_URL) resetWarehouseSync();
+}
+
+/** Direct 403/404 is ambiguous: durably deny just this product/warehouse, never infer warehouse-wide revocation. */
+export async function fetchWarehouseBalance(productId: string, warehouseId: string, fetch: () => Promise<BalanceResponse>): Promise<BalanceResponse> {
+  ensureScope();
+  const scope = currentScopeKey();
+  if (!scope) throw new Error('NO_ONLINE_SESSION');
+  const gen = generation;
+  const server = BASE_URL;
+  const version = accessVersions.get(warehouseId) ?? 0;
+  patch(warehouseId, {}); // hydrate/publish before a request: disk state is last-known even while it waits
+  const sameSession = () => gen === generation && scope === currentScopeKey() && server === BASE_URL;
+  try {
+    const data = await fetch();
+    if (!sameSession() || version !== (accessVersions.get(warehouseId) ?? 0)) throw new Error('STALE_BALANCE_RESPONSE');
+    // Only a matching, usable server success can lift a product denial. A warehouse denial needs a valid poll snapshot.
+    if (data.productId === productId && data.warehouseId === warehouseId && data.baseQuantity.trim() !== '' && Number.isFinite(Number(data.baseQuantity))) {
+      const entry = entryOf(warehouseId);
+      if (entry.deniedProducts.includes(productId)) {
+        patch(warehouseId, { deniedProducts: entry.deniedProducts.filter((id) => id !== productId), sync: { ...entry.sync, status: 'catching-up' } });
+        persist(warehouseId);
+      }
+    }
+    return data;
+  } catch (err) {
+    const status = httpStatusOf(err);
+    if (sameSession() && (status === 403 || status === 404)) {
+      accessVersions.set(warehouseId, (accessVersions.get(warehouseId) ?? 0) + 1);
+      const entry = entryOf(warehouseId);
+      patch(warehouseId, { deniedProducts: [...new Set([...entry.deniedProducts, productId])] });
+      persist(warehouseId);
+    }
+    throw err;
+  }
+}
 
 async function runOnce(warehouseId: string, gen: number) {
   const scope = currentScopeKey();
+  const server = BASE_URL;
+  if (!scope) return;
+  const version = accessVersions.get(warehouseId) ?? 0;
   patch(warehouseId, { inFlight: true });
   const before = entryOf(warehouseId).sync;
   const result = await pollWarehouse(
@@ -126,22 +160,29 @@ async function runOnce(warehouseId: string, gen: number) {
     },
     { statusOf: httpStatusOf },
   );
-  if (gen !== generation || scope !== currentScopeKey()) return;
+  if (gen !== generation || scope !== currentScopeKey() || server !== BASE_URL) return;
+  if (version !== (accessVersions.get(warehouseId) ?? 0)) {
+    patch(warehouseId, { inFlight: false }); // a poll started before a new denial cannot undo it
+    return;
+  }
   const now = Date.now();
   if (result.error === 'denied') {
     // Access revoked (or warehouse gone): its figures must not stay readable on this device.
-    patch(warehouseId, { sync: initialSyncState(warehouseId), inFlight: false, lastError: 'denied', lastSuccessAt: null });
-    if (scope) dropCached(scope, warehouseId);
+    accessVersions.set(warehouseId, version + 1);
+    patch(warehouseId, { sync: initialSyncState(warehouseId), inFlight: false, lastError: 'denied', lastSuccessAt: null, deniedWarehouse: true });
+    persist(warehouseId); // keep the deny even after stock itself has been purged
     return;
   }
+  const deniedWarehouse = entryOf(warehouseId).deniedWarehouse && (result.error !== null || result.state.revision === null);
   patch(warehouseId, {
     sync: result.state,
     inFlight: false,
-    lastError: result.error,
+    lastError: deniedWarehouse ? 'denied' : result.error,
+    deniedWarehouse,
     ...(result.error ? {} : { lastSuccessAt: now }),
   });
   if (!result.error && scope) {
-    writeCache(scope, warehouseId, { sync: result.state, lastSuccessAt: now });
+    persist(warehouseId);
     // The server rejected our cursor: what we once saw confirmed in this warehouse must be re-checked.
     if (result.state.resets > before.resets) for (const listener of resetListeners) listener(warehouseId);
     for (const listener of pollListeners) listener();
@@ -153,6 +194,7 @@ async function runOnce(warehouseId: string, gen: number) {
  * so a write that lands mid-poll is still picked up.
  */
 export function syncWarehouse(warehouseId: string): Promise<void> {
+  ensureScope();
   const current = running.get(warehouseId);
   if (current) {
     again.add(warehouseId);
@@ -166,7 +208,7 @@ export function syncWarehouse(warehouseId: string): Promise<void> {
         await runOnce(warehouseId, gen);
       } while (again.has(warehouseId) && gen === generation);
     } finally {
-      running.delete(warehouseId);
+      if (gen === generation) running.delete(warehouseId);
     }
   })();
   running.set(warehouseId, task);
@@ -193,7 +235,16 @@ export function dismissRejection(warehouseId: string) {
 export function resetWarehouseSync() {
   generation++;
   again.clear();
-  useWarehouseSyncStore.setState({ entries: {} });
+  running.clear();
+  accessVersions.clear();
+  useWarehouseSyncStore.setState({ scope: currentScopeKey(), server: BASE_URL, entries: {} });
+}
+
+/** Cache-only reactive view, also used by screens that do not own a warehouse poll. No cross-account live entry reuse. */
+export function useWarehouseEntry(warehouseId: string | undefined, enabled = true) {
+  const scope = useCurrentScopeKey();
+  const entry = useWarehouseSyncStore((s) => (enabled && scope && s.scope === scope && s.server === BASE_URL && warehouseId ? s.entries[warehouseId] : undefined));
+  return entry ?? (enabled && scope && warehouseId ? entryOf(warehouseId) : undefined);
 }
 
 /**
@@ -201,7 +252,7 @@ export function resetWarehouseSync() {
  * the app returns to the foreground. Pass enabled=false (offline mode) to do nothing.
  */
 export function useWarehouseSync(warehouseId: string | undefined, enabled: boolean) {
-  const entry = useWarehouseSyncStore((s) => (warehouseId ? s.entries[warehouseId] : undefined));
+  const entry = useWarehouseEntry(warehouseId, enabled);
   const focused = useRef(false);
 
   useFocusEffect(
@@ -225,7 +276,7 @@ export function useWarehouseSync(warehouseId: string | undefined, enabled: boole
     return () => sub.remove();
   }, [enabled, warehouseId]);
 
-  const view = entry ?? (warehouseId ? entryOf(warehouseId) : null);
+  const view = entry ?? (enabled && currentScopeKey() && warehouseId ? entryOf(warehouseId) : null);
   return {
     entry: view,
     status: view ? syncDisplay(view) : null,

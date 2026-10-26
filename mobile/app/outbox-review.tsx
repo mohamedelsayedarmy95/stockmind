@@ -14,10 +14,11 @@ import { useWarehouses } from '@/query/useWarehouses';
 import { Product } from '@/api/types';
 import { Warehouse } from '@/data/repositories';
 import { canDiscard } from '@/domain/outbox';
+import { isCachedStockVisible } from '@/domain/balance-truth';
 import { canRetryReplacement, REVIEW_TTL_MS, replacementAvailability } from '@/domain/replacement';
 import { useCurrentScopeKey } from '@/sync/account-scope';
 import { removeIntent, useOutboxStore } from '@/sync/outbox-store';
-import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
+import { useWarehouseEntry } from '@/sync/warehouse-sync';
 import { checkOriginal, confirmReplacement, sendReplacement, useReviewStore } from '@/sync/outbox-replacement';
 import { haptics } from '@/lib/haptics';
 
@@ -64,8 +65,9 @@ export default function OutboxReviewScreen() {
     () => (warehouses ?? []).find((w: Warehouse) => w.id === mine?.payload.warehouseId)?.name ?? short(mine?.payload.warehouseId),
     [warehouses, mine?.payload.warehouseId],
   );
-  const syncEntry = useWarehouseSyncStore((s) => (mine ? s.entries[mine.payload.warehouseId] : undefined));
-  const serverStock = mine ? syncEntry?.sync.balances[mine.payload.productId]?.baseQuantity : undefined;
+  const syncEntry = useWarehouseEntry(mine?.payload.warehouseId);
+  const serverStock = mine && syncEntry && isCachedStockVisible(syncEntry, mine.payload.productId)
+    ? syncEntry.sync.balances[mine.payload.productId]?.baseQuantity : undefined;
 
   const confirm = useCallback(() => {
     if (!mine || tapped.current) return;

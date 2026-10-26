@@ -31,6 +31,8 @@ export interface SyncBalanceInput {
   balances: Readonly<Record<string, { baseQuantity: string }>>;
   lastError: PollError | null;
   lastSuccessAt: number | null;
+  deniedProducts?: readonly string[];
+  deniedWarehouse?: boolean;
 }
 
 /** The direct balance request for ONE product in ONE warehouse (online: the server; offline mode: the device ledger). */
@@ -56,6 +58,11 @@ const parse = (raw: unknown): number | null => {
   return Number.isFinite(n) ? Math.floor(n) : null;
 };
 
+/** Shared by scalar balances, stock rows, recent movements and the outbox review's cached server figure. */
+export function isCachedStockVisible(sync: Pick<SyncBalanceInput, 'lastError' | 'deniedWarehouse' | 'deniedProducts'>, productId: string): boolean {
+  return sync.lastError !== 'denied' && !sync.deniedWarehouse && !sync.deniedProducts?.includes(productId);
+}
+
 export function resolveBalance(input: BalanceInput): BalanceTruth {
   const { productId, warehouseId, sync, query } = input;
   if (!warehouseId) return { state: 'unknown', reason: 'no-warehouse' };
@@ -67,7 +74,7 @@ export function resolveBalance(input: BalanceInput): BalanceTruth {
 
   if (input.online && sync && sync.warehouseId === warehouseId) {
     // The member lost access to this warehouse: never show its figure, not even the cached one.
-    if (sync.lastError === 'denied') return { state: 'unknown', reason: 'no-access' };
+    if (!isCachedStockVisible(sync, productId)) return { state: 'unknown', reason: 'no-access' };
     // After a snapshot every inventory row of the warehouse is known: a product without one has none of it (0) as of that
     // snapshot, unless the direct request (below) answered for exactly this product, which is then the fresher figure.
     const row = sync.balances[productId];
@@ -136,10 +143,11 @@ export const BALANCE_LINE_KEYS = [
  * What the online stock list of one warehouse may say when it has no rows to show: "loading" only while nothing has
  * failed, "unknown" when the first sync failed, "empty" only after a snapshot said so.
  */
-export function warehouseListState(sync: SyncBalanceInput | null | undefined): 'loading' | 'unreachable' | 'no-access' | 'empty' | 'empty-last-known' | 'rows' {
+export function warehouseListState(sync: SyncBalanceInput | null | undefined): 'loading' | 'unreachable' | 'no-access' | 'unavailable' | 'empty' | 'empty-last-known' | 'rows' {
   if (!sync) return 'loading';
-  if (sync.lastError === 'denied') return 'no-access';
+  if (sync.lastError === 'denied' || sync.deniedWarehouse) return 'no-access';
   if (sync.revision === null) return sync.lastError ? 'unreachable' : 'loading';
-  if (Object.keys(sync.balances).length > 0) return 'rows';
+  if (Object.keys(sync.balances).some((id) => !sync.deniedProducts?.includes(id))) return 'rows';
+  if (sync.deniedProducts?.length) return 'unavailable';
   return sync.lastError === null && sync.status === 'synced' ? 'empty' : 'empty-last-known';
 }

@@ -6,6 +6,7 @@ import { sendIdempotent } from '@/domain/idempotent-write';
 import { StockIntent } from '@/domain/outbox';
 import { submitIntent } from '@/sync/outbox-drain';
 import { withReferenceFallback } from '@/sync/reference-cache';
+import { fetchWarehouseBalance } from '@/sync/warehouse-sync';
 
 /** A queued intent the server refused (or whose outcome needs review); shaped like an HTTP error for the screens. */
 export class IntentRefusedError extends Error {
@@ -123,8 +124,8 @@ class ApiStoreRepository implements StoreRepository {
 
 class ApiStockRepository implements StockRepository {
   async balance(productId: string, warehouseId: string): Promise<BalanceResponse> {
-    const { data } = await api.get<BalanceResponse>(`/stock/balance/${productId}/${warehouseId}`);
-    return data;
+    return fetchWarehouseBalance(productId, warehouseId, async () =>
+      (await api.get<BalanceResponse>(`/stock/balance/${productId}/${warehouseId}`)).data);
   }
   async move(input: MovementInput): Promise<MovementResult> {
     // The backend's inbound/outbound DTOs are whitelist-validated, so any

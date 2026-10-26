@@ -11,7 +11,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { dismissRejection, useWarehouseSync } from '@/sync/warehouse-sync';
 import { ServerBalance } from '@/domain/stock-sync';
 import { pendingEffects } from '@/domain/outbox';
-import { warehouseListState } from '@/domain/balance-truth';
+import { isCachedStockVisible, warehouseListState } from '@/domain/balance-truth';
 import { Product } from '@/api/types';
 import { OutboxBanner } from '@/components/OutboxBanner';
 import { useCurrentScopeKey } from '@/sync/account-scope';
@@ -25,6 +25,7 @@ const LIST_STATE_KEY: Partial<Record<ReturnType<typeof warehouseListState>, stri
   unreachable: 'online.stockUnreachable',
   empty: 'online.stockEmpty',
   'empty-last-known': 'online.stockEmptyLastKnown',
+  unavailable: 'balance.unknown.no-access',
 };
 
 /**
@@ -48,10 +49,10 @@ export function OnlineWarehouseStock({ warehouseId }: { warehouseId: string }) {
   // This account's not-yet-confirmed intents, per product: shown beside the server figure, never added into it.
   const effects = scope ? pendingEffects(intents, scope, warehouseId, entry?.sync.revision ?? null) : {};
   const signedQty = (q: number) => `${q > 0 ? '+' : ''}${q}`;
-  const balances: ServerBalance[] = entry ? Object.values(entry.sync.balances) : [];
-  const listState = warehouseListState(entry ? { ...entry.sync, lastError: entry.lastError, lastSuccessAt: entry.lastSuccessAt } : null);
+  const balances: ServerBalance[] = entry ? Object.values(entry.sync.balances).filter((b) => isCachedStockVisible(entry, b.productId)) : [];
+  const listState = warehouseListState(entry ? { ...entry, ...entry.sync } : null);
   balances.sort((a, b) => (names.get(a.productId) ?? a.productId).localeCompare(names.get(b.productId) ?? b.productId));
-  const recent = entry ? [...entry.sync.recent].reverse().slice(0, 6) : [];
+  const recent = entry ? [...entry.sync.recent].filter((m) => isCachedStockVisible(entry, m.productId)).reverse().slice(0, 6) : [];
 
   const openMovement = (productId: string, mode: 'inbound' | 'outbound') =>
     router.push({ pathname: '/movement/[productId]', params: { productId, mode, warehouseId } });

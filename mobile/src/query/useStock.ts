@@ -11,6 +11,8 @@ import { httpStatusOf } from '@/domain/auth-flow';
 import { writeRejectionOf } from '@/domain/idempotent-write';
 import { onOwnWriteRejected, onOwnWriteSucceeded } from '@/sync/warehouse-sync';
 import { queryKeys } from './queryClient';
+import { useCurrentScopeKey } from '@/sync/account-scope';
+import { BASE_URL } from '@/api/client';
 
 /** Online: re-poll after the user's own write, and record a 409/422 so the stock screen can say Rejected. */
 function reportOnlineWrite(warehouseIds: string[], error?: unknown) {
@@ -42,8 +44,9 @@ export function useStoreBreakdown(productId?: string, warehouseId?: string) {
 }
 
 export function useBalance(productId?: string, warehouseId?: string) {
+  const scope = useCurrentScopeKey();
   return useQuery({
-    queryKey: [...queryKeys.balance(productId ?? '', warehouseId ?? ''), activeSource()],
+    queryKey: [...queryKeys.balance(productId ?? '', warehouseId ?? ''), activeSource(), scope, BASE_URL],
     enabled: Boolean(productId && warehouseId),
     queryFn: (): Promise<BalanceResponse> =>
       getRepositories().stock.balance(productId as string, warehouseId as string),

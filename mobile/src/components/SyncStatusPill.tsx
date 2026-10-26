@@ -49,7 +49,9 @@ export function SyncStatusPill({
       label = entry.lastSuccessAt ? tr('online.sync.syncedAt', { time: clock(entry.lastSuccessAt) }) : tr('online.sync.synced');
       break;
     case 'catching-up':
-      label = tr('online.sync.catchingUp');
+      label = entry.sync.status !== 'synced' && entry.lastSuccessAt !== null
+        ? tr('online.sync.cachedAt', { time: clock(entry.lastSuccessAt) })
+        : tr('online.sync.catchingUp');
       break;
     case 'offline':
       label = entry.lastSuccessAt

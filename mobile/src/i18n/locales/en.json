@@ -370,6 +370,7 @@
       "synced": "Synced",
       "syncedAt": "Synced at {{time}}",
       "catchingUp": "Catching up…",
+      "cachedAt": "Last known stock · last confirmed {{time}}",
       "offline": "Offline",
       "offlineSince": "Offline · figures from {{time}}",
       "offlineNever": "Offline · no data yet",

@@ -31,7 +31,7 @@ import { pendingEffects } from '@/domain/outbox';
 import { balanceLine, issuableOnline, knownQuantity, resolveBalance } from '@/domain/balance-truth';
 import { useCurrentScopeKey } from '@/sync/account-scope';
 import { useOutboxStore } from '@/sync/outbox-store';
-import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
+import { useWarehouseEntry } from '@/sync/warehouse-sync';
 import { haptics } from '@/lib/haptics';
 
 export default function MovementScreen() {
@@ -74,7 +74,7 @@ export default function MovementScreen() {
 
   // Online, the confirmed figure is the reconciled server balance (still known without network), and this account's
   // queued dispatches reduce what may be dispatched; queued receipts do not add until the server confirms them.
-  const syncEntry = useWarehouseSyncStore((s) => (online && warehouseId ? s.entries[warehouseId] : undefined));
+  const syncEntry = useWarehouseEntry(warehouseId ?? undefined, online);
   const scope = useCurrentScopeKey();
   const intents = useOutboxStore((s) => s.intents);
   const pending =
@@ -88,7 +88,7 @@ export default function MovementScreen() {
     online,
     productId: params.productId,
     warehouseId,
-    sync: syncEntry ? { ...syncEntry.sync, lastError: syncEntry.lastError, lastSuccessAt: syncEntry.lastSuccessAt } : null,
+    sync: syncEntry ? { ...syncEntry, ...syncEntry.sync } : null,
     query: { status: balanceQuery.status, data: balanceQuery.data, errorStatus: httpStatusOf(balanceQuery.error) },
   });
   const balanceText = balanceLine(balanceTruth, (ms) => new Date(ms).toLocaleTimeString());

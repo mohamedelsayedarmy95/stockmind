@@ -38,7 +38,7 @@ import { Batch, Serial, Reservation as StockReservation } from '@/data/repositor
 import { STATUS } from '@/theme/colors';
 import { balanceLine, knownQuantity, resolveBalance } from '@/domain/balance-truth';
 import { httpStatusOf } from '@/domain/auth-flow';
-import { useWarehouseSyncStore } from '@/sync/warehouse-sync';
+import { useWarehouseEntry } from '@/sync/warehouse-sync';
 
 const REMINDER_PRESETS = [
   { key: '1h', hours: 1 },
@@ -76,7 +76,7 @@ export default function ProductDetailScreen() {
   const otherWarehouses = warehouseOptions.filter((w: Warehouse) => w.id !== defaultWarehouseId);
   const balanceQuery = useBalance(productId, defaultWarehouseId ?? undefined);
   const online = activeSource() === 'online';
-  const syncEntry = useWarehouseSyncStore((s) => (online && defaultWarehouseId ? s.entries[defaultWarehouseId] : undefined));
+  const syncEntry = useWarehouseEntry(defaultWarehouseId ?? undefined, online);
   const { data: breakdown } = useStoreBreakdown(productId, defaultWarehouseId ?? undefined);
   const { data: sourceStores } = useStores(defaultWarehouseId ?? undefined);
   const transfer = useStockTransfer();
@@ -143,7 +143,7 @@ export default function ProductDetailScreen() {
     online,
     productId,
     warehouseId: defaultWarehouseId,
-    sync: syncEntry ? { ...syncEntry.sync, lastError: syncEntry.lastError, lastSuccessAt: syncEntry.lastSuccessAt } : null,
+    sync: syncEntry ? { ...syncEntry, ...syncEntry.sync } : null,
     query: { status: balanceQuery.status, data: balanceQuery.data, errorStatus: httpStatusOf(balanceQuery.error) },
   });
   const balanceText = balanceLine(balanceTruth, (ms) => new Date(ms).toLocaleTimeString());
