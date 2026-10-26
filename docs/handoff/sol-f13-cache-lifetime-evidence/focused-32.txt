@@ -1,0 +1,16 @@
+node : PASS src/domain/cache-lifetime.test.ts
+At line:1 char:1
++ node node_modules/jest/bin/jest.js src/domain/cache-lifetime.test.ts  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/domain/cache-lifetime.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS src/domain/balance-truth.test.ts
+PASS src/domain/balance-authorization-flow.test.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       32 passed, 32 total
+Snapshots:   0 total
+Time:        3.42 s, estimated 4 s
+Ran all test suites matching /src\\domain\\cache-lifetime.test.ts|src\\domain\\balance-authorization-flow.test.ts|src\\
+domain\\balance-truth.test.ts/i.

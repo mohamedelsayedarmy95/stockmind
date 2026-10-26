@@ -1,0 +1,4 @@
+Code commit: 468f26a675b093a03d4c6281165db0d9dc82d52d
+Command: node node_modules/typescript/bin/tsc --noEmit (mobile)
+Exit: 0
+Diagnostics: none

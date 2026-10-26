@@ -1,0 +1,8 @@
+Code commit: 468f26a675b093a03d4c6281165db0d9dc82d52d
+Fresh local synthetic PG/HTTP: f13-balance-authorization.pg.spec.ts + access-lifecycle.pg.spec.ts
+Test Suites: 2 passed, 2 total
+Tests:       19 passed, 19 total
+Snapshots:   0 total
+Time:        19.64 s
+Ran all test suites within paths "tests/integration/f13-balance-authorization.pg.spec.ts", 
+Jest exit0 (gate-reported child exit)

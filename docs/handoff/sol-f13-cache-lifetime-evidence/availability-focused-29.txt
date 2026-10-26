@@ -1,0 +1,14 @@
+node : PASS src/domain/availability-visibility.test.ts
+At line:1 char:1
++ node node_modules/jest/bin/jest.js src/domain/availability-visibility ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/domain...ibility.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS src/domain/cache-lifetime.test.ts
+
+Test Suites: 2 passed, 2 total
+Tests:       29 passed, 29 total
+Snapshots:   0 total
+Time:        4.3 s, estimated 8 s
+Ran all test suites matching /src\\domain\\availability-visibility.test.ts|src\\domain\\cache-lifetime.test.ts/i.

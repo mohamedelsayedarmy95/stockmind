@@ -1,0 +1,66 @@
+node : FAIL src/domain/availability-visibility.test.ts
+At line:1 char:1
++ node node_modules/jest/bin/jest.js src/domain/availability-visibility ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL src/domain...ibility.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  × known product denial hides retained availability quantities (8 ms)
+  × known warehouse denial hides retained availability quantities (2 ms)
+  √ authorized cached availability stays usable after a transient refetch failure (1 ms)
+  √ offline device availability ignores the online denial overlay (8 ms)
+  × availability query identity includes account and full endpoint, so another company cannot reuse it (1 ms)
+
+  ● known product denial hides retained availability quantities
+
+    expect(received).toBeUndefined()
+
+    Received: {"available": 55, "onHand": 55, "reserved": 0}
+
+      33 |   try {
+      34 |     if (kind === 'product') mockEntry.deniedProducts = ['p']; else mockEntry.deniedWarehouse = true;
+    > 35 |     expect(useAvailability('p', 'w').data).toBeUndefined();
+         |                                            ^
+      36 |   } finally { qc.clear(); }
+      37 | });
+      38 |
+
+      at src/domain/availability-visibility.test.ts:35:44
+
+  ● known warehouse denial hides retained availability quantities
+
+    expect(received).toBeUndefined()
+
+    Received: {"available": 55, "onHand": 55, "reserved": 0}
+
+      33 |   try {
+      34 |     if (kind === 'product') mockEntry.deniedProducts = ['p']; else mockEntry.deniedWarehouse = true;
+    > 35 |     expect(useAvailability('p', 'w').data).toBeUndefined();
+         |                                            ^
+      36 |   } finally { qc.clear(); }
+      37 | });
+      38 |
+
+      at src/domain/availability-visibility.test.ts:35:44
+
+  ● availability query identity includes account and full endpoint, so another company cannot reuse it
+
+    expect(received).not.toEqual(expected) // deep equality
+
+    Expected: not ["availability", "p", "w", "online"]
+
+      58 |     mockScope = 'server|company-b|staff-a'; useAvailability('p', 'w');
+      59 |     const next = jest.mocked(useQuery).mock.calls[1][0].queryKey;
+    > 60 |     expect(first).not.toEqual(next);
+         |                       ^
+      61 |     expect(next).toContain('http://127.0.0.1:3000/api/v1');
+      62 |   } finally { qc.clear(); }
+      63 | });
+
+      at Object.<anonymous> (src/domain/availability-visibility.test.ts:60:23)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 2 passed, 5 total
+Snapshots:   0 total
+Time:        3.386 s
+Ran all test suites matching /src\\domain\\availability-visibility.test.ts/i.

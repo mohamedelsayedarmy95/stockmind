@@ -1,0 +1,59 @@
+Expected: each mutation causes actual assertion failures / Jest exit 1, not compile errors or zero-test runs.
+N1-product-denial-not-persisted: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       9 failed, 15 passed, 24 total
+N2-warehouse-denial-not-persisted: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 23 passed, 24 total
+N3-hydrate-as-confirmed: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 23 passed, 24 total
+N4-network-clears-warehouse-denial: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 22 passed, 24 total
+N5-poll-clears-product-denials: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       10 failed, 14 passed, 24 total
+N6-stale-direct-success-lifts-denial: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 23 passed, 24 total
+N7-old-poll-overwrites-newer-denial: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 23 passed, 24 total
+N8-response-ignores-account-session: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 20 passed, 24 total
+N9-endpoints-share-cache: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 23 passed, 24 total
+N10-product-404-revokes-whole-warehouse: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       5 failed, 19 passed, 24 total
+N11-ui-ignores-product-denial: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       13 failed, 11 passed, 24 total
+N12-repository-bypasses-durable-wrapper: DETECTED / RED; exit=1
+FAIL src/domain/cache-lifetime.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       16 failed, 8 passed, 24 total
+N13-availability-exposes-retained-stock: DETECTED / RED; exit=1
+FAIL src/domain/availability-visibility.test.ts
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 3 passed, 5 total
+mobile/src/sync/warehouse-sync.ts: original=35f0f22d563405691fce4803410741f449f3428711268be4bab28193e0efd424 restored=35f0f22d563405691fce4803410741f449f3428711268be4bab28193e0efd424 equal=true
+mobile/src/sync/warehouse-cache.ts: original=660227509af324a19adf8779b07456d9bc40c01a172b1e4798235d1d6045e931 restored=660227509af324a19adf8779b07456d9bc40c01a172b1e4798235d1d6045e931 equal=true
+mobile/src/domain/balance-truth.ts: original=4d516d9c80d97cf73861bd78b82aa992dc842fc43ff685493c353f21dd4bd71a restored=4d516d9c80d97cf73861bd78b82aa992dc842fc43ff685493c353f21dd4bd71a equal=true
+mobile/src/data/api/api-repositories.ts: original=94abdf40bce55dd63d73019d2e819e176e769ae9f0f9c9f434176c9edf34ccc2 restored=94abdf40bce55dd63d73019d2e819e176e769ae9f0f9c9f434176c9edf34ccc2 equal=true
+mobile/src/query/useStock.ts: original=8f2f89170a4c1c2e35cb6c1667592f7de0dde9fe6eeaafcb673939b3d1afe1fa restored=8f2f89170a4c1c2e35cb6c1667592f7de0dde9fe6eeaafcb673939b3d1afe1fa equal=true
+Detected: 13/13

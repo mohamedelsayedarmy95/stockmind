@@ -1,0 +1,121 @@
+node : FAIL src/domain/cache-lifetime.test.ts
+At line:1 char:1
++ node node_modules/jest/bin/jest.js src/domain/cache-lifetime.test.ts  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL src/domain/cache-lifetime.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  × disk hydration is LAST-KNOWN even while the first poll is pending, and reuses the keystore key (337 ms)
+  × observed direct 403 stays hidden across a cold runtime and offline restart before a warehouse poll (64 ms)
+  × observed direct 404 stays hidden across a cold runtime and offline restart before a warehouse poll (23 ms)
+  × a warehouse-wide poll refusal remains denied after restart and later network failure (13 ms)
+  √ without observed denial offline cache remains readable and does not change an outbox record (12 ms)
+
+  ● disk hydration is LAST-KNOWN even while the first poll is pending, and reuses the keystore key
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 2
+
+      Object {
+    -   "asOf": 1792988999850,
+        "quantity": 55,
+    -   "state": "last-known",
+    +   "source": "server",
+    +   "state": "confirmed",
+      }
+
+      69 |   mockGet.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+      70 |   const polling = runtime.sync.syncWarehouse(W);
+    > 71 |   try { expect(runtime.read()).toEqual({ state: 'last-known', quantity: 55, asOf }); }
+         |                                ^
+      72 |   finally { finish({ data: snapshot() }); await polling; }
+      73 |   expect(runtime.read()).toEqual({ state: 'confirmed', quantity: 55, source: 'server' });
+      74 | });
+
+      at Object.<anonymous> (src/domain/cache-lifetime.test.ts:71:32)
+
+  ● observed direct 403 stays hidden across a cold runtime and offline restart before a warehouse poll
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 3
+
+      Object {
+    -   "reason": "no-access",
+    -   "state": "unknown",
+    +   "asOf": 1792988999878,
+    +   "quantity": 55,
+    +   "state": "last-known",
+      }
+
+      87 |     // Close before any warehouse poll. React Query memory is intentionally lost, native storage is not.
+      88 |     qc.clear(); runtime = await boot(); await offline(runtime);
+    > 89 |     expect(runtime.read({ status: 'error' })).toEqual({ state: 'unknown', reason: 'no-access' });
+         |                                               ^
+      90 |     expect(runtime.read({ status: 'error' }, Q).state).toBe('last-known'); // ambiguous product 404 is not 
+warehouse revocation
+      91 |   } finally { qc.clear(); }
+      92 | });
+
+      at src/domain/cache-lifetime.test.ts:89:47
+
+  ● observed direct 404 stays hidden across a cold runtime and offline restart before a warehouse poll
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 3
+
+      Object {
+    -   "reason": "no-access",
+    -   "state": "unknown",
+    +   "asOf": 1792988999940,
+    +   "quantity": 55,
+    +   "state": "last-known",
+      }
+
+      87 |     // Close before any warehouse poll. React Query memory is intentionally lost, native storage is not.
+      88 |     qc.clear(); runtime = await boot(); await offline(runtime);
+    > 89 |     expect(runtime.read({ status: 'error' })).toEqual({ state: 'unknown', reason: 'no-access' });
+         |                                               ^
+      90 |     expect(runtime.read({ status: 'error' }, Q).state).toBe('last-known'); // ambiguous product 404 is not 
+warehouse revocation
+      91 |   } finally { qc.clear(); }
+      92 | });
+
+      at src/domain/cache-lifetime.test.ts:89:47
+
+  ● a warehouse-wide poll refusal remains denied after restart and later network failure
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 3
+
+      Object {
+    -   "reason": "no-access",
+    -   "state": "unknown",
+    +   "quantity": 55,
+    +   "source": "server",
+    +   "state": "confirmed",
+      }
+
+       98 |   expect(runtime.read()).toEqual({ state: 'unknown', reason: 'no-access' });
+       99 |   runtime = await boot(); await offline(runtime);
+    > 100 |   expect(runtime.read({ status: 'success', data: ok() })).toEqual({ state: 'unknown', reason: 'no-access' 
+});
+          |                                                           ^
+      101 |   expect(runtime.read({ status: 'pending' }, Q)).toEqual({ state: 'unknown', reason: 'no-access' });
+      102 | });
+      103 |
+
+      at Object.<anonymous> (src/domain/cache-lifetime.test.ts:100:59)
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 1 passed, 5 total
+Snapshots:   0 total
+Time:        3.553 s
+Ran all test suites matching /src\\domain\\cache-lifetime.test.ts/i.

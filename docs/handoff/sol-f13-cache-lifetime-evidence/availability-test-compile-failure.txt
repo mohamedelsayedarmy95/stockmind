@@ -1,0 +1,24 @@
+node : FAIL src/domain/availability-visibility.test.ts
+At line:1 char:1
++ node node_modules/jest/bin/jest.js src/domain/availability-visibility ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL src/domain...ibility.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  ● Test suite failed to run
+
+    [96msrc/domain/availability-visibility.test.ts[0m:[93m27[0m:[93m41[0m - [91merror[0m[90m TS2352: 
+[0mConversion of type 'QueryState<unknown, Error>' to type 'UseQueryResult<NoInfer<TData>, unknown>' may be a mistake 
+because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 
+'unknown' first.
+      Type 'QueryState<unknown, Error>' is missing the following properties from type 
+'QueryObserverPlaceholderResult<NoInfer<TData>, unknown>': isError, isPending, isLoading, isLoadingError, and 15 more.
+
+    [7m27[0m   jest.mocked(useQuery).mockReturnValue(result as ReturnType<typeof useQuery>);
+    [7m  [0m [91m                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+Test Suites: 1 failed, 1 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        2.847 s
+Ran all test suites matching /src\\domain\\availability-visibility.test.ts/i.

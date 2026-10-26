@@ -1,0 +1,40 @@
+Code commit: 468f26a675b093a03d4c6281165db0d9dc82d52d
+node : PASS src/domain/cache-lifetime.test.ts (5.69 s)
+At line:1 char:1
++ node node_modules/jest/bin/jest.js --runInBand --colors=false *> ../d ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/domain...est.ts (5.69 s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS src/domain/availability-visibility.test.ts
+PASS src/domain/replacement.test.ts
+PASS src/domain/qa-build-config.test.ts
+PASS src/domain/ui-contract.test.ts
+PASS src/domain/balance-truth.test.ts
+PASS src/domain/balance-authorization-flow.test.ts
+PASS src/domain/backfill-plan.test.ts
+PASS src/domain/outbox.test.ts
+PASS src/domain/access-revocation.test.ts
+PASS src/domain/event-hash.test.ts
+PASS src/domain/capabilities.test.ts
+PASS src/domain/event-reducer.test.ts
+PASS src/domain/build-variant.test.ts
+PASS src/domain/stock-sync.test.ts
+PASS src/domain/inventory-math.test.ts
+PASS src/domain/auth-flow.test.ts
+PASS src/domain/idempotent-write.test.ts
+PASS src/domain/canonical-json.test.ts
+PASS src/domain/team-actions.test.ts
+PASS src/domain/outbox-reconcile.test.ts
+PASS src/domain/admin-errors.test.ts
+PASS src/domain/events.test.ts
+PASS src/domain/sync-runner.test.ts
+PASS src/domain/stock-sync-generation.test.ts
+PASS src/domain/quantity-input.test.ts
+PASS src/domain/lockout-policy.test.ts
+
+Test Suites: 27 passed, 27 total
+Tests:       430 passed, 430 total
+Snapshots:   0 total
+Time:        9.854 s
+Ran all test suites.

@@ -1,0 +1,53 @@
+node : FAIL src/domain/cache-lifetime.test.ts
+At line:1 char:1
++ node node_modules/jest/bin/jest.js src/domain/cache-lifetime.test.ts  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL src/domain/cache-lifetime.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  ● disk hydration is LAST-KNOWN even while the first poll is pending, and reuses the keystore key
+
+
+
+
+
+  ● observed direct 403 stays hidden across a cold runtime and offline restart before a warehouse poll
+
+
+
+
+
+  ● observed direct 404 stays hidden across a cold runtime and offline restart before a warehouse poll
+
+
+
+
+
+  ● a warehouse-wide poll refusal remains denied after restart and later network failure
+
+
+
+
+
+  ● without observed denial offline cache remains readable and does not change an outbox record
+
+
+
+
+
+PASS src/domain/balance-truth.test.ts
+FAIL src/domain/balance-authorization-flow.test.ts
+  ● Test suite failed to run
+
+    [96msrc/sync/warehouse-sync.ts[0m:[93m200[0m:[93m40[0m - [91merror[0m[90m TS2454: [0mVariable 'task' is 
+used before being assigned.
+
+    [7m200[0m       if (running.get(warehouseId) === task) running.delete(warehouseId);
+    [7m   [0m [91m                                       ~~~~[0m
+
+Test Suites: 2 failed, 1 passed, 3 total
+Tests:       5 failed, 21 passed, 26 total
+Snapshots:   0 total
+Time:        4.638 s
+Ran all test suites matching /src\\domain\\cache-lifetime.test.ts|src\\domain\\balance-authorization-flow.test.ts|src\\
+domain\\balance-truth.test.ts/i.
