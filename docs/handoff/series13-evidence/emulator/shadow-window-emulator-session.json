@@ -1,0 +1,19 @@
+{
+  "instance": "b1643e52-f2e3-422e-bcfb-2342374011c9",
+  "window": 1,
+  "uptimeMs": 546062,
+  "counters": {
+    "compared": 39,
+    "equal": 39,
+    "expectedDifferences": 0,
+    "unexpectedDifferences": 0,
+    "errors": 0,
+    "incomplete": 0
+  },
+  "verdict": "CLEAN",
+  "reasons": [],
+  "incompleteByReason": {},
+  "guardedByMode": {
+    "shadow": 26
+  }
+}
