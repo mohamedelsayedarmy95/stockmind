@@ -273,7 +273,8 @@ export default function MovementScreen() {
               <Text style={{ color: t.textPrimary, fontSize: 18, fontWeight: '700' }}>
                 {product?.name ?? '—'}
               </Text>
-              <View style={{ flexDirection: 'row', gap: 16 }}>
+              {/* wraps: the balance line ("Last known balance: … · last confirmed …") and the pending line can each be long */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 16, rowGap: 4 }}>
                 <Text
                   testID={`movement-balance-${balanceTruth.state}`}
                   style={{ color: balanceTruth.state === 'unknown' ? STATUS.warning : t.textMuted, fontSize: 13 }}
