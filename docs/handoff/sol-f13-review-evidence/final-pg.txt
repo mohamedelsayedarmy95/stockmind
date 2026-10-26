@@ -1,0 +1,9 @@
+Code commit: ea0d63814913d30bdffe1fd226add071c2365f8c
+Database: stockmind_gate_sol_f13_final (fresh local synthetic PG)
+Specs: f13-balance-authorization.pg.spec.ts + access-lifecycle.pg.spec.ts
+Test Suites: 2 passed, 2 total
+Tests:       17 passed, 17 total
+Snapshots:   0 total
+Time:        19.303 s, estimated 24 s
+Ran all test suites within paths "tests/integration/f13-balance-authorization.pg.spec.ts", 
+Jest exit: 0 (reported by gate)

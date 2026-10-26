@@ -1,0 +1,4 @@
+Working directory: mobile
+Command: node node_modules/typescript/bin/tsc --noEmit
+Exit: 0
+Diagnostics: none

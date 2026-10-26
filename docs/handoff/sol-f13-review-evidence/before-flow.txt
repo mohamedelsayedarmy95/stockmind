@@ -1,0 +1,69 @@
+node : FAIL src/domain/balance-authorization-flow.test.ts (11.474 s)
+At line:1 char:1
++ node ./node_modules/jest/bin/jest.js src/domain/balance-authorization ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL src/domain...t.ts (11.474 s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  × direct 403 is visible before a poll; the later poll purges this warehouse from memory/disk (61 ms)
+  × direct 404 is visible before a poll; the later poll purges this warehouse from memory/disk (61 ms)
+  √ poll denial is retained as no-access even when a direct query still has successful data (5 ms)
+  √ relaunch without network hydrates the last-known figure and preserves its confirmation time (5 ms)
+  √ account/tenant reset does not hydrate another scope, and sign-out deletes only that account cache (2 ms)
+  √ a poll in flight before a tenant switch cannot repopulate the new account state or cache (1 ms)
+
+  ● direct 403 is visible before a poll; the later poll purges this warehouse from memory/disk
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 3
+
+      Object {
+    -   "reason": "no-access",
+    -   "state": "unknown",
+    +   "quantity": 55,
+    +   "source": "server",
+    +   "state": "confirmed",
+      }
+
+      54 |     expect(resolveBalance({ online: true, productId: P, warehouseId: W, sync: syncInput(),
+      55 |       query: { status: state.status, data: state.data, errorStatus: httpStatusOf(state.error) } }))
+    > 56 |       .toEqual({ state: 'unknown', reason: 'no-access' });
+         |        ^
+      57 |
+      58 |     mockGet.mockRejectedValueOnce({ response: { status } });
+      59 |     await syncWarehouse(W);
+
+      at src/domain/balance-authorization-flow.test.ts:56:8
+
+  ● direct 404 is visible before a poll; the later poll purges this warehouse from memory/disk
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 3
+
+      Object {
+    -   "reason": "no-access",
+    -   "state": "unknown",
+    +   "quantity": 55,
+    +   "source": "server",
+    +   "state": "confirmed",
+      }
+
+      54 |     expect(resolveBalance({ online: true, productId: P, warehouseId: W, sync: syncInput(),
+      55 |       query: { status: state.status, data: state.data, errorStatus: httpStatusOf(state.error) } }))
+    > 56 |       .toEqual({ state: 'unknown', reason: 'no-access' });
+         |        ^
+      57 |
+      58 |     mockGet.mockRejectedValueOnce({ response: { status } });
+      59 |     await syncWarehouse(W);
+
+      at src/domain/balance-authorization-flow.test.ts:56:8
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 4 passed, 6 total
+Snapshots:   0 total
+Time:        12.139 s
+Ran all test suites matching /src\\domain\\balance-authorization-flow.test.ts/i.

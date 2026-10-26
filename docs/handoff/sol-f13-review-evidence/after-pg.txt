@@ -1,0 +1,8 @@
+Database: stockmind_gate_sol_f13_after (fresh local synthetic PG)
+Specs: f13-balance-authorization.pg.spec.ts + access-lifecycle.pg.spec.ts
+Test Suites: 2 passed, 2 total
+Tests:       17 passed, 17 total
+Snapshots:   0 total
+Time:        23.973 s, estimated 88 s
+Ran all test suites within paths "tests/integration/f13-balance-authorization.pg.spec.ts", 
+Jest exit: 0 (reported by gate)

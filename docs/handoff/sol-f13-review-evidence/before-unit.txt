@@ -1,0 +1,91 @@
+node : FAIL src/domain/balance-truth.test.ts
+At line:1 char:1
++ node ./node_modules/jest/bin/jest.js src/domain/balance-truth.test.ts ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL src/domain/balance-truth.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  resolveBalance
+    √ a confirmed zero is a real zero; a confirmed figure is the server one (3 ms)
+    √ THE DEFECT: the server cannot be reached and nothing was synced -> unknown, never 0 (1 ms)
+    √ loading is distinguishable from failure (and a failed first sync is not "loading") (1 ms)
+    √ the reconciled sync figure: confirmed while current, last-known (with its time) once a poll failed (1 ms)
+    √ after a snapshot, a product without a row is a confirmed 0, unless the direct request answered for exactly it
+    √ no access to the warehouse: no figure at all, not even a cached one
+    × direct 403 overrides a cached balance, including a cached zero and retained query data (3 ms)
+    × direct 404 overrides a cached balance, including a cached zero and retained query data (1 ms)
+    √ a pending/successful query is not a fresh denial; authorized cached figures stay usable (1 ms)
+    √ transport/server failure undefined keeps the legitimate last-known figure and timestamp
+    √ transport/server failure 500 keeps the legitimate last-known figure and timestamp (1 ms)
+    √ transport/server failure 503 keeps the legitimate last-known figure and timestamp
+    √ never reuses an unrelated warehouse or product figure
+    √ an unreadable figure is unknown, not 0; no warehouse chosen is said as such (1 ms)
+    √ offline mode ignores the online sync state (the device ledger is the figure there)
+  what a dispatch may take (online)
+    √ a queued receipt never raises the balance or the dispatch limit; a queued dispatch lowers the limit
+    √ an unknown balance allows no dispatch (and is not shown as 0) (1 ms)
+  balance copy
+    √ every state has its own line, in English and Arabic; "unknown" never reads like a number (7 ms)
+  the stock-entry screens use the balance model (no bare number fallback)
+    √ app/movement/[productId].tsx (1 ms)
+    √ app/product/[productId].tsx
+  warehouseListState (the online stock list with no rows)
+    √ loading only while nothing failed; unknown when the first sync failed; empty only after the server said so (1 ms)
+
+  ● resolveBalance › direct 403 overrides a cached balance, including a cached zero and retained query data
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 3
+
+      Object {
+    -   "reason": "no-access",
+    -   "state": "unknown",
+    +   "quantity": 55,
+    +   "source": "server",
+    +   "state": "confirmed",
+      }
+
+      62 |     for (const cached of [sync(), sync({ balances: {} }), sync({ lastError: 'network' }), sync({ status: 
+'catching-up' })]) {
+      63 |       const truth = resolve({ sync: cached, query: { ...failed(errorStatus), data: ok('55').data } });
+    > 64 |       expect(truth).toEqual({ state: 'unknown', reason: 'no-access' });
+         |                     ^
+      65 |       expect(knownQuantity(truth)).toBeNull();
+      66 |       expect(issuableOnline(truth, 10)).toBe(0);
+      67 |       expect(balanceLine(truth, () => '')).toEqual({ key: 'balance.unknown.no-access' });
+
+      at src/domain/balance-truth.test.ts:64:21
+
+  ● resolveBalance › direct 404 overrides a cached balance, including a cached zero and retained query data
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 3
+
+      Object {
+    -   "reason": "no-access",
+    -   "state": "unknown",
+    +   "quantity": 55,
+    +   "source": "server",
+    +   "state": "confirmed",
+      }
+
+      62 |     for (const cached of [sync(), sync({ balances: {} }), sync({ lastError: 'network' }), sync({ status: 
+'catching-up' })]) {
+      63 |       const truth = resolve({ sync: cached, query: { ...failed(errorStatus), data: ok('55').data } });
+    > 64 |       expect(truth).toEqual({ state: 'unknown', reason: 'no-access' });
+         |                     ^
+      65 |       expect(knownQuantity(truth)).toBeNull();
+      66 |       expect(issuableOnline(truth, 10)).toBe(0);
+      67 |       expect(balanceLine(truth, () => '')).toEqual({ key: 'balance.unknown.no-access' });
+
+      at src/domain/balance-truth.test.ts:64:21
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 19 passed, 21 total
+Snapshots:   0 total
+Time:        3.726 s
+Ran all test suites matching /src\\domain\\balance-truth.test.ts/i.

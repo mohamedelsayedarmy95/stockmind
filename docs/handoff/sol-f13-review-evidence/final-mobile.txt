@@ -1,0 +1,39 @@
+Code commit: ea0d63814913d30bdffe1fd226add071c2365f8c
+Command: node node_modules/jest/bin/jest.js --runInBand --colors=false (mobile)
+node : PASS src/domain/balance-truth.test.ts
+At line:1 char:1
++ node ./node_modules/jest/bin/jest.js --runInBand --colors=false *> .. ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/domain/balance-truth.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS src/domain/balance-authorization-flow.test.ts
+PASS src/domain/replacement.test.ts
+PASS src/domain/backfill-plan.test.ts
+PASS src/domain/team-actions.test.ts
+PASS src/domain/event-reducer.test.ts
+PASS src/domain/capabilities.test.ts
+PASS src/domain/event-hash.test.ts
+PASS src/domain/canonical-json.test.ts
+PASS src/domain/stock-sync-generation.test.ts
+PASS src/domain/auth-flow.test.ts
+PASS src/domain/ui-contract.test.ts
+PASS src/domain/outbox.test.ts
+PASS src/domain/qa-build-config.test.ts
+PASS src/domain/events.test.ts
+PASS src/domain/idempotent-write.test.ts
+PASS src/domain/lockout-policy.test.ts
+PASS src/domain/stock-sync.test.ts
+PASS src/domain/inventory-math.test.ts
+PASS src/domain/quantity-input.test.ts
+PASS src/domain/build-variant.test.ts
+PASS src/domain/admin-errors.test.ts
+PASS src/domain/outbox-reconcile.test.ts
+PASS src/domain/access-revocation.test.ts
+PASS src/domain/sync-runner.test.ts
+
+Test Suites: 25 passed, 25 total
+Tests:       401 passed, 401 total
+Snapshots:   0 total
+Time:        8.17 s, estimated 15 s
+Ran all test suites.

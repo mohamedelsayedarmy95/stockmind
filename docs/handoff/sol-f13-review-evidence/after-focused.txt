@@ -1,0 +1,17 @@
+node : PASS src/domain/balance-authorization-flow.test.ts
+At line:1 char:1
++ node ./node_modules/jest/bin/jest.js src/domain/balance-truth.test.ts ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/domain...on-flow.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS src/domain/balance-truth.test.ts
+PASS src/domain/sync-runner.test.ts
+PASS src/domain/access-revocation.test.ts
+
+Test Suites: 4 passed, 4 total
+Tests:       47 passed, 47 total
+Snapshots:   0 total
+Time:        6.28 s, estimated 15 s
+Ran all test suites matching /src\\domain\\balance-truth.test.ts|src\\domain\\balance-authorization-flow.test.ts|src\\d
+omain\\access-revocation.test.ts|src\\domain\\sync-runner.test.ts/i.
