@@ -4,36 +4,36 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (PASS src/domain/cache-lifetime.test.ts:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
   √ disk hydration is LAST-KNOWN even while the first poll is pending, and reuses the keystore key (107 ms)
   √ observed direct 403 stays hidden across a cold runtime and offline restart before a warehouse poll (56 ms)
   √ observed direct 404 stays hidden across a cold runtime and offline restart before a warehouse poll (25 ms)
   √ a warehouse-wide poll refusal remains denied after restart and later network failure (12 ms)
   √ without observed denial offline cache remains readable and does not change an outbox record (12 ms)
   √ product denial does not become warehouse revocation or disappear on a successful warehouse poll (6 ms)
-  √ a mismatched or invalid success cannot clear product denial: 
+  √ a mismatched or invalid success cannot clear product denial:
 {"productId":"product-b","warehouseId":"warehouse-a","baseQuantity":"55"} (12 ms)
-  √ a mismatched or invalid success cannot clear product denial: 
+  √ a mismatched or invalid success cannot clear product denial:
 {"productId":"product-a","warehouseId":"other-warehouse","baseQuantity":"55"} (11 ms)
-  √ a mismatched or invalid success cannot clear product denial: 
+  √ a mismatched or invalid success cannot clear product denial:
 {"productId":"product-a","warehouseId":"warehouse-a","baseQuantity":""} (11 ms)
-  √ a mismatched or invalid success cannot clear product denial: 
+  √ a mismatched or invalid success cannot clear product denial:
 {"productId":"product-a","warehouseId":"warehouse-a","baseQuantity":"NaN"} (11 ms)
   √ a fresh matching direct success lifts ONLY its product denial and survives another cold runtime (12 ms)
-  √ warehouse denial requires a valid warehouse response to recover; network/5xx/mismatched snapshots do not lift it 
+  √ warehouse denial requires a valid warehouse response to recover; network/5xx/mismatched snapshots do not lift it
 (7 ms)
   √ a direct success started before a newer denial cannot clear its durable marker (32 ms)
   √ a poll started before a new direct denial cannot advance the snapshot/time afterwards (6 ms)
-  √ a new scope cannot inherit stock or denials, and a late response cannot contaminate it: 
+  √ a new scope cannot inherit stock or denials, and a late response cannot contaminate it:
 127.0.0.1:3000|company-a|staff-b (6 ms)
-  √ a new scope cannot inherit stock or denials, and a late response cannot contaminate it: 
+  √ a new scope cannot inherit stock or denials, and a late response cannot contaminate it:
 127.0.0.1:3000|company-b|staff-a (6 ms)
-  √ a new scope cannot inherit stock or denials, and a late response cannot contaminate it: 
+  √ a new scope cannot inherit stock or denials, and a late response cannot contaminate it:
 127.0.0.2:3000|company-a|staff-a (6 ms)
   √ same-host endpoint changes isolate both live stock and durable denials (6 ms)
   √ explicit sign-out cache cleanup leaves no stock to revive, and never touches queued operations (12 ms)
   √ a write failure during denial removes the old cache document and keeps the live denial (13 ms)
-  √ v1 stock with missing provenance/denial history is not silently migrated, and corrupt v2 denial metadata fails 
+  √ v1 stock with missing provenance/denial history is not silently migrated, and corrupt v2 denial metadata fails
 closed (16 ms)
   √ the same visibility rule hides denied stock rows, recent movements and outbox server figures (6 ms)
   √ a late denial from a previous session never creates a tombstone in the new session (6 ms)

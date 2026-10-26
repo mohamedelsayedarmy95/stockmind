@@ -4,7 +4,7 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (PASS src/domain...ibility.test.ts:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 PASS src/domain/cache-lifetime.test.ts
 
 Test Suites: 2 passed, 2 total

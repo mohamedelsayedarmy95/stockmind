@@ -4,7 +4,7 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (PASS src/domain/cache-lifetime.test.ts:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 PASS src/domain/balance-truth.test.ts
 PASS src/domain/balance-authorization-flow.test.ts
 

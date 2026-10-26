@@ -4,7 +4,7 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (FAIL src/domain...ibility.test.ts:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
   × known product denial hides retained availability quantities (8 ms)
   × known warehouse denial hides retained availability quantities (2 ms)
   √ authorized cached availability stays usable after a transient refetch failure (1 ms)

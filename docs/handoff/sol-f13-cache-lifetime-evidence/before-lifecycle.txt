@@ -4,7 +4,7 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (FAIL src/domain/cache-lifetime.test.ts:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
   × disk hydration is LAST-KNOWN even while the first poll is pending, and reuses the keystore key (337 ms)
   × observed direct 403 stays hidden across a cold runtime and offline restart before a warehouse poll (64 ms)
   × observed direct 404 stays hidden across a cold runtime and offline restart before a warehouse poll (23 ms)
@@ -55,7 +55,7 @@ At line:1 char:1
       88 |     qc.clear(); runtime = await boot(); await offline(runtime);
     > 89 |     expect(runtime.read({ status: 'error' })).toEqual({ state: 'unknown', reason: 'no-access' });
          |                                               ^
-      90 |     expect(runtime.read({ status: 'error' }, Q).state).toBe('last-known'); // ambiguous product 404 is not 
+      90 |     expect(runtime.read({ status: 'error' }, Q).state).toBe('last-known'); // ambiguous product 404 is not
 warehouse revocation
       91 |   } finally { qc.clear(); }
       92 | });
@@ -81,7 +81,7 @@ warehouse revocation
       88 |     qc.clear(); runtime = await boot(); await offline(runtime);
     > 89 |     expect(runtime.read({ status: 'error' })).toEqual({ state: 'unknown', reason: 'no-access' });
          |                                               ^
-      90 |     expect(runtime.read({ status: 'error' }, Q).state).toBe('last-known'); // ambiguous product 404 is not 
+      90 |     expect(runtime.read({ status: 'error' }, Q).state).toBe('last-known'); // ambiguous product 404 is not
 warehouse revocation
       91 |   } finally { qc.clear(); }
       92 | });
@@ -105,7 +105,7 @@ warehouse revocation
 
        98 |   expect(runtime.read()).toEqual({ state: 'unknown', reason: 'no-access' });
        99 |   runtime = await boot(); await offline(runtime);
-    > 100 |   expect(runtime.read({ status: 'success', data: ok() })).toEqual({ state: 'unknown', reason: 'no-access' 
+    > 100 |   expect(runtime.read({ status: 'success', data: ok() })).toEqual({ state: 'unknown', reason: 'no-access'
 });
           |                                                           ^
       101 |   expect(runtime.read({ status: 'pending' }, Q)).toEqual({ state: 'unknown', reason: 'no-access' });

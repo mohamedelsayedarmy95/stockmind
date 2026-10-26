@@ -4,7 +4,7 @@
 
 2026-10-26، Africa/Cairo. Sol / Codex Desktop هو Collaborating Engineer؛ Claude Opus 5.5 هو Lead Engineer؛ ChatGPT هو Reviewer؛ Director هو صاحب التفويض.
 
-**CONFIRMED → FIXED، ENGINEERING PASS** في حدود JS/cache/repository behavior والـPG/HTTP checks المذكورة. Implementation commits: `dedd3f94fda7d112d52d0f53a3acb644b30e98d7` ثم final tested code `468f26a675b093a03d4c6281165db0d9dc82d52d` (mobile27/430، tsc0، PG2/19، mutations13/13). ده follow-up مستقل عن `F13-REVIEW-01` (`ea0d638`)، ومش تعديل للـcanonical Bridge أو Master Continuity. Native encryption/process-death/device acceptance لسه **NOT EXECUTED**.
+**CONFIRMED → FIXED، ENGINEERING PASS** في حدود JS/cache/repository behavior والـPG/HTTP checks المذكورة. Implementation commits: `dedd3f94fda7d112d52d0f53a3acb644b30e98d7` ثم final tested code `468f26a675b093a03d4c6281165db0d9dc82d52d` (mobile27/430، tsc0، PG2/19، mutations13/13). ده follow-up مستقل عن `F13-REVIEW-01` (`ea0d638`). بروتوكول Director الأحدث سمح بملحق `SOL — PENDING OPUS REVIEW` داخل نسخة AI Bridge في الفرع المعزول؛ الملحق اتضاف بدون تغيير الحقائق السابقة أو Master Continuity أو worktree Opus، ومش canonical promotion. Native encryption/process-death/device acceptance لسه **NOT EXECUTED**.
 
 قبل الإصلاح، direct403/404 كان بيحجب الرصيد في runtime الحالي بس؛ بعد cold JS runtime مع نفس disk data وبدون شبكة، 55 بترجع last-known. كمان disk snapshot كانت بتترجع `synced`، فيتبان 55 confirmed أثناء أول poll لسه pending. الحل denial metadata مستمرة لكل resource، مع hydration last-known، scope/request fences، وتجميع stock+denial في نفس encrypted document. مفيش إلغاء caching ولا مسح Outbox.
 
@@ -27,6 +27,9 @@
 7. راجعت diff والـsource consumers بمهارة code-quality، وعملت code commit `dedd3f9`. Mobile full425 وtsc0 وPG2/19 اتعادوا فعلياً عليه. بعدها توقفت cluster المهمة بنجاح؛ scratch data/logs محفوظة، بلا cleanup.
 8. لا external AI delegation، no merge/rebase/history rewrite/cleanup، no production/Neon/enforce/APK/device actions. الـPG المستخدمة cluster synthetic الخاصة بالمهمة السابقة، بنفس executable، وDB names جديدة فقط؛ لا بيانات عميل أو `.env`.
 9. final consumer audit لقى مسار Reservations availability خارج scalar balance overlay. ضفت actual-hook regression بreal QueryClient/QueryObserver وmocked React hooks: **3 failed / 2 passed** قبل التصحيح (product deny، warehouse deny، account query identity). أول test setup فشل TS2352 مع0 tests، فاتصلح harness باستخدام actual observer result. بعد fix: availability5 + lifecycle24 = **29/29** وtsc0. الإضافة في `468f26a`، قبل أي push. `useAvailability` بيحجب retained onHand/available/reserved لما stock visibility ترفض، وquery identity فيها account/full URL. الـnegative suite اتعادت: **13/13 DETECTED** بما فيها availability bypass؛ final full27/430 وtsc0 وPG2/19 عدّوا على الـHEAD الجديد. الـcluster اتوقفت تاني بنجاح؛ scratch data محفوظة.
+10. documentation checkpoint `31756f82e3e6db436ad56de547a124b16f6671fe` اتعمله ordinary push، وlocal/remote SHA متساويين، والـbridge/REPORT في committed tree. آخر raw Git range check كشف trailing whitespace من terminal transcripts الجديدة؛ اتطبّع line-end whitespace وANSI في `.txt` evidence بس، بدون تغيير counts/assertions أو أي source/test. التحديث ده documentation-only؛ raw logs الأصلية محفوظة خارج Git.
+11. بعد رسالة Director ببروتوكول Shared AI Bridge، اتضاف pending-review appendix فقط لـ`docs/handoff/STOCKMIND_AI_BRIDGE.md` في الفرع المعزول، واتضاف سجل توقيتات بمصدرها في قسم 13. تفاصيل current mission فوق والـarchive القديم محفوظ؛ Master/نسخ Opus/Desktop لم تتغير. final publication verification تُسجل محلياً بعد الرفع في ignored `docs/handoff/cache-lifetime-publication-verification.log`، ومعها exact final SHA في رد التسليم؛ الملف خارج committed tree لتجنب self-hash circularity، والأوامر في قسم 08 تسمح بإعادة التحقق من remote.
+12. Final documentation checks: raw `git diff --check 376be66` exit0، ولا mobile/tests/Continuity diff بعد `468f26a`. AI Bridge original content محفوظ بالكامل والملحق appended فقط. أول archive-preservation assertion حاول يطابق الملف القديم بما فيه عنوانه الأول، ففشل لأن العنوان اتسمّى ARCHIVE عمداً؛ التصحيح قارن body من section00 حتى EOF وأثبت إنه مطابق حرفياً بعد newline normalization. ده تصحيح نطاق check توثيقي، مش product test failure أو تغيير للحقائق التاريخية. previous Sol/Series13 worktrees clean، و`pg_ctl status` رجّع no server running (exit1 المتوقع للحالة دي).
 
 ## 03 — Policy & Engineering Decisions
 
@@ -77,7 +80,7 @@ Source/test changes في `dedd3f94fda7d112d52d0f53a3acb644b30e98d7`؛ `mobile/sr
 | `mobile/src/domain/balance-authorization-flow.test.ts` | assertions اتحدثت من حذف cache record إلى empty stock + durable marker؛ مش weakening |
 | `tests/integration/f13-balance-authorization.pg.spec.ts` | +2 actual HTTP/PG distinction/re-grant checks؛ +2 السابقة محفوظين |
 
-Documentation-only follow-up commit(s): `docs/handoff/SOL_TO_CLAUDE_OPUS_BRIDGE.md` (current header + unchanged prior archive)، وكل الملفات داخل `docs/handoff/sol-f13-cache-lifetime-evidence/`: التقرير ده، reproduction/run commands، small before/after test logs، mutation harness/ledger. لا canonical handoff أو lockfiles أو build/signing changes.
+Documentation-only follow-up commit(s): `docs/handoff/SOL_TO_CLAUDE_OPUS_BRIDGE.md` (current header + unchanged prior archive)، وكل الملفات داخل `docs/handoff/sol-f13-cache-lifetime-evidence/`: التقرير ده، reproduction/run commands، small before/after test logs، mutation harness/ledger؛ و`docs/handoff/STOCKMIND_AI_BRIDGE.md` (append-only pending-review section داخل isolated branch، بتفويض Director الأحدث). لا Master Continuity أو lockfiles أو build/signing changes؛ لا writes على canonical worktree.
 
 ## 05 — Test & Evidence Ledger
 
@@ -133,6 +136,7 @@ Negative controls: عدم حفظ product deny (9 failed)، عدم حفظ warehou
 - Primary tested checkpoint: `dedd3f94fda7d112d52d0f53a3acb644b30e98d7` (mobile26/425 + tsc0 + PG2/19). Final implementation / last fully tested code: **`468f26a675b093a03d4c6281165db0d9dc82d52d`**؛ mobile27/430 + tsc0 + PG2/19 متنفذين عليه فعلياً؛ mutations13/13 مع exact-byte restoration قبل الـcommit.
 - Supplemental bridge/evidence في docs-only commit بعد الكود؛ final handoff SHA يُستخرج بـ`rtk git -C D:\Projects\StockMind-wt\sol-f13-cache-lifetime log -1 --format=%H -- docs/handoff/SOL_TO_CLAUDE_OPUS_BRIDGE.md` (self-hash لا يمكن إدراجه داخل نفسه).
 - Branch/worktree فوق؛ قبل الرفع يُفحص clean status وexact source diff وordinary push؛ local/remote SHA equality تتسجل في supplemental header بعد التحقق. لا merge أو force-push.
+- Verified published documentation checkpoint: `31756f82e3e6db436ad56de547a124b16f6671fe`، remote=local وclean worktree. current docs-only verification/formatting follow-up يُعرف commit بتاعه من أمر `git log` فوق؛ final report يدي الـSHA بعد رفعه. previous Sol/Series13 SHAs وحالتهم clean اتراجعوا، ومفيش writes على main.
 - Raw logs خارج Git: `_local-tools\logs\stockmind_gate_sol_f13_lifetime_{01,final,availability_final}.log`؛ هنا compact summaries فقط، بدون request bodies/credentials. dependency junctions وignored `.log` artifacts محلية.
 - الـcluster **STOPPED** بعد checkpoint الأول، واتشغلت لإعادة PG gates على availability addendum ثم اتوقفت تاني بنجاح. scratch DBs متروكة بلا حذف. كل commits بعد `468f26a` documentation/evidence فقط.
 
@@ -167,7 +171,7 @@ rtk git -C D:\Projects\StockMind-wt\sol-f13-cache-lifetime diff --check
 
 6. المتحقق مستقلاً في الطبقة المعنية: direct denial cold-runtime regression، first-poll truth، identity/races/recovery، actual HTTP product404 vs warehouse denial/re-grant. اتحدى native durability وUI integration؛ ما تعتمدش fake MMKV كإثبات تشفير حقيقي.
 7. بعد قبول code/policy بس: نسّق QA build بنفس Series12 identity/key/network contract، warm stock cache online، وبعدها cold kill/reopen offline قبل poll، product-only/warehouse-wide masking، recovery، Arabic، وOutbox preservation مع Director. لا تثبيت Huawei تلقائي.
-8. Opus وحده بعد قبول الأدلة يحدّث canonical Bridge/Master؛ التقرير ده مش promotion للمرجع الرسمي.
+8. راجع pending appendix في نسخة AI Bridge على الفرع المعزول؛ Opus وحده بعد قبول الأدلة يحدّث canonical Bridge/Master؛ التقرير والملحق مش promotion للمرجع الرسمي. لو ظهر documentation conflict، احتفظ بالنسختين واطلب reconciliation، من غير حذف صامت.
 
 ## 10 — Collaboration Protocol
 
@@ -179,4 +183,21 @@ Sol هو implementation/review collaborator، Opus هو Lead Engineer، ChatGPT 
 
 ## 12 — Message to Claude Opus
 
-يا Opus، follow-up `F13-CACHE-LIFETIME` على `review/sol-f13-cache-lifetime` من `376be66` اتثبت واتصلح. code `dedd3f9` + availability fix `468f26a675b093a03d4c6281165db0d9dc82d52d` بيحفظ pair/warehouse denials في cache v2 مربوطة بالـfull API endpoint/account، ويهدرج disk stock كـlast-known، ويحجب retained availability كمان. product404 مش دليل revoke للمخزن؛ poll denial دليل نطاق مخزن؛ recovery لازم fresh matching server response؛ late responses fenced. Lifecycle24 + availability5، و13/13 mutations detected؛ final full/tsc/PG results في current header والـledger. أهم compatibility cost: v1 online cache محتاجة warm-up sync بعد upgrade؛ device ledger/Outbox لم يتغيروا. Native engines/process death/UI لم تتجرب فعلياً، فلا تعتبر ده device acceptance. راجع `docs/handoff/sol-f13-cache-lifetime-evidence/REPORT.md` ورأس `SOL_TO_CLAUDE_OPUS_BRIDGE.md` والأدلة، ثم قرر قبول code/policy ونسّق QA acceptance مع Director. لا merge أو canonical update اتعمل هنا.
+يا Opus، follow-up `F13-CACHE-LIFETIME` على `review/sol-f13-cache-lifetime` من `376be66` اتثبت واتصلح. code `dedd3f9` + availability fix `468f26a675b093a03d4c6281165db0d9dc82d52d` بيحفظ pair/warehouse denials في cache v2 مربوطة بالـfull API endpoint/account، ويهدرج disk stock كـlast-known، ويحجب retained availability كمان. product404 مش دليل revoke للمخزن؛ poll denial دليل نطاق مخزن؛ recovery لازم fresh matching server response؛ late responses fenced. Lifecycle24 + availability5، و13/13 mutations detected؛ final full/tsc/PG results في current header والـledger. أهم compatibility cost: v1 online cache محتاجة warm-up sync بعد upgrade؛ device ledger/Outbox لم يتغيروا. Native engines/process death/UI لم تتجرب فعلياً، فلا تعتبر ده device acceptance. راجع التقرير ورأس `SOL_TO_CLAUDE_OPUS_BRIDGE.md` والأدلة والـpending appendix في AI Bridge على نفس الفرع، ثم قرر قبول code/policy ونسّق QA acceptance مع Director. لا merge أو canonical promotion اتعمل هنا؛ Master untouched.
+
+## 13 — Timestamped Changelog & Publication Provenance
+
+التوقيتات التالية يوم 2026-10-26. صفوف Git بتسجل commit timestamp كما هو؛ صفوف log بتسجل mtime للملف بتوقيت Africa/Cairo (وقت كتابة الدليل، مش ادعاء بداية الاختبار). ساعة execution host مختلفة عن clock tool بحوالي ساعتين؛ مفيش محاولة لتعديل التاريخ أو اختراع أوقات للمراحل اللي ما اتسجلتش بدقة.
+
+| التوقيت المسجل / المصدر | checkpoint / commit | الدليل والنتيجة |
+|---|---|---|
+| 07:30:00 Africa/Cairo، log mtime | base `376be66`؛ `cache-lifetime-before.log` | deterministic lifecycle قبل الإصلاح: 4 failed / 1 passed؛ baseline/full scope في قسم 01 |
+| 07:42:18+03:00، Git | `dedd3f94fda7d112d52d0f53a3acb644b30e98d7` | primary lifecycle implementation؛ full425/tsc0/PG19 أُعيدوا على commit ده؛ التفاصيل في ledger |
+| 07:48:25 Africa/Cairo، log mtime | قبل `468f26a`؛ `cache-lifetime-before-availability2.log` | actual-hook regression: 3 failed / 2 passed؛ TS2352 setup failure أقدم موثق منفصلاً |
+| 07:50:43+03:00، Git | `468f26a675b093a03d4c6281165db0d9dc82d52d` | final code، availability masking/scoped identity؛ controls13/13 detected مع exact-byte restoration |
+| 07:51:04 Africa/Cairo، log mtime | `468f26a`؛ `cache-lifetime-head-mobile.log` | full Mobile 27 suites / 430 passed / 0 skipped، exit0؛ TypeScript exit0 موثق منفصلاً |
+| 07:51:16 Africa/Cairo، log mtime | `468f26a`؛ `stockmind_gate_sol_f13_lifetime_availability_final.log` | actual synthetic PG/HTTP 2 suites / 19 passed، JEST EXIT0؛ cluster اتوقفت بعدها |
+| 07:53:31+03:00، Git | `31756f82e3e6db436ad56de547a124b16f6671fe` | documentation checkpoint منشور وتم التحقق من remote=local وclean status؛ الكود مطابق `468f26a` |
+| 09:57:13 Africa/Cairo = 06:57:13 UTC، clock tool | docs-only shared-protocol follow-up (commit يُستخرج من Git) | pending-review appendix؛ timestamp ledger؛ terminal whitespace normalization؛ لا source/test تغيّر بعد `468f26a` |
+
+الـfinal HEAD هو commit اللي بيحتوي تحديث التسليم ده، ويمكن استخراجه بـ`rtk proxy git log -1 --format=%H -- docs/handoff/SOL_TO_CLAUDE_OPUS_BRIDGE.md`. قبل إعلان publication لازم يطابق `rtk proxy git ls-remote --heads origin refs/heads/review/sol-f13-cache-lifetime`، مع clean status و`rtk proxy git diff --check 376be66 HEAD` exit0. الـexact SHA ووقت تحقق الرفع بيتسجلوا بعد العملية في publication log المحلي ورد Director النهائي؛ ما ينفعش تضمين self-hash داخل نفس commit. Last tested code يظل `468f26a675b093a03d4c6281165db0d9dc82d52d`؛ كل ما بعده docs/evidence فقط.

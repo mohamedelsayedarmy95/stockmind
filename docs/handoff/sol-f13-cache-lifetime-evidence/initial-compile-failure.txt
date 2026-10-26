@@ -4,7 +4,7 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (FAIL src/domain/cache-lifetime.test.ts:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
   ● disk hydration is LAST-KNOWN even while the first poll is pending, and reuses the keystore key
 
 
@@ -39,11 +39,11 @@ PASS src/domain/balance-truth.test.ts
 FAIL src/domain/balance-authorization-flow.test.ts
   ● Test suite failed to run
 
-    [96msrc/sync/warehouse-sync.ts[0m:[93m200[0m:[93m40[0m - [91merror[0m[90m TS2454: [0mVariable 'task' is 
+    src/sync/warehouse-sync.ts:200:40 - error TS2454: Variable 'task' is
 used before being assigned.
 
-    [7m200[0m       if (running.get(warehouseId) === task) running.delete(warehouseId);
-    [7m   [0m [91m                                       ~~~~[0m
+    200       if (running.get(warehouseId) === task) running.delete(warehouseId);
+                                               ~~~~
 
 Test Suites: 2 failed, 1 passed, 3 total
 Tests:       5 failed, 21 passed, 26 total

@@ -3,5 +3,5 @@ Test Suites: 2 passed, 2 total
 Tests:       19 passed, 19 total
 Snapshots:   0 total
 Time:        25.96 s
-Ran all test suites within paths "tests/integration/f13-balance-authorization.pg.spec.ts", 
+Ran all test suites within paths "tests/integration/f13-balance-authorization.pg.spec.ts",
 Jest exit 0 (gate-reported child exit)

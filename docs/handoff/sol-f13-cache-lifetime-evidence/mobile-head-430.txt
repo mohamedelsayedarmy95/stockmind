@@ -5,7 +5,7 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (PASS src/domain...est.ts (5.69 s):String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 PASS src/domain/availability-visibility.test.ts
 PASS src/domain/replacement.test.ts
 PASS src/domain/qa-build-config.test.ts
