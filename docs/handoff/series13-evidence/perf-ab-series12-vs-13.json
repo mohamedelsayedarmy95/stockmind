@@ -1,0 +1,62 @@
+[
+  {
+    "run": "s12a",
+    "offMed": 4.65,
+    "shadowMed": 7.134,
+    "enforceMed": 6.534,
+    "shadowAdds": 2.484,
+    "enforceAdds": 1.884,
+    "grantAlone": 13.455,
+    "grantContended": 52.796,
+    "membership": 22.25,
+    "writerMed": 54.677,
+    "writerP95": 83.869,
+    "deadlocks": 0,
+    "busy": 0
+  },
+  {
+    "run": "s13a",
+    "offMed": 4.566,
+    "shadowMed": 7.2,
+    "enforceMed": 6.531,
+    "shadowAdds": 2.634,
+    "enforceAdds": 1.966,
+    "grantAlone": 12.846,
+    "grantContended": 51.619,
+    "membership": 22.253,
+    "writerMed": 53.355,
+    "writerP95": 75.852,
+    "deadlocks": 0,
+    "busy": 0
+  },
+  {
+    "run": "s12b",
+    "offMed": 4.471,
+    "shadowMed": 6.938,
+    "enforceMed": 6.372,
+    "shadowAdds": 2.468,
+    "enforceAdds": 1.901,
+    "grantAlone": 13.049,
+    "grantContended": 51.891,
+    "membership": 22.941,
+    "writerMed": 55.015,
+    "writerP95": 80.536,
+    "deadlocks": 0,
+    "busy": 0
+  },
+  {
+    "run": "s13b",
+    "offMed": 5.015,
+    "shadowMed": 7.672,
+    "enforceMed": 6.958,
+    "shadowAdds": 2.657,
+    "enforceAdds": 1.943,
+    "grantAlone": 14.432,
+    "grantContended": 50.805,
+    "membership": 22.687,
+    "writerMed": 53.451,
+    "writerP95": 77.856,
+    "deadlocks": 0,
+    "busy": 0
+  }
+]

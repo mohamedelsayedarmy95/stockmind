@@ -1,0 +1,3 @@
+{"spec":"owner-guard-lock-order","scenario":"environment","at":"2026-10-25T21:43:20.646Z","postgres":"PostgreSQL 15.19, compiled by Visual C++ build 1944, 64-bit","deadlockTimeout":"1s","capabilityMode":"(default shadow)","guard":"membership lock"}
+{"spec":"owner-guard-lock-order","scenario":"key-share-relay-vs-reactivate-removed","at":"2026-10-25T21:43:29.319Z","finishedWhileRelayRan":false,"msToFinish":8162,"status":200,"keyShareHandovers":53}
+{"spec":"owner-guard-lock-order","scenario":"key-share-relay-vs-accept-invitation","at":"2026-10-25T21:43:37.893Z","finishedWhileRelayRan":false,"msToFinish":8344,"status":201,"keyShareHandovers":53}

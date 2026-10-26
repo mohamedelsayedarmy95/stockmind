@@ -1,0 +1,9 @@
+{"spec":"owner-guard-lock-order","scenario":"environment","at":"2026-10-25T21:37:50.666Z","postgres":"PostgreSQL 15.19, compiled by Visual C++ build 1944, 64-bit","deadlockTimeout":"1s","capabilityMode":"(default shadow)","guard":"company FOR UPDATE (Series 09)"}
+{"spec":"owner-guard-lock-order","scenario":"own-write-vs-suspension/1300ms","at":"2026-10-25T21:37:53.765Z","suspension":{"status":503,"code":"AUTHORITY_BUSY","msAfterRelease":1026},"write":{"status":201,"msAfterRelease":1039},"deadlocksDelta":1,"bStatus":"active","movementsByB":1,"activeOwners":2,"totalMs":2543}
+{"spec":"owner-guard-lock-order","scenario":"own-write-vs-suspension/100ms","at":"2026-10-25T21:37:55.427Z","suspension":{"status":200,"msAfterRelease":935},"write":{"status":500,"msAfterRelease":932},"deadlocksDelta":1,"bStatus":"suspended","movementsByB":0,"activeOwners":2,"totalMs":1151}
+{"spec":"owner-guard-lock-order","scenario":"grant-by-owner-vs-suspension","at":"2026-10-25T21:37:58.603Z","suspension":{"status":503,"code":"AUTHORITY_BUSY"},"grant":{"status":200},"deadlocksDelta":1,"staffWarehouses":0}
+{"spec":"owner-guard-lock-order","scenario":"key-share-relay-vs-owner-suspension","at":"2026-10-25T21:38:07.523Z","finishedWhileRelayRan":false,"msToFinish":8166,"status":200,"keyShareHandovers":53}
+{"spec":"owner-guard-lock-order","scenario":"cross-tenant-independence","at":"2026-10-25T21:38:11.904Z","status":200,"ms":10}
+{"spec":"owner-guard-lock-order","scenario":"sql-demote-sole-owner","at":"2026-10-25T21:38:11.907Z","outcome":"committed","legitimateOwners":0}
+{"spec":"owner-guard-lock-order","scenario":"sql-repeatable-read-two-owners","at":"2026-10-25T21:38:11.913Z","first":"committed","second":"committed","legitimateOwners":0}
+{"spec":"owner-guard-lock-order","scenario":"sql-serializable-two-owners","at":"2026-10-25T21:38:11.921Z","first":"committed","second":"could not serialize access due to read/write dependencies among transactions","legitimateOwners":1}

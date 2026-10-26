@@ -1,0 +1,40 @@
+# Series 13 negative controls — 2026-10-25T23:59Z, code 6b53988, harness _local-tools/scripts/s13-negative-controls.ps1
+# Each control removes ONE safeguard, runs the tests that should catch it (backend: fresh throwaway DB per control), restores the original bytes and checks the worktree is clean.
+# Final: 29 / 29 RED (B1-B20 backend, M1-M9 mobile). B9 removes seat serialization entirely: a race, caught in this run (probabilistic by nature).
+#
+# Run 1 (all 29). HARNESS DEFECT in run 1: the spec list was passed as ONE argument, so every control with -t or several specs ran no test
+# (empty summary, wrongly labelled GREEN), and B13's mutation did not compile (0 total). Those 12 were re-run in run 2 with the fixed harness;
+# run 1 lines for them are NOT evidence and are replaced below.
+
+## Valid from run 1
+B9-acceptance-unserialized: RED (caught) :: Tests:       2 failed, 4 passed, 6 total
+B11-member-id-exported: RED (caught) :: Tests:       1 failed, 15 passed, 16 total
+B12-guard-trusts-req-ip: RED (caught) :: Tests:       1 failed, 15 passed, 16 total
+B14-overflow-not-counted: RED (caught) :: Tests:       1 failed, 15 passed, 16 total
+B15-inactive-principal-compared: RED (caught) :: Tests:       1 failed, 15 passed, 16 total
+B16-header-not-redacted: RED (caught) :: Tests:       1 failed, 1 total
+B17-guard-does-not-count-modes: RED (caught) :: Tests:       1 failed, 13 passed, 14 total
+B19-classifier-uses-app-clock: RED (caught) :: Tests:       1 failed, 20 passed, 21 total
+M1-unknown-shown-as-zero: RED (caught) :: Tests:       3 failed, 12 passed, 15 total
+M2-other-warehouse-reused: RED (caught) :: Tests:       1 failed, 14 passed, 15 total
+M3-queued-receipt-raises-limit: RED (caught) :: Tests:       1 failed, 14 passed, 15 total
+M4-denied-cache-shown: RED (caught) :: Tests:       1 failed, 14 passed, 15 total
+M5-busy-as-generic: RED (caught) :: Tests:       2 failed, 9 passed, 11 total
+M6-grant-conflict-retryable: RED (caught) :: Tests:       2 failed, 9 passed, 11 total
+M7-admin-mutations-retry: RED (caught) :: Tests:       1 failed, 10 passed, 11 total
+M8-movement-bare-number: RED (caught) :: Tests:       1 failed, 14 passed, 15 total
+M9-team-map-drops-busy: RED (caught) :: Tests:       1 failed, 10 passed, 11 total
+
+## Run 2 (fixed harness; B13 now drops only the 32-character minimum)
+B1-guard-company-for-update: RED (caught) :: Tests:       2 failed, 12 skipped, 14 total
+B2-guard-key-mismatch: RED (caught) :: Tests:       1 failed, 13 skipped, 14 total
+B3-no-owner-admin-rule: RED (caught) :: Tests:       2 failed, 12 skipped, 14 total
+B4-role-not-in-trigger: RED (caught) :: Tests:       1 failed, 13 skipped, 14 total
+B5-no-repeatable-read-refusal: RED (caught) :: Tests:       1 failed, 13 skipped, 14 total
+B6-non-admin-owner-counts: RED (caught) :: Tests:       1 failed, 13 skipped, 14 total
+B7-acceptance-company-for-update: RED (caught) :: Tests:       1 failed, 13 skipped, 14 total
+B8-reactivation-company-for-update: RED (caught) :: Tests:       1 failed, 13 skipped, 14 total
+B10-judge-ignores-incomplete: RED (caught) :: Tests:       4 failed, 24 passed, 28 total
+B13-guard-open-without-token: RED (caught) :: Tests:       1 failed, 15 passed, 16 total
+B18-judge-ignores-other-modes: RED (caught) :: Tests:       2 failed, 24 passed, 26 total
+B20-telemetry-can-break-decision: RED (caught) :: Tests:       15 failed, 25 passed, 40 total
